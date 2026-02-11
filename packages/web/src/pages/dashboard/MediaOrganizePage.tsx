@@ -3,8 +3,8 @@
  * 扫描本地文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 import { useState, useCallback } from "react";
-import { Card, Space, Button, Input } from "antd";
-import { ScanOutlined } from "@ant-design/icons";
+import { Card, Space, Button } from "antd";
+import { ScanOutlined, HistoryOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { trpc } from "../../lib/trpc";
 import { useMessage } from "../../hooks";
@@ -15,6 +15,7 @@ import {
   OrganizeToolbar,
   ManualMatchModal,
   OrganizeReportModal,
+  OrganizeReportHistory,
 } from "../../components/dashboard/media-organize";
 
 export default function MediaOrganizePage() {
@@ -29,6 +30,8 @@ export default function MediaOrganizePage() {
   const [manualSearchItemId, setManualSearchItemId] = useState<string | null>(null);
   // 报告弹窗
   const [reportOpen, setReportOpen] = useState(false);
+  // 历史弹窗
+  const [historyOpen, setHistoryOpen] = useState(false);
   // 单条识别中的条目 ID
   const [identifyingItemId, setIdentifyingItemId] = useState<string | null>(null);
 
@@ -137,9 +140,17 @@ export default function MediaOrganizePage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
-        <p className="text-sm opacity-60">{t("media.organize.subtitle")}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
+          <p className="text-sm opacity-60">{t("media.organize.subtitle")}</p>
+        </div>
+        <Button
+          icon={<HistoryOutlined />}
+          onClick={() => setHistoryOpen(true)}
+        >
+          {t("media.organize.history.title")}
+        </Button>
       </div>
 
       {/* Source path selector */}
@@ -209,6 +220,12 @@ export default function MediaOrganizePage() {
         open={reportOpen}
         report={session?.report ?? null}
         onClose={() => setReportOpen(false)}
+      />
+
+      {/* History modal */}
+      <OrganizeReportHistory
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
       />
     </div>
   );
