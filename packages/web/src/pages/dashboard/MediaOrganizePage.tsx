@@ -2,21 +2,22 @@
  * 资源整理页面
  * 扫描本地文件 → TMDB 识别 → 选择目标 → 执行整理
  */
-import { useState, useCallback } from "react";
-import { Card, Space, Button } from "antd";
-import { ScanOutlined, HistoryOutlined } from "@ant-design/icons";
+
+import { HistoryOutlined, ScanOutlined } from "@ant-design/icons";
+import { Button, Card, Space } from "antd";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { trpc } from "../../lib/trpc";
+import {
+  ManualMatchModal,
+  OrganizeItemList,
+  OrganizeReportHistory,
+  OrganizeReportModal,
+  OrganizeToolbar,
+} from "../../components/dashboard/media-organize";
+import PathSelector from "../../components/dashboard/PathSelector";
 import { useMessage } from "../../hooks";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
-import PathSelector from "../../components/dashboard/PathSelector";
-import {
-  OrganizeItemList,
-  OrganizeToolbar,
-  ManualMatchModal,
-  OrganizeReportModal,
-  OrganizeReportHistory,
-} from "../../components/dashboard/media-organize";
+import { trpc } from "../../lib/trpc";
 
 export default function MediaOrganizePage() {
   const { t } = useTranslation();
@@ -27,13 +28,17 @@ export default function MediaOrganizePage() {
   // 源路径
   const [sourcePath, setSourcePath] = useState("");
   // 手动搜索弹窗
-  const [manualSearchItemId, setManualSearchItemId] = useState<string | null>(null);
+  const [manualSearchItemId, setManualSearchItemId] = useState<string | null>(
+    null,
+  );
   // 报告弹窗
   const [reportOpen, setReportOpen] = useState(false);
   // 历史弹窗
   const [historyOpen, setHistoryOpen] = useState(false);
   // 单条识别中的条目 ID
-  const [identifyingItemId, setIdentifyingItemId] = useState<string | null>(null);
+  const [identifyingItemId, setIdentifyingItemId] = useState<string | null>(
+    null,
+  );
 
   // 媒体文件夹列表（为 target 选择器提供选项）
   const foldersQuery = trpc.mediaFolder.listFolders.useQuery();
@@ -106,21 +111,21 @@ export default function MediaOrganizePage() {
       setIdentifyingItemId(itemId);
       identifyItemMutation.mutate({ itemId });
     },
-    [identifyItemMutation]
+    [identifyItemMutation],
   );
 
   const handleSelectMatch = useCallback(
     (itemId: string, tmdbId: number, mediaType: "movie" | "tv") => {
       selectMatchMutation.mutate({ itemId, tmdbId, mediaType });
     },
-    [selectMatchMutation]
+    [selectMatchMutation],
   );
 
   const handleManualSelect = useCallback(
     (itemId: string, tmdbId: number, mediaType: "movie" | "tv") => {
       selectMatchMutation.mutate({ itemId, tmdbId, mediaType });
     },
-    [selectMatchMutation]
+    [selectMatchMutation],
   );
 
   const handleUpdateTarget = useCallback(
@@ -128,10 +133,15 @@ export default function MediaOrganizePage() {
       updateTargetMutation.mutate({
         itemId,
         folderId,
-        linkMode: linkMode as "hardlink" | "softlink" | "copy" | "move" | undefined,
+        linkMode: linkMode as
+          | "hardlink"
+          | "softlink"
+          | "copy"
+          | "move"
+          | undefined,
       });
     },
-    [updateTargetMutation]
+    [updateTargetMutation],
   );
 
   // Sync sourcePath from session when session changes
@@ -145,10 +155,7 @@ export default function MediaOrganizePage() {
           <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
           <p className="text-sm opacity-60">{t("media.organize.subtitle")}</p>
         </div>
-        <Button
-          icon={<HistoryOutlined />}
-          onClick={() => setHistoryOpen(true)}
-        >
+        <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
           {t("media.organize.history.title")}
         </Button>
       </div>
