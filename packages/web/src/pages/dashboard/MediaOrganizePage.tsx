@@ -150,7 +150,7 @@ export default function MediaOrganizePage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
           <p className="text-sm opacity-60">{t("media.organize.subtitle")}</p>
