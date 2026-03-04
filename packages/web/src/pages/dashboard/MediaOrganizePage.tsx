@@ -3,8 +3,7 @@
  * 扫描本地文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 
-import { HistoryOutlined, ScanOutlined } from "@ant-design/icons";
-import { Button, Card, Space } from "antd";
+import { Button, Card, HistoryOutlined, ScanOutlined } from "@acme/components";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -162,7 +161,7 @@ export default function MediaOrganizePage() {
 
       {/* Source path selector */}
       <Card size="small">
-        <Space.Compact className="w-full">
+        <div className="flex w-full">
           <PathSelector
             value={effectivePath}
             onChange={setSourcePath}
@@ -170,7 +169,7 @@ export default function MediaOrganizePage() {
             disabled={isActive}
           />
           <Button
-            type="primary"
+            variant="primary"
             icon={<ScanOutlined />}
             onClick={handleScan}
             loading={scanMutation.isPending}
@@ -178,7 +177,7 @@ export default function MediaOrganizePage() {
           >
             {t("media.organize.scanButton")}
           </Button>
-        </Space.Compact>
+        </div>
       </Card>
 
       {/* Toolbar — show when session has items */}
