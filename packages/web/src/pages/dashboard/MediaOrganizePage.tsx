@@ -4,6 +4,7 @@
  */
 
 import { Button, Card, HistoryOutlined, ScanOutlined } from "@acme/components";
+import type { OrganizeItem } from "@acme/types";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,6 +18,20 @@ import PathSelector from "../../components/dashboard/PathSelector";
 import { useMessage } from "../../hooks";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 import { trpc } from "../../lib/trpc";
+
+/** 递归替换树中指定 ID 的条目 */
+function updateItemInTree(
+  items: OrganizeItem[],
+  updated: OrganizeItem,
+): OrganizeItem[] {
+  return items.map((item) => {
+    if (item.id === updated.id) return updated;
+    if (item.children?.length) {
+      return { ...item, children: updateItemInTree(item.children, updated) };
+    }
+    return item;
+  });
+}
 
 export default function MediaOrganizePage() {
   const { t } = useTranslation();
@@ -54,8 +69,11 @@ export default function MediaOrganizePage() {
   });
 
   const identifyItemMutation = trpc.mediaOrganize.identifyItem.useMutation({
-    onSuccess: () => {
-      utils.mediaOrganize.getSession.invalidate();
+    onSuccess: (updatedItem) => {
+      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        if (!old) return old;
+        return { ...old, items: updateItemInTree(old.items, updatedItem) };
+      });
       setIdentifyingItemId(null);
     },
     onError: (err) => {
@@ -70,12 +88,23 @@ export default function MediaOrganizePage() {
   });
 
   const selectMatchMutation = trpc.mediaOrganize.selectMatch.useMutation({
-    onSuccess: () => utils.mediaOrganize.getSession.invalidate(),
+    onSuccess: (updatedItem) => {
+      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        if (!old) return old;
+        return { ...old, items: updateItemInTree(old.items, updatedItem) };
+      });
+    },
     onError: (err) => message.error(err.message),
   });
 
   const updateTargetMutation = trpc.mediaOrganize.updateTarget.useMutation({
-    onSuccess: () => utils.mediaOrganize.getSession.invalidate(),
+    onSuccess: (updatedItem) => {
+      // 直接更新缓存以立即反映变更，避免依赖 invalidate + refetch
+      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        if (!old) return old;
+        return { ...old, items: updateItemInTree(old.items, updatedItem) };
+      });
+    },
     onError: (err) => message.error(err.message),
   });
 
