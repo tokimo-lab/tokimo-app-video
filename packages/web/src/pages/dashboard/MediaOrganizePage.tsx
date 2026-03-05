@@ -174,6 +174,7 @@ export default function MediaOrganizePage() {
             onClick={handleScan}
             loading={scanMutation.isPending}
             disabled={isActive || !sourcePath.trim()}
+            className="!rounded-l-none"
           >
             {t("media.organize.scanButton")}
           </Button>
