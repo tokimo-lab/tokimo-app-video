@@ -181,7 +181,9 @@ export default function MediaOrganizePage() {
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
-          <p className="text-sm opacity-60">{t("media.organize.subtitle")}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("media.organize.subtitle")}
+          </p>
         </div>
         <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
           {t("media.organize.history.title")}
