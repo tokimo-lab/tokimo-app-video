@@ -111,6 +111,18 @@ export default function MediaOrganizePage() {
       onError: (err) => message.error(err.message),
     });
 
+  const resetMatchMutation = trpc.mediaOrganize.resetMatch.useMutation({
+    onSuccess: (updatedItem) => {
+      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        if (!old) return old;
+        return { ...old, items: updateItemInTree(old.items, updatedItem) };
+      });
+      // 重置后自动打开手动搜索弹窗
+      setManualSearchItemId(updatedItem.id);
+    },
+    onError: (err) => message.error(err.message),
+  });
+
   const updateTargetMutation = trpc.mediaOrganize.updateTarget.useMutation({
     onSuccess: (updatedItem) => {
       // 直接更新缓存以立即反映变更，避免依赖 invalidate + refetch
@@ -177,6 +189,13 @@ export default function MediaOrganizePage() {
     [selectAdultMatchMutation],
   );
 
+  const handleResetMatch = useCallback(
+    (itemId: string) => {
+      resetMatchMutation.mutate({ itemId });
+    },
+    [resetMatchMutation],
+  );
+
   /** 查找指定 ID 条目的 contentType（递归搜索树） */
   const findItemContentType = useCallback(
     (itemId: string | null): string | undefined => {
@@ -184,6 +203,25 @@ export default function MediaOrganizePage() {
       const find = (items: OrganizeItem[]): string | undefined => {
         for (const item of items) {
           if (item.id === itemId) return item.parsed.contentType;
+          if (item.children?.length) {
+            const found = find(item.children);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      return find(session.items);
+    },
+    [session],
+  );
+
+  /** 查找指定 ID 条目的文件名（递归搜索树） */
+  const findItemFileName = useCallback(
+    (itemId: string | null): string | undefined => {
+      if (!itemId || !session) return undefined;
+      const find = (items: OrganizeItem[]): string | undefined => {
+        for (const item of items) {
+          if (item.id === itemId) return item.parsed.title || item.fileName;
           if (item.children?.length) {
             const found = find(item.children);
             if (found) return found;
@@ -279,6 +317,7 @@ export default function MediaOrganizePage() {
             onIdentifyItem={handleIdentifyItem}
             onSelectMatch={handleSelectMatch}
             onManualSearch={(itemId: string) => setManualSearchItemId(itemId)}
+            onResetMatch={handleResetMatch}
             onUpdateTarget={handleUpdateTarget}
             identifyingItemId={identifyingItemId}
           />
@@ -291,6 +330,7 @@ export default function MediaOrganizePage() {
         itemId={manualSearchItemId}
         contentType={findItemContentType(manualSearchItemId)}
         adultModeEnabled={adultModeEnabled}
+        initialKeyword={findItemFileName(manualSearchItemId)}
         onClose={() => setManualSearchItemId(null)}
         onSelect={handleManualSelect}
         onSelectAdult={handleAdultSelect}
