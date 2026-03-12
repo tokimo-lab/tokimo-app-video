@@ -97,6 +97,17 @@ export default function MediaOrganizePage() {
     onError: (err) => message.error(err.message),
   });
 
+  const selectAdultMatchMutation =
+    trpc.mediaOrganize.selectAdultMatch.useMutation({
+      onSuccess: (updatedItem) => {
+        utils.mediaOrganize.getSession.setData(undefined, (old) => {
+          if (!old) return old;
+          return { ...old, items: updateItemInTree(old.items, updatedItem) };
+        });
+      },
+      onError: (err) => message.error(err.message),
+    });
+
   const updateTargetMutation = trpc.mediaOrganize.updateTarget.useMutation({
     onSuccess: (updatedItem) => {
       // 直接更新缓存以立即反映变更，避免依赖 invalidate + refetch
@@ -154,6 +165,32 @@ export default function MediaOrganizePage() {
       selectMatchMutation.mutate({ itemId, tmdbId, mediaType });
     },
     [selectMatchMutation],
+  );
+
+  const handleAdultSelect = useCallback(
+    (itemId: string, videoId: string) => {
+      selectAdultMatchMutation.mutate({ itemId, videoId });
+    },
+    [selectAdultMatchMutation],
+  );
+
+  /** 查找指定 ID 条目的 contentType（递归搜索树） */
+  const findItemContentType = useCallback(
+    (itemId: string | null): string | undefined => {
+      if (!itemId || !session) return undefined;
+      const find = (items: OrganizeItem[]): string | undefined => {
+        for (const item of items) {
+          if (item.id === itemId) return item.parsed.contentType;
+          if (item.children?.length) {
+            const found = find(item.children);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      return find(session.items);
+    },
+    [session],
   );
 
   const handleUpdateTarget = useCallback(
@@ -249,8 +286,10 @@ export default function MediaOrganizePage() {
       <ManualMatchModal
         open={manualSearchItemId !== null}
         itemId={manualSearchItemId}
+        contentType={findItemContentType(manualSearchItemId)}
         onClose={() => setManualSearchItemId(null)}
         onSelect={handleManualSelect}
+        onSelectAdult={handleAdultSelect}
       />
 
       {/* Report modal */}
