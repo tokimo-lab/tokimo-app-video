@@ -111,6 +111,16 @@ export default function MediaOrganizePage() {
       onError: (err) => message.error(err.message),
     });
 
+  const resetMatchMutation = trpc.mediaOrganize.resetMatch.useMutation({
+    onSuccess: (updatedItem) => {
+      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        if (!old) return old;
+        return { ...old, items: updateItemInTree(old.items, updatedItem) };
+      });
+    },
+    onError: (err) => message.error(err.message),
+  });
+
   const updateTargetMutation = trpc.mediaOrganize.updateTarget.useMutation({
     onSuccess: (updatedItem) => {
       // 直接更新缓存以立即反映变更，避免依赖 invalidate + refetch
@@ -180,6 +190,13 @@ export default function MediaOrganizePage() {
   const handleResetMatch = useCallback((itemId: string) => {
     setManualSearchItemId(itemId);
   }, []);
+
+  const handleCancelMatch = useCallback(
+    (itemId: string) => {
+      resetMatchMutation.mutate({ itemId });
+    },
+    [resetMatchMutation],
+  );
 
   /** 查找指定 ID 条目的 contentType（递归搜索树） */
   const findItemContentType = useCallback(
@@ -319,6 +336,7 @@ export default function MediaOrganizePage() {
         onClose={() => setManualSearchItemId(null)}
         onSelect={handleManualSelect}
         onSelectAdult={handleAdultSelect}
+        onCancelMatch={handleCancelMatch}
       />
 
       {/* Report modal */}
