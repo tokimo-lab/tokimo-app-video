@@ -58,6 +58,11 @@ export default function MediaOrganizePage() {
   const foldersQuery = trpc.mediaFolder.listFolders.useQuery();
   const mediaFolders = foldersQuery.data ?? [];
 
+  // 全局成人模式开关
+  const generalSettingsQuery = trpc.auth.generalSettings.useQuery();
+  const adultModeEnabled =
+    generalSettingsQuery.data?.adultModeEnabled ?? false;
+
   // ==================== Mutations ====================
 
   const scanMutation = trpc.mediaOrganize.scan.useMutation({
@@ -287,6 +292,7 @@ export default function MediaOrganizePage() {
         open={manualSearchItemId !== null}
         itemId={manualSearchItemId}
         contentType={findItemContentType(manualSearchItemId)}
+        adultModeEnabled={adultModeEnabled}
         onClose={() => setManualSearchItemId(null)}
         onSelect={handleManualSelect}
         onSelectAdult={handleAdultSelect}
