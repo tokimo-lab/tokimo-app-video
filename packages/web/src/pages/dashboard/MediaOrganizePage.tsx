@@ -15,7 +15,7 @@ import {
   OrganizeToolbar,
 } from "../../components/dashboard/media-organize";
 import PathSelector from "../../components/dashboard/PathSelector";
-import { useMessage } from "../../hooks";
+import { useAdultMode, useMessage } from "../../hooks";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 import { trpc } from "../../lib/trpc";
 
@@ -59,9 +59,7 @@ export default function MediaOrganizePage() {
   const mediaFolders = foldersQuery.data ?? [];
 
   // 全局成人模式开关
-  const generalSettingsQuery = trpc.auth.generalSettings.useQuery();
-  const adultModeEnabled =
-    generalSettingsQuery.data?.adultModeEnabled ?? false;
+  const { enabled: adultModeEnabled } = useAdultMode();
 
   // ==================== Mutations ====================
 
