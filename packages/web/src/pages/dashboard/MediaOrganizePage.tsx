@@ -53,6 +53,8 @@ export default function MediaOrganizePage() {
   const [identifyingItemId, setIdentifyingItemId] = useState<string | null>(
     null,
   );
+  // 过滤已整理条目
+  const [hideOrganized, setHideOrganized] = useState(false);
 
   // 媒体文件夹列表（为 target 选择器提供选项）
   const foldersQuery = trpc.mediaFolder.listFolders.useQuery();
@@ -304,6 +306,8 @@ export default function MediaOrganizePage() {
             onViewReport={() => setReportOpen(true)}
             identifyAllLoading={identifyAllMutation.isPending}
             executeLoading={executeMutation.isPending}
+            hideOrganized={hideOrganized}
+            onToggleHideOrganized={() => setHideOrganized((v) => !v)}
           />
         </Card>
       )}
@@ -322,6 +326,7 @@ export default function MediaOrganizePage() {
             onResetMatch={handleResetMatch}
             onUpdateTarget={handleUpdateTarget}
             identifyingItemId={identifyingItemId}
+            hideOrganized={hideOrganized}
           />
         </Card>
       )}
