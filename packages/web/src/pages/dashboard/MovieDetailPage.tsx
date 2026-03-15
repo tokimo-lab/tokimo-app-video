@@ -142,7 +142,7 @@ export default function MovieDetailPage() {
               <button
                 type="button"
                 aria-label="播放"
-                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
+                className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
                 onClick={() => play(firstFile, playMeta)}
               >
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
@@ -186,7 +186,7 @@ export default function MovieDetailPage() {
                 </span>
               )}
               {movie.contentRating && (
-                <span className="rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600 dark:border-gray-600 dark:text-gray-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-gray-300">
                   {movie.contentRating}
                 </span>
               )}
@@ -214,7 +214,7 @@ export default function MovieDetailPage() {
               <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
                   onClick={() => play(firstFile, playMeta)}
                 >
                   <svg
@@ -251,7 +251,7 @@ export default function MovieDetailPage() {
               {movie.collections.map((col) => (
                 <div
                   key={col.id}
-                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-gray-100 p-2 dark:border-gray-700"
+                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-[var(--glass-border)] p-2"
                 >
                   {col.posterPath && (
                     <img

@@ -351,7 +351,7 @@ export default function TvShowDetailPage() {
                 </span>
               )}
               {show.contentRating && (
-                <span className="rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600 dark:border-gray-600 dark:text-gray-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-gray-300">
                   {show.contentRating}
                 </span>
               )}
@@ -478,7 +478,7 @@ export default function TvShowDetailPage() {
               {show.collections.map((col) => (
                 <div
                   key={col.id}
-                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-gray-100 p-2 dark:border-gray-700"
+                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-[var(--glass-border)] p-2"
                 >
                   {col.posterPath && (
                     <img
