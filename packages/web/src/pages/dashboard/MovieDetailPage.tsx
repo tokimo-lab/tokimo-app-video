@@ -1,6 +1,8 @@
 import { ArrowLeftOutlined, Button, Spin } from "@acme/components";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
+import { usePlayer } from "../../contexts/PlayerContext";
 import { useBackgroundArt, useSseEvent } from "../../hooks";
 import { trpc } from "../../lib/trpc";
 import {
@@ -14,6 +16,15 @@ import {
   MediaTagsRow,
   SectionTitle,
 } from "./media-detail-shared";
+
+function WatchHistorySection({ movieId }: { movieId: string }) {
+  return (
+    <section className="mb-8">
+      <SectionTitle>观看记录</SectionTitle>
+      <WatchHistoryTable movieId={movieId} />
+    </section>
+  );
+}
 
 function FavoriteButton({
   isFavorite,
@@ -49,6 +60,8 @@ export default function MovieDetailPage() {
     { enabled: !!movieId },
   );
 
+  const { play } = usePlayer();
+
   const { setBackgroundArt } = useBackgroundArt();
   useEffect(() => {
     if (movie?.backdropPath) {
@@ -58,18 +71,6 @@ export default function MovieDetailPage() {
       setBackgroundArt(null);
     };
   }, [movie?.backdropPath, setBackgroundArt]);
-
-  // ── Auto-scrape unscraped persons on page load ──
-  const scrapeFiredRef = useRef(false);
-  const { mutate: scrapePersons } =
-    trpc.mediaLibrary.scrapeUnscrapedPersons.useMutation();
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scrapeFiredRef is a stable ref intentionally excluded from deps
-  useEffect(() => {
-    if (!movie || !movieId || scrapeFiredRef.current) return;
-    scrapeFiredRef.current = true;
-    scrapePersons({ movieId });
-  }, [movie, movieId, scrapePersons, scrapeFiredRef]);
 
   // ── SSE: refresh movie detail after each person is scraped ──
   useSseEvent((event) => {
@@ -105,6 +106,15 @@ export default function MovieDetailPage() {
   const writers = movie.credits?.filter((c) => c.role === "writer") ?? [];
   const isFavorite = movie.isFavorite ?? false;
 
+  // First available file for the big "play" button on the poster
+  const firstFile = movie.files?.[0];
+
+  const playMeta = {
+    title: movie.title,
+    posterPath: movie.posterPath,
+    movieId: movie.id,
+  };
+
   return (
     <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-6 lg:-mt-6 lg:-mb-6">
       {/* ── Header ── */}
@@ -118,11 +128,35 @@ export default function MovieDetailPage() {
           </Button>
         </div>
         <div className="flex items-start gap-6">
-          <MediaPoster
-            posterPath={movie.posterPath}
-            title={movie.title}
-            fallbackEmoji="🎬"
-          />
+          {/* Poster with play overlay */}
+          <div
+            className="relative hidden flex-shrink-0 md:block"
+            style={{ width: 160 }}
+          >
+            <MediaPoster
+              posterPath={movie.posterPath}
+              title={movie.title}
+              fallbackEmoji="🎬"
+            />
+            {firstFile && (
+              <button
+                type="button"
+                aria-label="播放"
+                className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
+                onClick={() => play(firstFile, playMeta)}
+              >
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
+                  <svg
+                    className="h-7 w-7 text-white"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </button>
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold leading-tight">
@@ -175,6 +209,25 @@ export default function MovieDetailPage() {
               dateLabel="发行"
               countries={movie.countries}
             />
+            {/* Play button row */}
+            {firstFile && (
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
+                  onClick={() => play(firstFile, playMeta)}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  播放
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -219,7 +272,8 @@ export default function MovieDetailPage() {
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
         <ExtrasSection extras={movie.extras ?? []} />
-        <FilesSection files={movie.files ?? []} />
+        <FilesSection files={movie.files ?? []} playMeta={playMeta} />
+        <WatchHistorySection movieId={movie.id} />
       </div>
     </div>
   );
