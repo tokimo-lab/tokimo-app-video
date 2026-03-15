@@ -106,8 +106,8 @@ export default function MovieDetailPage() {
   const writers = movie.credits?.filter((c) => c.role === "writer") ?? [];
   const isFavorite = movie.isFavorite ?? false;
 
-  // First available file for the big "play" button on the poster
-  const firstFile = movie.files?.[0];
+  // First available video file for the big "play" button on the poster
+  const firstFile = movie.files?.find((f) => f.videoCodec);
 
   const playMeta = {
     title: movie.title,
