@@ -9,17 +9,12 @@ import {
   CrewRow,
   ExtrasSection,
   formatRuntime,
+  MediaFileCard,
   MediaInfoBlock,
   MediaPoster,
   MediaTagsRow,
   SectionTitle,
 } from "./media-detail-shared";
-
-function formatFileSize(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
-  return `${(bytes / 1e3).toFixed(0)} KB`;
-}
 
 function FavoriteButton({
   isFavorite,
@@ -105,32 +100,9 @@ function EpisodeRow({ episode }: { episode: EpisodeOutput }) {
             </p>
           )}
           {episode.files && episode.files.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {episode.files.map((f) => (
-                <div key={f.id} className="text-xs text-gray-500">
-                  <p className="font-medium text-gray-700 dark:text-gray-300">
-                    {f.filename}
-                  </p>
-                  <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0">
-                    {f.size != null && (
-                      <span>大小: {formatFileSize(f.size)}</span>
-                    )}
-                    {f.videoCodec && (
-                      <span>
-                        {f.videoCodec.toUpperCase()}
-                        {f.videoWidth && f.videoHeight
-                          ? ` ${f.videoWidth}×${f.videoHeight}`
-                          : ""}
-                      </span>
-                    )}
-                    {f.audioCodec && (
-                      <span>
-                        {f.audioCodec.toUpperCase()}
-                        {f.audioChannels ? ` ${f.audioChannels}ch` : ""}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <MediaFileCard key={f.id} file={f} />
               ))}
             </div>
           )}
