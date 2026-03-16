@@ -164,16 +164,20 @@ export default function MovieDetailPage() {
               </h1>
               <FavoriteButton isFavorite={isFavorite} movieId={movie.id} />
             </div>
-            {movie.originalTitle && movie.originalTitle !== movie.title && (
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                {movie.originalTitle}
+            {(movie.originalTitle && movie.originalTitle !== movie.title) ||
+            movie.tagline ? (
+              <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
+                {movie.originalTitle && movie.originalTitle !== movie.title
+                  ? movie.originalTitle
+                  : null}
+                {movie.originalTitle &&
+                  movie.originalTitle !== movie.title &&
+                  movie.tagline && <span className="mx-1">·</span>}
+                {movie.tagline ? (
+                  <span className="italic">{movie.tagline}</span>
+                ) : null}
               </p>
-            )}
-            {movie.tagline && (
-              <p className="mt-1 text-sm italic text-gray-500 dark:text-gray-400">
-                {movie.tagline}
-              </p>
-            )}
+            ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               {movie.year && (
                 <span className="text-gray-600 dark:text-gray-300">
