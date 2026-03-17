@@ -113,6 +113,8 @@ export default function MovieDetailPage() {
     title: movie.title,
     posterPath: movie.posterPath,
     movieId: movie.id,
+    imdbId: movie.imdbId,
+    tmdbId: movie.tmdbId,
   };
 
   return (

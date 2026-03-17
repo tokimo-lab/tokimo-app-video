@@ -40,7 +40,19 @@ function FavoriteButton({
   );
 }
 
-function EpisodeRow({ episode }: { episode: EpisodeOutput }) {
+function EpisodeRow({
+  episode,
+  playMeta,
+}: {
+  episode: EpisodeOutput;
+  playMeta: {
+    title: string;
+    posterPath?: string | null;
+    episodeId?: string;
+    imdbId?: string | null;
+    tmdbId?: string | null;
+  };
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--glass-border)]">
@@ -102,7 +114,15 @@ function EpisodeRow({ episode }: { episode: EpisodeOutput }) {
           {episode.files && episode.files.length > 0 && (
             <div className="space-y-2">
               {episode.files.map((f) => (
-                <MediaFileCard key={f.id} file={f} />
+                <MediaFileCard
+                  key={f.id}
+                  file={f}
+                  playMeta={{
+                    ...playMeta,
+                    title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+                    episodeId: episode.id,
+                  }}
+                />
               ))}
             </div>
           )}
@@ -458,7 +478,16 @@ export default function TvShowDetailPage() {
             {selectedSeason && (
               <div className="space-y-2">
                 {(selectedSeason.episodes ?? []).map((ep) => (
-                  <EpisodeRow key={ep.id} episode={ep} />
+                  <EpisodeRow
+                    key={ep.id}
+                    episode={ep}
+                    playMeta={{
+                      title: show.title,
+                      posterPath: show.posterPath,
+                      imdbId: show.imdbId,
+                      tmdbId: show.tmdbId,
+                    }}
+                  />
                 ))}
                 {(selectedSeason.episodes ?? []).length === 0 && (
                   <p className="py-8 text-center text-sm text-gray-400">

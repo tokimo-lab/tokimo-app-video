@@ -1,9 +1,10 @@
 use axum::{
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Path, Query, Request, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use serde::Deserialize;
 use std::sync::Arc;
 use tokio_postgres::Client;
 use tower::util::ServiceExt;
@@ -26,20 +27,26 @@ struct MediaFileStreamTarget {
     media_server_id: Option<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamAccessQuery {
+    access_token: Option<String>,
+}
+
 pub async fn stream_media_file(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
+    Query(query): Query<StreamAccessQuery>,
     request: Request,
 ) -> Response {
-    let session_id = match session_id_from_cookie(request.headers().get(header::COOKIE)) {
-        Some(session_id) => session_id,
-        None => {
-            return err_resp::<()>(StatusCode::UNAUTHORIZED, "Unauthorized".into()).into_response()
-        }
-    };
-
     let db = state.sources.db_client();
-    if let Err(err) = validate_session(&db, &session_id).await {
+    if let Err(err) = validate_stream_access(
+        &db,
+        request.headers().get(header::COOKIE),
+        query.access_token.as_deref(),
+    )
+    .await
+    {
         return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
     }
 
@@ -84,12 +91,12 @@ pub async fn stream_media_file(
         return err500::<()>("Filesystem source is missing source_id".into()).into_response();
     };
 
-    let driver = match state.sources.ensure_driver(source_id).await {
-        Ok(driver) => driver,
+    let vfs = match state.sources.ensure_vfs(source_id).await {
+        Ok(vfs) => vfs,
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(driver, target.path, request.headers().clone()).await
+    stream_driver_file(vfs, target.path, request.headers().clone()).await
 }
 
 fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Option<String> {
@@ -98,6 +105,21 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
         .split(';')
         .map(str::trim)
         .find_map(|cookie| cookie.strip_prefix("SESSION_ID=").map(ToOwned::to_owned))
+}
+
+async fn validate_stream_access(
+    db: &Client,
+    cookie_header: Option<&axum::http::HeaderValue>,
+    access_token: Option<&str>,
+) -> Result<(), String> {
+    if let Some(token) = access_token {
+        if validate_internal_stream_token(db, token).await.is_ok() {
+            return Ok(());
+        }
+    }
+
+    let session_id = session_id_from_cookie(cookie_header).ok_or_else(|| "Unauthorized".to_string())?;
+    validate_session(db, &session_id).await
 }
 
 async fn validate_session(db: &Client, session_id: &str) -> Result<(), String> {
@@ -110,6 +132,25 @@ async fn validate_session(db: &Client, session_id: &str) -> Result<(), String> {
         .map_err(|err| {
             error!("local media session lookup failed: {}", err);
             "Session validation failed".to_string()
+        })?;
+
+    if row.is_some() {
+        Ok(())
+    } else {
+        Err("Unauthorized".into())
+    }
+}
+
+async fn validate_internal_stream_token(db: &Client, access_token: &str) -> Result<(), String> {
+    let row = db
+        .query_opt(
+            "SELECT 1 FROM system_settings WHERE internal_stream_access_token = $1 AND internal_stream_access_token_expires_at > NOW() LIMIT 1",
+            &[&access_token],
+        )
+        .await
+        .map_err(|err| {
+            error!("internal stream token lookup failed: {}", err);
+            "Internal token validation failed".to_string()
         })?;
 
     if row.is_some() {
