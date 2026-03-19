@@ -4,7 +4,7 @@
  */
 
 import { Button, Card, HistoryOutlined, ScanOutlined } from "@acme/components";
-import type { OrganizeItem } from "@acme/types";
+import type { OrganizeItem, WsJobEvent } from "@acme/types";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,6 +16,7 @@ import {
 } from "../../components/dashboard/media-organize";
 import PathSelector from "../../components/dashboard/PathSelector";
 import { useAdultMode, useMessage } from "../../hooks";
+import { useSseEvent } from "../../hooks/SseContext";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 import { trpc } from "../../lib/trpc";
 
@@ -63,6 +64,40 @@ export default function MediaOrganizePage() {
   // 全局成人模式开关
   const { enabled: adultModeEnabled } = useAdultMode();
 
+  // ==================== SSE 实时推送 ====================
+
+  useSseEvent(
+    useCallback(
+      (event: WsJobEvent) => {
+        if (event.type === "organize_item_update") {
+          utils.mediaOrganize.getSession.setData(undefined, (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              items: updateItemInTree(old.items, event.item),
+              progress: event.progress ?? old.progress,
+            };
+          });
+        } else if (event.type === "organize_status_update") {
+          utils.mediaOrganize.getSession.setData(undefined, (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              status: event.status,
+              progress: event.progress ?? old.progress,
+            };
+          });
+          // 终态时 invalidate 兜底（确保 report 等数据完整）
+          const terminal = new Set(["identified", "done", "scanned"]);
+          if (terminal.has(event.status)) {
+            utils.mediaOrganize.getSession.invalidate();
+          }
+        }
+      },
+      [utils],
+    ),
+  );
+
   // ==================== Mutations ====================
 
   const scanMutation = trpc.mediaOrganize.scan.useMutation({
@@ -88,7 +123,6 @@ export default function MediaOrganizePage() {
   });
 
   const identifyAllMutation = trpc.mediaOrganize.identifyAll.useMutation({
-    onSuccess: () => utils.mediaOrganize.getSession.invalidate(),
     onError: (err) => message.error(err.message),
   });
 
@@ -146,7 +180,6 @@ export default function MediaOrganizePage() {
   });
 
   const executeMutation = trpc.mediaOrganize.execute.useMutation({
-    onSuccess: () => utils.mediaOrganize.getSession.invalidate(),
     onError: (err) => message.error(err.message),
   });
 
