@@ -131,6 +131,13 @@ pub async fn subtitle_events_sse(
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let (snapshot, mut rx) = state.subtitle_cache.subscribe(&subtitle_id);
 
+    info!(
+        "[SSE] subscriber connected for sub={}, snapshot={} events",
+        subtitle_id,
+        snapshot.len()
+    );
+
+    let sub_id = subtitle_id.clone();
     let stream = async_stream::stream! {
         // 1. Send all cached events
         for ev in &snapshot {
@@ -142,14 +149,16 @@ pub async fn subtitle_events_sse(
         loop {
             match rx.recv().await {
                 Ok(ev) => {
+                    info!("[SSE] pushing event to sub={}: timeMs={}", sub_id, ev.time_ms);
                     let json = serde_json::to_string(&ev).unwrap_or_default();
                     yield Ok(Event::default().data(json));
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                    info!("[SSE] subtitle {} lagged {} events", subtitle_id, n);
+                    info!("[SSE] subtitle {} lagged {} events", sub_id, n);
                     continue;
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    info!("[SSE] broadcast closed for sub={}", sub_id);
                     break;
                 }
             }
@@ -313,6 +322,14 @@ async fn build_mkv_tap_channel(
                         ev
                     })
                     .collect();
+                if !cleaned.is_empty() {
+                    info!(
+                        "[MkvTap] +{} events for sub={} (offset={})",
+                        cleaned.len(),
+                        sub_id,
+                        offset,
+                    );
+                }
                 total_events += cleaned.len();
                 cache.append(&sub_id, cleaned);
             }
