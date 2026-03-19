@@ -7,7 +7,7 @@ use axum::{
         IntoResponse, Response,
     },
 };
-use bytes::Bytes;
+
 use serde::Deserialize;
 use std::sync::Arc;
 use tokio_postgres::Client;
@@ -22,11 +22,9 @@ use crate::{
 };
 
 use rust_subtitle::{
-    clean::get_embedded_subtitle_output,
-    extract::{extract_subtitle, read_subtitle_cache, write_subtitle_cache},
-    resolve::{resolve_embedded_subtitle_stream_index, resolve_subtitle_tracks},
-    tap_builder::build_mkv_tap_channel,
-    types::{EmbeddedSubtitleRecord, EmbeddedSubtitleTarget, SubtitleError, SubtitleSource},
+    resolve::resolve_subtitle_tracks,
+    tap_builder::build_stream_tap,
+    types::EmbeddedSubtitleRecord,
 };
 
 const LOCAL_MEDIA_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
@@ -175,7 +173,7 @@ pub async fn stream_media_file(
 
     let tap_tx = {
         let subs = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
-        build_mkv_tap_channel(
+        build_stream_tap(
             &state.subtitle_cache,
             &state.tap_registry,
             subs,
@@ -184,103 +182,6 @@ pub async fn stream_media_file(
     };
 
     stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
-}
-
-// ── Embedded subtitle stream ────────────────────────────────────────────────
-
-pub async fn stream_embedded_subtitle(
-    State(state): State<Arc<AppState>>,
-    Path(subtitle_id): Path<String>,
-    Query(query): Query<StreamAccessQuery>,
-    request: Request,
-) -> Response {
-    let db = state.sources.db_client();
-    if let Err(err) = validate_stream_access(
-        &db,
-        request.headers().get(header::COOKIE),
-        query.access_token.as_deref(),
-        request.headers().get(INTERNAL_STREAM_ACCESS_HEADER),
-    )
-    .await
-    {
-        return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
-    }
-
-    let target = match load_embedded_subtitle_target(&db, &subtitle_id).await {
-        Ok(target) => target,
-        Err(SubtitleError::NotFound(msg)) => return err404::<()>(msg).into_response(),
-        Err(SubtitleError::Internal(msg)) => return err500::<()>(msg).into_response(),
-    };
-
-    if target.media_server_id.is_some() {
-        return err_resp::<()>(
-            StatusCode::BAD_REQUEST,
-            "Media server-backed subtitle must be streamed via its media server".into(),
-        )
-        .into_response();
-    }
-
-    let Some(output) = get_embedded_subtitle_output(&target.format) else {
-        return err_resp::<()>(
-            StatusCode::BAD_REQUEST,
-            format!("Unsupported subtitle format: {}", target.format),
-        )
-        .into_response();
-    };
-
-    let subtitles = match load_file_subtitles(&db, &target.file_id).await {
-        Ok(s) => s,
-        Err(SubtitleError::NotFound(msg)) => return err404::<()>(msg).into_response(),
-        Err(SubtitleError::Internal(msg)) => return err500::<()>(msg).into_response(),
-    };
-
-    let Some(stream_index) = resolve_embedded_subtitle_stream_index(
-        &target.ffprobe_raw,
-        &subtitles,
-        &target.subtitle_id,
-    ) else {
-        return err_resp::<()>(StatusCode::NOT_FOUND, "Embedded subtitle stream not found".into())
-            .into_response();
-    };
-
-    if let Some(cached) = read_subtitle_cache(&target.subtitle_id, output.output_format).await {
-        return Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, output.content_type)
-            .header(header::CACHE_CONTROL, "public, max-age=86400")
-            .body(Body::from(Bytes::from(cached)))
-            .expect("subtitle response");
-    }
-
-    let source = match resolve_subtitle_source(&state, &target).await {
-        Ok(s) => s,
-        Err(response) => return response.into_response(),
-    };
-
-    let extracted =
-        match extract_subtitle(&source, stream_index, output.output_format).await {
-            Ok(buffer) => buffer,
-            Err(err) => {
-                error!(
-                    "embedded subtitle extraction failed for subtitle {}: {err}",
-                    target.subtitle_id,
-                );
-                return err_resp::<()>(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to extract subtitle".into(),
-                )
-                .into_response();
-            }
-        };
-
-    write_subtitle_cache(&target.subtitle_id, output.output_format, &extracted).await;
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, output.content_type)
-        .header(header::CACHE_CONTROL, "public, max-age=86400")
-        .body(Body::from(Bytes::from(extracted)))
-        .expect("subtitle response")
 }
 
 // ── Auth helpers ────────────────────────────────────────────────────────────
@@ -372,130 +273,6 @@ async fn load_media_file_stream_target(
     })
 }
 
-async fn resolve_subtitle_source(
-    state: &AppState,
-    target: &rust_subtitle::types::EmbeddedSubtitleTarget,
-) -> Result<SubtitleSource, (StatusCode, axum::Json<ApiResponse<()>>)> {
-    if target.source_type.as_deref() == Some("local") {
-        return Ok(SubtitleSource::LocalPath(target.path.clone()));
-    }
-
-    let Some(source_type) = target.source_type.as_deref() else {
-        return Err(err404::<()>("Filesystem-backed media file not found".into()));
-    };
-    if !REMOTE_FS_SOURCE_TYPES.contains(&source_type) {
-        return Err(err_resp::<()>(
-            StatusCode::BAD_REQUEST,
-            format!("Unsupported filesystem source type: {source_type}"),
-        ));
-    }
-
-    let source_id = target
-        .source_id
-        .as_deref()
-        .ok_or_else(|| err500::<()>("Filesystem source is missing source_id".into()))?;
-
-    let vfs = state
-        .sources
-        .ensure_vfs(source_id)
-        .await
-        .map_err(|err| err404::<()>(err))?;
-
-    Ok(SubtitleSource::RemoteVfs { vfs, path: target.path.clone() })
-}
-
-// ── Subtitle DB queries ─────────────────────────────────────────────────────
-
-async fn load_embedded_subtitle_target(
-    db: &Client,
-    subtitle_id: &str,
-) -> Result<EmbeddedSubtitleTarget, SubtitleError> {
-    let row = db
-        .query_opt(
-            r#"
-            SELECT
-              s.id::text AS subtitle_id,
-              s.file_id::text AS file_id,
-              s.source_id AS subtitle_source_id,
-              s.format,
-              mf.path,
-              mf.ffprobe_raw,
-              mf.source_id::text AS source_id,
-              ms.type AS source_type,
-              mf.media_server_id::text AS media_server_id
-            FROM subtitles s
-            JOIN media_files mf ON mf.id = s.file_id
-            LEFT JOIN media_sources ms ON ms.id = mf.source_id
-            WHERE s.id::text = $1 AND s.source_type = 'embedded'
-            "#,
-            &[&subtitle_id],
-        )
-        .await
-        .map_err(|err| SubtitleError::Internal(format!("subtitle lookup failed: {}", err)))?;
-
-    let row = row.ok_or_else(|| SubtitleError::NotFound("Embedded subtitle not found".into()))?;
-
-    Ok(EmbeddedSubtitleTarget {
-        subtitle_id: row.try_get("subtitle_id")
-            .map_err(|err| SubtitleError::Internal(format!("invalid subtitle_id: {}", err)))?,
-        file_id: row.try_get("file_id")
-            .map_err(|err| SubtitleError::Internal(format!("invalid file_id: {}", err)))?,
-        path: row.try_get("path")
-            .map_err(|err| SubtitleError::Internal(format!("invalid media file path: {}", err)))?,
-        source_id: row.try_get("source_id")
-            .map_err(|err| SubtitleError::Internal(format!("invalid source_id: {}", err)))?,
-        source_type: row.try_get("source_type")
-            .map_err(|err| SubtitleError::Internal(format!("invalid source_type: {}", err)))?,
-        media_server_id: row.try_get("media_server_id")
-            .map_err(|err| SubtitleError::Internal(format!("invalid media_server_id: {}", err)))?,
-        format: row.try_get("format")
-            .map_err(|err| SubtitleError::Internal(format!("invalid format: {}", err)))?,
-        ffprobe_raw: row.try_get("ffprobe_raw")
-            .map_err(|err| SubtitleError::Internal(format!("invalid ffprobe_raw: {}", err)))?,
-    })
-}
-
-async fn load_file_subtitles(
-    db: &Client,
-    file_id: &str,
-) -> Result<Vec<EmbeddedSubtitleRecord>, SubtitleError> {
-    let rows = db
-        .query(
-            r#"
-            SELECT
-              id::text AS id, language, title, format, is_default, is_forced, source_id
-            FROM subtitles
-            WHERE file_id::text = $1 AND source_type = 'embedded'
-            ORDER BY is_default DESC, language ASC, created_at ASC
-            "#,
-            &[&file_id],
-        )
-        .await
-        .map_err(|err| SubtitleError::Internal(format!("subtitle list lookup failed: {}", err)))?;
-
-    rows.into_iter()
-        .map(|row| {
-            Ok(EmbeddedSubtitleRecord {
-                id: row.try_get("id")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid subtitle id: {}", err)))?,
-                language: row.try_get("language")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid language: {}", err)))?,
-                title: row.try_get("title")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid title: {}", err)))?,
-                format: row.try_get("format")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid format: {}", err)))?,
-                is_default: row.try_get("is_default")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid is_default: {}", err)))?,
-                is_forced: row.try_get("is_forced")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid is_forced: {}", err)))?,
-                source_id: row.try_get("source_id")
-                    .map_err(|err| SubtitleError::Internal(format!("invalid source_id: {}", err)))?,
-            })
-        })
-        .collect()
-}
-
-/// Query subtitles + ffprobe data, then resolve MKV track numbers (pure).
 async fn load_file_subtitles_with_tracks(
     db: &Client,
     file_id: &str,
