@@ -114,13 +114,22 @@ pub async fn get_segment(
     };
 
     match tokio::fs::read(&segment_path).await {
-        Ok(data) => Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "video/mp2t")
-            .header(header::CACHE_CONTROL, "max-age=3600")
-            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-            .body(Body::from(data))
-            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+        Ok(data) => {
+            // fMP4 segments (.m4s) and init segments (.mp4) use video/mp4;
+            // legacy MPEG-TS (.ts) uses video/mp2t.
+            let content_type = if segment.ends_with(".m4s") || segment.ends_with(".mp4") {
+                "video/mp4"
+            } else {
+                "video/mp2t"
+            };
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, content_type)
+                .header(header::CACHE_CONTROL, "max-age=3600")
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .body(Body::from(data))
+                .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+        }
         Err(e) => {
             warn!(
                 "[HLS:{}] failed to read segment {}: {}",
