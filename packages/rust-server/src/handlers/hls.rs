@@ -1,0 +1,132 @@
+use axum::{
+    body::Body,
+    extract::{Path, State},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
+use rust_hls::{CreateSessionRequest, HlsSessionInfo};
+use std::sync::Arc;
+use tracing::{info, warn};
+
+use crate::handlers::{err_resp, ok, ApiResponse};
+use crate::AppState;
+
+/// POST /api/hls/sessions — create a new HLS transcoding session.
+pub async fn create_session(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateSessionRequest>,
+) -> Result<Json<ApiResponse<HlsSessionInfo>>, (StatusCode, Json<ApiResponse<HlsSessionInfo>>)> {
+    let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
+    let base_url = format!("http://127.0.0.1:{}", port);
+
+    match state.hls_manager.create_session(req, &base_url).await {
+        Ok(info) => Ok(ok(info)),
+        Err(e) => Err(err_resp(StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+/// DELETE /api/hls/{session_id} — stop an HLS session.
+pub async fn stop_session(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+) -> Response {
+    info!("[HLS] stop request for session {}", session_id);
+    state.hls_manager.stop_session(&session_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// DELETE /api/hls/by-file/{file_id} — stop all HLS sessions for a file.
+pub async fn stop_sessions_for_file(
+    State(state): State<Arc<AppState>>,
+    Path(file_id): Path<String>,
+) -> Response {
+    info!("[HLS] stop-by-file request for file {}", file_id);
+    state.hls_manager.stop_session_for_file(&file_id).await;
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// GET /api/hls/{session_id}/playlist.m3u8 — serve the VOD playlist.
+pub async fn get_playlist(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+) -> Response {
+    let session = match state.hls_manager.get_session(&session_id).await {
+        Some(s) => s,
+        None => {
+            return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
+                .into_response()
+        }
+    };
+
+    let playlist = {
+        let s = session.lock().await;
+        s.vod_playlist.clone()
+    };
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/vnd.apple.mpegurl")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(Body::from(playlist))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+/// GET /api/hls/{session_id}/{segment} — serve an HLS segment file.
+pub async fn get_segment(
+    State(state): State<Arc<AppState>>,
+    Path((session_id, segment)): Path<(String, String)>,
+) -> Response {
+    let session = match state.hls_manager.get_session(&session_id).await {
+        Some(s) => s,
+        None => {
+            return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
+                .into_response()
+        }
+    };
+
+    // Phase 1: briefly lock the session to set up (seek-restart if needed).
+    // Returns a SegmentWaitHandle with cloned Arcs — no lock held during the wait.
+    let wait_handle = {
+        let mut s = session.lock().await;
+        s.prepare_segment_wait(&segment).await
+    };
+
+    let wait_handle = match wait_handle {
+        Some(h) => h,
+        None => {
+            warn!("[HLS:{}] segment {} not available", session_id, segment);
+            return StatusCode::NOT_FOUND.into_response();
+        }
+    };
+
+    // Phase 2: wait for the segment WITHOUT holding the session lock.
+    // This allows concurrent stop / seek requests to proceed normally.
+    let segment_path = wait_handle.wait().await;
+
+    let segment_path = match segment_path {
+        Some(path) => path,
+        None => {
+            warn!("[HLS:{}] segment {} not available", session_id, segment);
+            return StatusCode::NOT_FOUND.into_response();
+        }
+    };
+
+    match tokio::fs::read(&segment_path).await {
+        Ok(data) => Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "video/mp2t")
+            .header(header::CACHE_CONTROL, "max-age=3600")
+            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .body(Body::from(data))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+        Err(e) => {
+            warn!(
+                "[HLS:{}] failed to read segment {}: {}",
+                session_id, segment, e
+            );
+            StatusCode::NOT_FOUND.into_response()
+        }
+    }
+}

@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Path, Query, Request, State},
+    extract::{ConnectInfo, Path, Query, Request, State},
     http::{header, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -9,7 +9,7 @@ use axum::{
 };
 
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 use tokio_postgres::Client;
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
@@ -120,6 +120,7 @@ pub async fn stream_media_file(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
     Query(query): Query<StreamAccessQuery>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
 ) -> Response {
     let db = state.sources.db_client();
@@ -128,6 +129,7 @@ pub async fn stream_media_file(
         request.headers().get(header::COOKIE),
         query.access_token.as_deref(),
         request.headers().get(INTERNAL_STREAM_ACCESS_HEADER),
+        addr.ip(),
     )
     .await
     {
@@ -207,7 +209,14 @@ async fn validate_stream_access(
     cookie_header: Option<&axum::http::HeaderValue>,
     access_token: Option<&str>,
     access_token_header: Option<&axum::http::HeaderValue>,
+    client_ip: std::net::IpAddr,
 ) -> Result<(), String> {
+    // Loopback requests (127.0.0.1 / ::1) are always trusted — local processes
+    // like ffprobe don't need to carry an access token.
+    if client_ip.is_loopback() {
+        return Ok(());
+    }
+
     if let Some(token) = access_token {
         if validate_internal_stream_token(db, token).await.is_ok() {
             return Ok(());
