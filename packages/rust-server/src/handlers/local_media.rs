@@ -2,7 +2,10 @@ use axum::{
     body::Body,
     extract::{Path, Query, Request, State},
     http::{header, StatusCode},
-    response::{IntoResponse, Response},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
 };
 use bytes::Bytes;
 use serde_json::Value;
@@ -12,13 +15,14 @@ use tokio::{io::AsyncWriteExt, process::Command, time::Duration};
 use tokio_postgres::Client;
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
-use tracing::error;
+use tracing::{error, info, warn};
 
 use next_fs::Vfs;
 
 use crate::{
     handlers::media_stream::stream_driver_file,
     handlers::{err404, err500, err_resp, ApiResponse},
+    mkv_tap::SubtitleEvent,
     AppState,
 };
 
@@ -69,6 +73,90 @@ enum SubtitleSource {
 #[serde(rename_all = "camelCase")]
 pub struct StreamAccessQuery {
     access_token: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleEventsQuery {
+    start_ms: Option<f64>,
+    end_ms: Option<f64>,
+    #[allow(dead_code)]
+    access_token: Option<String>,
+}
+
+/// GET /api/subtitles/{subtitle_id}/events?startMs=&endMs=
+///
+/// Returns cached subtitle events for a time window.  The events are populated
+/// by the MKV stream tap that runs in the background when the player starts
+/// streaming the file.  Falls back to an empty list if extraction is not yet
+/// complete for the requested window.
+pub async fn get_subtitle_events(
+    State(state): State<Arc<AppState>>,
+    Path(subtitle_id): Path<String>,
+    Query(query): Query<SubtitleEventsQuery>,
+) -> Response {
+    let start_ms = query.start_ms.unwrap_or(0.0) as i64;
+    let end_ms = query.end_ms.unwrap_or(i64::MAX as f64) as i64;
+
+    match state.subtitle_cache.query(&subtitle_id, start_ms, end_ms) {
+        Some((events, complete)) => {
+            let body = serde_json::json!({
+                "events": events,
+                "complete": complete,
+            });
+            axum::Json(body).into_response()
+        }
+        None => {
+            // Not in cache yet — return empty with complete=false so the
+            // frontend can retry after a short delay.
+            let body = serde_json::json!({
+                "events": [],
+                "complete": false,
+            });
+            axum::Json(body).into_response()
+        }
+    }
+}
+
+// ── SSE subtitle stream ──────────────────────────────────────────────────────
+
+/// SSE endpoint: streams subtitle events as they are extracted from the player
+/// byte stream.  First sends all cached events, then pushes new ones in real
+/// time via broadcast channel.  The connection stays open until the client
+/// disconnects.
+pub async fn subtitle_events_sse(
+    State(state): State<Arc<AppState>>,
+    Path(subtitle_id): Path<String>,
+    Query(_query): Query<SubtitleEventsQuery>,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let (snapshot, mut rx) = state.subtitle_cache.subscribe(&subtitle_id);
+
+    let stream = async_stream::stream! {
+        // 1. Send all cached events
+        for ev in &snapshot {
+            let json = serde_json::to_string(ev).unwrap_or_default();
+            yield Ok::<_, std::convert::Infallible>(Event::default().data(json));
+        }
+
+        // 2. Stream new events as they arrive from the tap
+        loop {
+            match rx.recv().await {
+                Ok(ev) => {
+                    let json = serde_json::to_string(&ev).unwrap_or_default();
+                    yield Ok(Event::default().data(json));
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    info!("[SSE] subtitle {} lagged {} events", subtitle_id, n);
+                    continue;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    break;
+                }
+            }
+        }
+    };
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 pub async fn stream_media_file(
@@ -135,7 +223,108 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(vfs, target.path, request.headers().clone()).await
+    // Build a tap channel for MKV subtitle extraction (if applicable).
+    // The tee in stream_driver_file will forward every byte to the tap at zero
+    // extra I/O cost — no second SMB read.
+    let tap_tx = build_mkv_tap_channel(&state, &db, &file_id, &target.path).await;
+
+    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
+}
+
+/// Build the tap sender for MKV subtitle extraction.
+///
+/// Returns `Some(tap_tx)` when:
+/// - the file is `.mkv` or `.webm`
+/// - there are embedded text subtitles not yet fully cached
+///
+/// The tap is **persistent per file**: header parsed from the first Range
+/// request is reused for all subsequent requests.  The tap task runs in the
+/// background, receiving `(chunk, offset)` from the tee inside
+/// `stream_driver_file` and feeding them into `MkvStreamTap`.
+async fn build_mkv_tap_channel(
+    state: &AppState,
+    db: &tokio_postgres::Client,
+    file_id: &str,
+    path: &str,
+) -> Option<tokio::sync::mpsc::Sender<(Vec<u8>, u64)>> {
+    let path_lower = path.to_lowercase();
+    if !path_lower.ends_with(".mkv") && !path_lower.ends_with(".webm") {
+        return None;
+    }
+
+    let subs = match load_file_subtitles_with_ffprobe(db, file_id).await {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("[MkvTap] could not load subtitles for {}: {:?}", file_id, e);
+            return None;
+        }
+    };
+
+    // Build track_map (track_num → subtitle_id) for tap, and
+    // format_map (subtitle_id → format) for text cleaning.
+    let mut format_map: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    let track_map: Vec<(u64, String)> = subs
+        .into_iter()
+        .filter(|(_, sub_id, _)| !state.subtitle_cache.is_complete(sub_id))
+        .filter(|(_, _, fmt)| is_text_subtitle_format(fmt))
+        .filter_map(|(track_num, sub_id, fmt)| {
+            format_map.insert(sub_id.clone(), fmt);
+            Some((track_num?, sub_id))
+        })
+        .collect();
+
+    if track_map.is_empty() {
+        return None;
+    }
+
+    info!(
+        "[MkvTap] tapping {} ({} subtitle track(s): {:?})",
+        path,
+        track_map.len(),
+        track_map.iter().map(|(n, _)| n).collect::<Vec<_>>()
+    );
+
+    // Get or create persistent tap for this file (survives across Range requests)
+    let (tap, _subtitle_ids) = state.tap_registry.get_or_create(file_id, track_map);
+
+    // Channel for this request — large capacity so fast streaming doesn't
+    // drop chunks via try_send in the tee.
+    let (tap_tx, mut tap_rx) = tokio::sync::mpsc::channel::<(Vec<u8>, u64)>(128);
+
+    let cache = state.subtitle_cache.clone();
+
+    tokio::spawn(async move {
+        let mut chunk_count = 0usize;
+        let mut total_events = 0usize;
+
+        while let Some((chunk, offset)) = tap_rx.recv().await {
+            chunk_count += 1;
+            let events = {
+                let mut t = tap.lock().unwrap();
+                t.feed(&chunk, offset)
+            };
+            for (sub_id, evts) in events {
+                let fmt = format_map.get(&sub_id).map(|s| s.as_str()).unwrap_or("");
+                let cleaned: Vec<SubtitleEvent> = evts
+                    .into_iter()
+                    .map(|mut ev| {
+                        ev.text = ev.text.map(|t| clean_subtitle_text(&t, fmt));
+                        ev
+                    })
+                    .collect();
+                total_events += cleaned.len();
+                cache.append(&sub_id, cleaned);
+            }
+        }
+
+        info!(
+            "[MkvTap] tap task finished: {} chunks, {} events",
+            chunk_count, total_events
+        );
+    });
+
+    Some(tap_tx)
 }
 
 pub async fn stream_embedded_subtitle(
@@ -475,6 +664,192 @@ fn get_embedded_subtitle_output(format: &str) -> Option<EmbeddedSubtitleOutput> 
         }),
         _ => None,
     }
+}
+
+fn is_text_subtitle_format(format: &str) -> bool {
+    matches!(
+        format.trim().to_lowercase().as_str(),
+        "subrip" | "srt" | "mov_text" | "webvtt" | "vtt" | "ass" | "ssa"
+    )
+}
+
+/// Clean raw MKV subtitle text based on format.
+///
+/// - ASS/SSA: strip the dialogue prefix (8 commas), remove override tags `{\...}`,
+///   convert `\N` / `\n` / `\h` to real whitespace.
+/// - SRT/VTT: strip HTML-like tags `<i>`, `<b>`, etc.
+fn clean_subtitle_text(raw: &str, format: &str) -> String {
+    let fmt = format.trim().to_lowercase();
+    match fmt.as_str() {
+        "ass" | "ssa" => strip_ass_text(raw),
+        _ => strip_html_tags(raw),
+    }
+}
+
+fn strip_ass_text(raw: &str) -> String {
+    // ASS dialogue block: ReadOrder,Layer,Style,Actor,MarginL,MarginR,MarginV,Effect,Text
+    // Skip 8 commas to get to the text field
+    let mut commas = 0;
+    for (i, ch) in raw.char_indices() {
+        if ch == ',' {
+            commas += 1;
+            if commas == 8 {
+                let text = &raw[i + 1..];
+                // Remove override tags: {\pos(x,y)}, {\b1}, {\an8}, etc.
+                let text = remove_ass_tags(text);
+                // Convert line-break codes
+                let text = text
+                    .replace("\\N", "\n")
+                    .replace("\\n", "\n")
+                    .replace("\\h", " ");
+                return text.trim().to_string();
+            }
+        }
+    }
+    // Not an ASS block prefix — return as-is with tags stripped
+    let text = remove_ass_tags(raw);
+    text.replace("\\N", "\n")
+        .replace("\\n", "\n")
+        .replace("\\h", " ")
+        .trim()
+        .to_string()
+}
+
+fn remove_ass_tags(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for ch in s.chars() {
+        if ch == '{' {
+            in_tag = true;
+        } else if ch == '}' {
+            in_tag = false;
+        } else if !in_tag {
+            result.push(ch);
+        }
+    }
+    result
+}
+
+fn strip_html_tags(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for ch in s.chars() {
+        if ch == '<' {
+            in_tag = true;
+        } else if ch == '>' {
+            in_tag = false;
+        } else if !in_tag {
+            result.push(ch);
+        }
+    }
+    result
+}
+
+/// Load embedded subtitles for a file and resolve their MKV track numbers.
+///
+/// Returns `Vec<(Option<track_number>, subtitle_id, format)>`.
+/// Track number is `None` if it cannot be resolved from the DB `source_id` or
+/// ffprobe data.
+async fn load_file_subtitles_with_ffprobe(
+    db: &Client,
+    file_id: &str,
+) -> Result<Vec<(Option<u64>, String, String)>, String> {
+    let rows = db
+        .query(
+            r#"
+            SELECT
+              s.id::text AS id,
+              s.language,
+              s.title,
+              s.format,
+              s.is_default,
+              s.is_forced,
+              s.source_id,
+              mf.ffprobe_raw
+            FROM subtitles s
+            JOIN media_files mf ON mf.id = s.file_id
+            WHERE s.file_id::text = $1 AND s.source_type = 'embedded'
+            ORDER BY s.is_default DESC, s.language ASC, s.created_at ASC
+            "#,
+            &[&file_id],
+        )
+        .await
+        .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
+
+    if rows.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Parse ffprobe once (all rows have same file's ffprobe_raw)
+    let ffprobe_raw: Option<Value> = rows[0].try_get("ffprobe_raw").unwrap_or(None);
+
+    // Build the same EmbeddedSubtitleRecord list so we can use existing helpers
+    let subs: Vec<EmbeddedSubtitleRecord> = rows
+        .iter()
+        .filter_map(|row| {
+            Some(EmbeddedSubtitleRecord {
+                id: row.try_get("id").ok()?,
+                language: row.try_get("language").ok()?,
+                title: row.try_get("title").ok().flatten(),
+                format: row.try_get("format").ok()?,
+                is_default: row.try_get("is_default").ok()?,
+                is_forced: row.try_get("is_forced").ok()?,
+                source_id: row.try_get("source_id").ok().flatten(),
+            })
+        })
+        .collect();
+
+    let result = subs
+        .iter()
+        .map(|sub| {
+            let stream_index =
+                resolve_embedded_subtitle_stream_index(&ffprobe_raw, &subs, &sub.id);
+            // stream_index is the ffprobe stream index (0-based for the whole file)
+            // We need the MKV track number.
+            // The MKV track number for subtitle stream at ffprobe index N can be
+            // found from the ffprobe streams array: stream.tags.NUMBER_OF_FRAMES etc.
+            // are unreliable, but the `source_id` field stores the 0-based subtitle
+            // stream index within the subtitle streams.
+            //
+            // Simplest mapping: use ffprobe stream index → look up in ffprobe streams
+            // array for the `codec_name` == subtitle and find the track_number tag.
+            // Fallback: use stream_index as track number + 1 (MKV tracks are 1-based).
+            let track_num = resolve_mkv_track_number(&ffprobe_raw, stream_index);
+            (track_num, sub.id.clone(), sub.format.clone())
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Resolve a MKV track number from ffprobe data.
+///
+/// ffprobe `streams[i].tags["NUMBER_OF_FRAMES"]` or similar tags are not
+/// reliable.  The best approach is to use the stream index directly: MKV
+/// tracks are 1-indexed and their order usually matches the ffprobe stream
+/// order.  We add 1 to get the track number.
+fn resolve_mkv_track_number(ffprobe_raw: &Option<Value>, stream_index: Option<i32>) -> Option<u64> {
+    let idx = stream_index?;
+
+    // Try to read from ffprobe streams the DURATION_TS or track_number tag
+    if let Some(streams) = ffprobe_raw.as_ref()?.get("streams")?.as_array() {
+        if let Some(stream) = streams.get(idx as usize) {
+            // Some muxers store the MKV track number in tags
+            if let Some(track_num) = stream
+                .get("tags")
+                .and_then(|t| t.get("TRACK_NUMBER").or_else(|| t.get("track_number")))
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<u64>().ok())
+            {
+                return Some(track_num);
+            }
+        }
+    }
+
+    // Fallback: MKV track numbers are 1-based and contiguous, so stream_index+1
+    // is a reasonable approximation when ffprobe doesn't expose the track number
+    // explicitly.
+    Some(idx as u64 + 1)
 }
 
 fn parse_embedded_subtitle_source_index(source_id: Option<&str>) -> Option<i32> {
