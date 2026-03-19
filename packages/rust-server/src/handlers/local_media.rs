@@ -13,7 +13,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio_postgres::Client;
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
-use tracing::{error, info};
+use tracing::{error, info, trace};
 
 use crate::{
     handlers::media_stream::stream_driver_file,
@@ -92,7 +92,7 @@ pub async fn subtitle_events_sse(
         loop {
             match rx.recv().await {
                 Ok(ev) => {
-                    info!("[SSE] pushing event to sub={}: timeMs={}", sub_id, ev.time_ms);
+                    trace!("[SSE] pushing event to sub={}: timeMs={}", sub_id, ev.time_ms);
                     let json = serde_json::to_string(&ev).unwrap_or_default();
                     if ev.data.is_some() {
                         yield Ok(Event::default().event("pgs").data(json));
