@@ -83,14 +83,22 @@ pub async fn subtitle_events_sse(
     let stream = async_stream::stream! {
         for ev in &snapshot {
             let json = serde_json::to_string(ev).unwrap_or_default();
-            yield Ok::<_, std::convert::Infallible>(Event::default().data(json));
+            if ev.data.is_some() {
+                yield Ok::<_, std::convert::Infallible>(Event::default().event("pgs").data(json));
+            } else {
+                yield Ok::<_, std::convert::Infallible>(Event::default().data(json));
+            }
         }
         loop {
             match rx.recv().await {
                 Ok(ev) => {
                     info!("[SSE] pushing event to sub={}: timeMs={}", sub_id, ev.time_ms);
                     let json = serde_json::to_string(&ev).unwrap_or_default();
-                    yield Ok(Event::default().data(json));
+                    if ev.data.is_some() {
+                        yield Ok(Event::default().event("pgs").data(json));
+                    } else {
+                        yield Ok(Event::default().data(json));
+                    }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     info!("[SSE] subtitle {} lagged {} events", sub_id, n);
