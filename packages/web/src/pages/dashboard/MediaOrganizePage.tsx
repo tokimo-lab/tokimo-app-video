@@ -113,6 +113,17 @@ export default function MediaOrganizePage() {
       onError: (err) => message.error(err.message),
     });
 
+  const selectMusicMatchMutation =
+    trpc.mediaOrganize.selectMusicMatch.useMutation({
+      onSuccess: (updatedItem) => {
+        utils.mediaOrganize.getSession.setData(undefined, (old) => {
+          if (!old) return old;
+          return { ...old, items: updateItemInTree(old.items, updatedItem) };
+        });
+      },
+      onError: (err) => message.error(err.message),
+    });
+
   const resetMatchMutation = trpc.mediaOrganize.resetMatch.useMutation({
     onSuccess: (updatedItem) => {
       utils.mediaOrganize.getSession.setData(undefined, (old) => {
@@ -187,6 +198,20 @@ export default function MediaOrganizePage() {
       selectAdultMatchMutation.mutate({ itemId, videoId });
     },
     [selectAdultMatchMutation],
+  );
+
+  const handleMusicSelect = useCallback(
+    (itemId: string, mbReleaseId: string) => {
+      selectMusicMatchMutation.mutate({ itemId, mbReleaseId });
+    },
+    [selectMusicMatchMutation],
+  );
+
+  const handleSelectMusicMatch = useCallback(
+    (itemId: string, mbReleaseId: string) => {
+      selectMusicMatchMutation.mutate({ itemId, mbReleaseId });
+    },
+    [selectMusicMatchMutation],
   );
 
   const handleResetMatch = useCallback((itemId: string) => {
@@ -322,6 +347,7 @@ export default function MediaOrganizePage() {
             sessionStatus={session.status}
             onIdentifyItem={handleIdentifyItem}
             onSelectMatch={handleSelectMatch}
+            onSelectMusicMatch={handleSelectMusicMatch}
             onManualSearch={(itemId: string) => setManualSearchItemId(itemId)}
             onResetMatch={handleResetMatch}
             onUpdateTarget={handleUpdateTarget}
@@ -341,6 +367,7 @@ export default function MediaOrganizePage() {
         onClose={() => setManualSearchItemId(null)}
         onSelect={handleManualSelect}
         onSelectAdult={handleAdultSelect}
+        onSelectMusic={handleMusicSelect}
         onCancelMatch={handleCancelMatch}
       />
 
