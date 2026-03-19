@@ -23,11 +23,10 @@ use crate::{
 
 use rust_subtitle::{
     clean::get_embedded_subtitle_output,
-    db::{load_embedded_subtitle_target, load_file_subtitles},
     extract::{extract_subtitle, read_subtitle_cache, write_subtitle_cache},
-    resolve::resolve_embedded_subtitle_stream_index,
+    resolve::{resolve_embedded_subtitle_stream_index, resolve_subtitle_tracks},
     tap_builder::build_mkv_tap_channel,
-    types::{SubtitleError, SubtitleSource},
+    types::{EmbeddedSubtitleRecord, EmbeddedSubtitleTarget, SubtitleError, SubtitleSource},
 };
 
 const LOCAL_MEDIA_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
@@ -174,14 +173,15 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    let tap_tx = build_mkv_tap_channel(
-        &state.subtitle_cache,
-        &state.tap_registry,
-        &db,
-        &file_id,
-        &target.path,
-    )
-    .await;
+    let tap_tx = {
+        let subs = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
+        build_mkv_tap_channel(
+            &state.subtitle_cache,
+            &state.tap_registry,
+            subs,
+            &target.path,
+        )
+    };
 
     stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
 }
@@ -402,4 +402,140 @@ async fn resolve_subtitle_source(
         .map_err(|err| err404::<()>(err))?;
 
     Ok(SubtitleSource::RemoteVfs { vfs, path: target.path.clone() })
+}
+
+// ── Subtitle DB queries ─────────────────────────────────────────────────────
+
+async fn load_embedded_subtitle_target(
+    db: &Client,
+    subtitle_id: &str,
+) -> Result<EmbeddedSubtitleTarget, SubtitleError> {
+    let row = db
+        .query_opt(
+            r#"
+            SELECT
+              s.id::text AS subtitle_id,
+              s.file_id::text AS file_id,
+              s.source_id AS subtitle_source_id,
+              s.format,
+              mf.path,
+              mf.ffprobe_raw,
+              mf.source_id::text AS source_id,
+              ms.type AS source_type,
+              mf.media_server_id::text AS media_server_id
+            FROM subtitles s
+            JOIN media_files mf ON mf.id = s.file_id
+            LEFT JOIN media_sources ms ON ms.id = mf.source_id
+            WHERE s.id::text = $1 AND s.source_type = 'embedded'
+            "#,
+            &[&subtitle_id],
+        )
+        .await
+        .map_err(|err| SubtitleError::Internal(format!("subtitle lookup failed: {}", err)))?;
+
+    let row = row.ok_or_else(|| SubtitleError::NotFound("Embedded subtitle not found".into()))?;
+
+    Ok(EmbeddedSubtitleTarget {
+        subtitle_id: row.try_get("subtitle_id")
+            .map_err(|err| SubtitleError::Internal(format!("invalid subtitle_id: {}", err)))?,
+        file_id: row.try_get("file_id")
+            .map_err(|err| SubtitleError::Internal(format!("invalid file_id: {}", err)))?,
+        path: row.try_get("path")
+            .map_err(|err| SubtitleError::Internal(format!("invalid media file path: {}", err)))?,
+        source_id: row.try_get("source_id")
+            .map_err(|err| SubtitleError::Internal(format!("invalid source_id: {}", err)))?,
+        source_type: row.try_get("source_type")
+            .map_err(|err| SubtitleError::Internal(format!("invalid source_type: {}", err)))?,
+        media_server_id: row.try_get("media_server_id")
+            .map_err(|err| SubtitleError::Internal(format!("invalid media_server_id: {}", err)))?,
+        format: row.try_get("format")
+            .map_err(|err| SubtitleError::Internal(format!("invalid format: {}", err)))?,
+        ffprobe_raw: row.try_get("ffprobe_raw")
+            .map_err(|err| SubtitleError::Internal(format!("invalid ffprobe_raw: {}", err)))?,
+    })
+}
+
+async fn load_file_subtitles(
+    db: &Client,
+    file_id: &str,
+) -> Result<Vec<EmbeddedSubtitleRecord>, SubtitleError> {
+    let rows = db
+        .query(
+            r#"
+            SELECT
+              id::text AS id, language, title, format, is_default, is_forced, source_id
+            FROM subtitles
+            WHERE file_id::text = $1 AND source_type = 'embedded'
+            ORDER BY is_default DESC, language ASC, created_at ASC
+            "#,
+            &[&file_id],
+        )
+        .await
+        .map_err(|err| SubtitleError::Internal(format!("subtitle list lookup failed: {}", err)))?;
+
+    rows.into_iter()
+        .map(|row| {
+            Ok(EmbeddedSubtitleRecord {
+                id: row.try_get("id")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid subtitle id: {}", err)))?,
+                language: row.try_get("language")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid language: {}", err)))?,
+                title: row.try_get("title")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid title: {}", err)))?,
+                format: row.try_get("format")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid format: {}", err)))?,
+                is_default: row.try_get("is_default")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid is_default: {}", err)))?,
+                is_forced: row.try_get("is_forced")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid is_forced: {}", err)))?,
+                source_id: row.try_get("source_id")
+                    .map_err(|err| SubtitleError::Internal(format!("invalid source_id: {}", err)))?,
+            })
+        })
+        .collect()
+}
+
+/// Query subtitles + ffprobe data, then resolve MKV track numbers (pure).
+async fn load_file_subtitles_with_tracks(
+    db: &Client,
+    file_id: &str,
+) -> Result<Vec<(Option<u64>, String, String)>, String> {
+    let rows = db
+        .query(
+            r#"
+            SELECT
+              s.id::text AS id, s.language, s.title, s.format,
+              s.is_default, s.is_forced, s.source_id, mf.ffprobe_raw
+            FROM subtitles s
+            JOIN media_files mf ON mf.id = s.file_id
+            WHERE s.file_id::text = $1 AND s.source_type = 'embedded'
+            ORDER BY s.is_default DESC, s.language ASC, s.created_at ASC
+            "#,
+            &[&file_id],
+        )
+        .await
+        .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
+
+    if rows.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let ffprobe_raw: Option<serde_json::Value> = rows[0].try_get("ffprobe_raw").unwrap_or(None);
+
+    let subs: Vec<EmbeddedSubtitleRecord> = rows
+        .iter()
+        .filter_map(|row| {
+            Some(EmbeddedSubtitleRecord {
+                id: row.try_get("id").ok()?,
+                language: row.try_get("language").ok()?,
+                title: row.try_get("title").ok().flatten(),
+                format: row.try_get("format").ok()?,
+                is_default: row.try_get("is_default").ok()?,
+                is_forced: row.try_get("is_forced").ok()?,
+                source_id: row.try_get("source_id").ok().flatten(),
+            })
+        })
+        .collect();
+
+    Ok(resolve_subtitle_tracks(&ffprobe_raw, &subs))
 }
