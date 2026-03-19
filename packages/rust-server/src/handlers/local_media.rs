@@ -22,7 +22,7 @@ use crate::{
 };
 
 use rust_subtitle::{
-    resolve::resolve_subtitle_tracks,
+    resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
     types::EmbeddedSubtitleRecord,
 };
@@ -182,12 +182,13 @@ pub async fn stream_media_file(
     };
 
     let tap_tx = {
-        let subs = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
+        let (subs, start_time_ms) = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
         build_stream_tap(
             &state.subtitle_cache,
             &state.tap_registry,
             subs,
             &target.path,
+            start_time_ms,
         )
     };
 
@@ -290,10 +291,11 @@ async fn load_media_file_stream_target(
     })
 }
 
+/// Returns (subtitle_tracks, start_time_ms) for the given file.
 async fn load_file_subtitles_with_tracks(
     db: &Client,
     file_id: &str,
-) -> Result<Vec<(Option<u64>, String, String)>, String> {
+) -> Result<(Vec<(Option<u64>, String, String)>, Option<f64>), String> {
     let rows = db
         .query(
             r#"
@@ -311,10 +313,11 @@ async fn load_file_subtitles_with_tracks(
         .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
 
     if rows.is_empty() {
-        return Ok(vec![]);
+        return Ok((vec![], None));
     }
 
     let ffprobe_raw: Option<serde_json::Value> = rows[0].try_get("ffprobe_raw").unwrap_or(None);
+    let start_time_ms = extract_start_time_ms(&ffprobe_raw);
 
     let subs: Vec<EmbeddedSubtitleRecord> = rows
         .iter()
@@ -331,5 +334,5 @@ async fn load_file_subtitles_with_tracks(
         })
         .collect();
 
-    Ok(resolve_subtitle_tracks(&ffprobe_raw, &subs))
+    Ok((resolve_subtitle_tracks(&ffprobe_raw, &subs), start_time_ms))
 }
