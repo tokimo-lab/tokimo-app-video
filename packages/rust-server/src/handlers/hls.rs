@@ -125,7 +125,7 @@ pub async fn get_segment(
             Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, content_type)
-                .header(header::CACHE_CONTROL, "max-age=3600")
+                .header(header::CACHE_CONTROL, "no-cache")
                 .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                 .body(Body::from(data))
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())

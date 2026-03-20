@@ -42,6 +42,7 @@ struct MediaFileStreamTarget {
 #[serde(rename_all = "camelCase")]
 pub struct StreamAccessQuery {
     access_token: Option<String>,
+    probe_only: Option<bool>,
 }
 
 // ── Subtitle event handlers (SubtitleCache state) ────────────────────────────
@@ -181,7 +182,9 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    let tap_tx = {
+    let tap_tx = if query.probe_only.unwrap_or(false) {
+        None
+    } else {
         let (subs, start_time_ms) = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
         build_stream_tap(
             &state.subtitle_cache,
