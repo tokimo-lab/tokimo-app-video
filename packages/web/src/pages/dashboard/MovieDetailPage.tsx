@@ -1,5 +1,6 @@
-import { ArrowLeftOutlined, Button, Spin } from "@acme/components";
-import { useEffect } from "react";
+import { ArrowLeftOutlined, Button, Modal, Spin } from "@acme/components";
+import type { MediaFileOutput } from "@acme/types";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
 import { usePlayer } from "../../contexts/PlayerContext";
@@ -50,6 +51,60 @@ function FavoriteButton({
   );
 }
 
+function formatPosition(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0)
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function ResumePromptModal({
+  open,
+  position,
+  onResume,
+  onRestart,
+  onClose,
+}: {
+  open: boolean;
+  position: number;
+  onResume: () => void;
+  onRestart: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      open={open}
+      closable={false}
+      maskClosable
+      keyboard
+      footer={null}
+      width={360}
+      centered
+      onCancel={onClose}
+      styles={{ body: { padding: 0 } }}
+    >
+      <div className="flex flex-col">
+        <button
+          type="button"
+          className="w-full cursor-pointer border-b border-[var(--glass-border)] bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
+          onClick={onRestart}
+        >
+          从头开始
+        </button>
+        <button
+          type="button"
+          className="w-full cursor-pointer bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
+          onClick={onResume}
+        >
+          从 {formatPosition(position)} 继续
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export default function MovieDetailPage() {
   const { id, movieId } = useParams<{ id: string; movieId: string }>();
   const navigate = useNavigate();
@@ -61,6 +116,16 @@ export default function MovieDetailPage() {
   );
 
   const { play } = usePlayer();
+
+  const resumeQuery = trpc.playback.getResumePosition.useQuery(
+    { movieId: movieId! },
+    { enabled: !!movieId },
+  );
+
+  const [resumePrompt, setResumePrompt] = useState<{
+    file: MediaFileOutput;
+    position: number;
+  } | null>(null);
 
   const { setBackgroundArt } = useBackgroundArt();
   useEffect(() => {
@@ -117,8 +182,37 @@ export default function MovieDetailPage() {
     tmdbId: movie.tmdbId,
   };
 
+  const handlePlay = (file: NonNullable<typeof firstFile>) => {
+    const pos = resumeQuery.data?.position ?? 0;
+    if (pos > 10) {
+      setResumePrompt({ file, position: pos });
+    } else {
+      play(file, playMeta);
+    }
+  };
+
   return (
     <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-6 lg:-mt-6 lg:-mb-6">
+      {/* ── Resume prompt ── */}
+      <ResumePromptModal
+        open={resumePrompt !== null}
+        position={resumePrompt?.position ?? 0}
+        onResume={() => {
+          if (resumePrompt) {
+            play(resumePrompt.file, playMeta, {
+              initialPosition: resumePrompt.position,
+            });
+          }
+          setResumePrompt(null);
+        }}
+        onRestart={() => {
+          if (resumePrompt) {
+            play(resumePrompt.file, playMeta, { initialPosition: 0 });
+          }
+          setResumePrompt(null);
+        }}
+        onClose={() => setResumePrompt(null)}
+      />
       {/* ── Header ── */}
       <div className="relative z-10 px-6 pt-6 pb-6">
         <div className="mb-6">
@@ -145,7 +239,7 @@ export default function MovieDetailPage() {
                 type="button"
                 aria-label="播放"
                 className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
-                onClick={() => play(firstFile, playMeta)}
+                onClick={() => handlePlay(firstFile)}
               >
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
                   <svg
@@ -221,7 +315,7 @@ export default function MovieDetailPage() {
                 <button
                   type="button"
                   className="flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
-                  onClick={() => play(firstFile, playMeta)}
+                  onClick={() => handlePlay(firstFile)}
                 >
                   <svg
                     className="h-5 w-5"

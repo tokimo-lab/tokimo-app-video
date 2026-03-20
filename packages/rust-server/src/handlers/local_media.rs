@@ -10,7 +10,7 @@ use axum::{
 
 use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
-use tokio_postgres::Client;
+use sqlx::PgPool;
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
 use tracing::{error, info, trace};
@@ -43,6 +43,12 @@ struct MediaFileStreamTarget {
 pub struct StreamAccessQuery {
     access_token: Option<String>,
     probe_only: Option<bool>,
+    // Tracking metadata (passed by Node.js stream-url handler for progress tracking)
+    dp_user: Option<String>,
+    dp_movie: Option<String>,
+    dp_episode: Option<String>,
+    dp_dur: Option<f64>,
+    dp_size: Option<u64>,
 }
 
 // ── Subtitle event handlers (SubtitleCache state) ────────────────────────────
@@ -124,7 +130,7 @@ pub async fn stream_media_file(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
 ) -> Response {
-    let db = state.sources.db_client();
+    let db = state.sources.db_pool();
     if let Err(err) = validate_stream_access(
         &db,
         request.headers().get(header::COOKIE),
@@ -135,6 +141,20 @@ pub async fn stream_media_file(
     .await
     {
         return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
+    }
+
+    // ── Direct-play progress tracking (off the critical path) ──
+    if let Some(ref user_id) = query.dp_user {
+        let byte_offset = parse_range_start(request.headers().get(header::RANGE));
+        state.direct_play_tracker.update(
+            user_id,
+            &file_id,
+            query.dp_movie.as_deref(),
+            query.dp_episode.as_deref(),
+            query.dp_dur.unwrap_or(0.0),
+            query.dp_size.unwrap_or(0),
+            byte_offset,
+        );
     }
 
     let target = match load_media_file_stream_target(&db, &file_id).await {
@@ -209,7 +229,7 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
 }
 
 async fn validate_stream_access(
-    db: &Client,
+    db: &PgPool,
     cookie_header: Option<&axum::http::HeaderValue>,
     access_token: Option<&str>,
     access_token_header: Option<&axum::http::HeaderValue>,
@@ -236,106 +256,115 @@ async fn validate_stream_access(
     validate_session(db, &session_id).await
 }
 
-async fn validate_session(db: &Client, session_id: &str) -> Result<(), String> {
-    let row = db
-        .query_opt(
-            "SELECT 1 FROM sessions WHERE id::text = $1 AND expires_at > NOW()",
-            &[&session_id],
-        )
-        .await
-        .map_err(|err| {
-            error!("local media session lookup failed: {}", err);
-            "Session validation failed".to_string()
-        })?;
+async fn validate_session(db: &PgPool, session_id: &str) -> Result<(), String> {
+    let row = sqlx::query_scalar!(
+        r#"SELECT 1 AS "v!" FROM sessions WHERE id::text = $1 AND expires_at > NOW()"#,
+        session_id,
+    )
+    .fetch_optional(db)
+    .await
+    .map_err(|err| {
+        error!("local media session lookup failed: {}", err);
+        "Session validation failed".to_string()
+    })?;
     if row.is_some() { Ok(()) } else { Err("Unauthorized".into()) }
 }
 
-async fn validate_internal_stream_token(db: &Client, access_token: &str) -> Result<(), String> {
-    let row = db
-        .query_opt(
-            "SELECT 1 FROM system_settings WHERE internal_stream_access_token = $1 \
-             AND internal_stream_access_token_expires_at > NOW() LIMIT 1",
-            &[&access_token],
-        )
-        .await
-        .map_err(|err| {
-            error!("internal stream token lookup failed: {}", err);
-            "Internal token validation failed".to_string()
-        })?;
+async fn validate_internal_stream_token(db: &PgPool, access_token: &str) -> Result<(), String> {
+    let row = sqlx::query_scalar!(
+        r#"SELECT 1 AS "v!" FROM system_settings WHERE internal_stream_access_token = $1
+         AND internal_stream_access_token_expires_at > NOW() LIMIT 1"#,
+        access_token,
+    )
+    .fetch_optional(db)
+    .await
+    .map_err(|err| {
+        error!("internal stream token lookup failed: {}", err);
+        "Internal token validation failed".to_string()
+    })?;
     if row.is_some() { Ok(()) } else { Err("Unauthorized".into()) }
 }
 
 // ── DB / VFS helpers ────────────────────────────────────────────────────────
 
 async fn load_media_file_stream_target(
-    db: &Client,
+    db: &PgPool,
     file_id: &str,
 ) -> Result<MediaFileStreamTarget, (StatusCode, axum::Json<ApiResponse<()>>)> {
-    let row = db
-        .query_opt(
-            "SELECT mf.path, mf.source_id::text AS source_id, ms.type AS source_type, \
-             mf.media_server_id::text AS media_server_id \
-             FROM media_files mf LEFT JOIN media_sources ms ON ms.id = mf.source_id \
-             WHERE mf.id::text = $1",
-            &[&file_id],
-        )
-        .await
-        .map_err(|err| err500::<()>(format!("media file lookup failed: {err}")))?;
+    let row = sqlx::query!(
+        r#"SELECT mf.path, mf.source_id::text AS "source_id?", ms.type AS "source_type?",
+         mf.media_server_id::text AS "media_server_id?"
+         FROM media_files mf LEFT JOIN media_sources ms ON ms.id = mf.source_id
+         WHERE mf.id::text = $1"#,
+        file_id,
+    )
+    .fetch_optional(db)
+    .await
+    .map_err(|err| err500::<()>(format!("media file lookup failed: {err}")))?;
 
     let Some(row) = row else {
         return Err(err404::<()>("Media file not found".into()));
     };
 
     Ok(MediaFileStreamTarget {
-        path: row.try_get("path").map_err(|e| err500::<()>(format!("invalid path: {e}")))?,
-        source_id: row.try_get("source_id").map_err(|e| err500::<()>(format!("invalid source_id: {e}")))?,
-        source_type: row.try_get("source_type").map_err(|e| err500::<()>(format!("invalid source_type: {e}")))?,
-        media_server_id: row.try_get("media_server_id").map_err(|e| err500::<()>(format!("invalid media_server_id: {e}")))?,
+        path: row.path,
+        source_id: row.source_id,
+        source_type: row.source_type,
+        media_server_id: row.media_server_id,
     })
 }
 
 /// Returns (subtitle_tracks, start_time_ms) for the given file.
 async fn load_file_subtitles_with_tracks(
-    db: &Client,
+    db: &PgPool,
     file_id: &str,
 ) -> Result<(Vec<(Option<u64>, String, String)>, Option<f64>), String> {
-    let rows = db
-        .query(
-            r#"
-            SELECT
-              s.id::text AS id, s.language, s.title, s.format,
-              s.is_default, s.is_forced, s.source_id, mf.ffprobe_raw
-            FROM subtitles s
-            JOIN media_files mf ON mf.id = s.file_id
-            WHERE s.file_id::text = $1 AND s.source_type = 'embedded'
-            ORDER BY s.is_default DESC, s.language ASC, s.created_at ASC
-            "#,
-            &[&file_id],
-        )
-        .await
-        .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
+    let rows = sqlx::query!(
+        r#"
+        SELECT
+          s.id::text AS "id!", s.language AS "language!", s.title, s.format AS "format!",
+          s.is_default AS "is_default!", s.is_forced AS "is_forced!",
+          s.source_id::text AS source_id, mf.ffprobe_raw
+        FROM subtitles s
+        JOIN media_files mf ON mf.id = s.file_id
+        WHERE s.file_id::text = $1 AND s.source_type = 'embedded'
+        ORDER BY s.is_default DESC, s.language ASC, s.created_at ASC
+        "#,
+        file_id,
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
 
     if rows.is_empty() {
         return Ok((vec![], None));
     }
 
-    let ffprobe_raw: Option<serde_json::Value> = rows[0].try_get("ffprobe_raw").unwrap_or(None);
+    let ffprobe_raw: Option<serde_json::Value> = rows[0].ffprobe_raw.clone();
     let start_time_ms = extract_start_time_ms(&ffprobe_raw);
 
     let subs: Vec<EmbeddedSubtitleRecord> = rows
         .iter()
-        .filter_map(|row| {
-            Some(EmbeddedSubtitleRecord {
-                id: row.try_get("id").ok()?,
-                language: row.try_get("language").ok()?,
-                title: row.try_get("title").ok().flatten(),
-                format: row.try_get("format").ok()?,
-                is_default: row.try_get("is_default").ok()?,
-                is_forced: row.try_get("is_forced").ok()?,
-                source_id: row.try_get("source_id").ok().flatten(),
-            })
+        .map(|row| EmbeddedSubtitleRecord {
+            id: row.id.clone(),
+            language: row.language.clone(),
+            title: row.title.clone(),
+            format: row.format.clone(),
+            is_default: row.is_default,
+            is_forced: row.is_forced,
+            source_id: row.source_id.clone(),
         })
         .collect();
 
     Ok((resolve_subtitle_tracks(&ffprobe_raw, &subs), start_time_ms))
+}
+
+/// Extract the start byte offset from an HTTP Range header (`bytes=START-...`).
+fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
+    range
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("bytes="))
+        .and_then(|s| s.split('-').next())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0)
 }

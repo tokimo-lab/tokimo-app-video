@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 
 use crate::handlers::{err_resp, ok, ApiResponse};
+use crate::scheduler::tasks::persist_playback_progress;
 use crate::AppState;
 
 /// POST /api/hls/sessions — create a new HLS transcoding session.
@@ -32,7 +33,11 @@ pub async fn stop_session(
     Path(session_id): Path<String>,
 ) -> Response {
     info!("[HLS] stop request for session {}", session_id);
-    state.hls_manager.stop_session(&session_id).await;
+    if let Some(snap) = state.hls_manager.stop_session(&session_id).await {
+        if let Err(e) = persist_playback_progress(&state.db, &snap).await {
+            warn!("[HLS] failed to persist final progress for {}: {}", session_id, e);
+        }
+    }
     StatusCode::NO_CONTENT.into_response()
 }
 
@@ -42,7 +47,15 @@ pub async fn stop_sessions_for_file(
     Path(file_id): Path<String>,
 ) -> Response {
     info!("[HLS] stop-by-file request for file {}", file_id);
+    // Get snapshots before stopping sessions
+    let snapshots = state.hls_manager.playback_snapshots().await;
+    let file_snapshots: Vec<_> = snapshots.into_iter().filter(|s| s.file_id == file_id).collect();
     state.hls_manager.stop_session_for_file(&file_id).await;
+    for snap in &file_snapshots {
+        if let Err(e) = persist_playback_progress(&state.db, snap).await {
+            warn!("[HLS] failed to persist final progress for {}: {}", snap.session_id, e);
+        }
+    }
     StatusCode::NO_CONTENT.into_response()
 }
 
@@ -115,9 +128,12 @@ pub async fn get_segment(
 
     match tokio::fs::read(&segment_path).await {
         Ok(data) => {
-            // fMP4 segments (.m4s) and init segments (.mp4) use video/mp4;
+            // fMP4 segments (.tokimo/.m4s) and init segments (.mp4) use video/mp4;
             // legacy MPEG-TS (.ts) uses video/mp2t.
-            let content_type = if segment.ends_with(".m4s") || segment.ends_with(".mp4") {
+            let content_type = if segment.ends_with(".tokimo")
+                || segment.ends_with(".m4s")
+                || segment.ends_with(".mp4")
+            {
                 "video/mp4"
             } else {
                 "video/mp2t"
