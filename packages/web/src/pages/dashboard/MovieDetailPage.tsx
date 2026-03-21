@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
 import { usePlayer } from "../../contexts/PlayerContext";
+import { api } from "../../generated/rust-api";
 import { useBackgroundArt, useSseEvent } from "../../hooks";
 import { trpc } from "../../lib/trpc";
 import {
@@ -117,7 +118,7 @@ export default function MovieDetailPage() {
 
   const { play } = usePlayer();
 
-  const resumeQuery = trpc.playback.getResumePosition.useQuery(
+  const resumeQuery = api.playback.resumePosition.useQuery(
     { movieId: movieId! },
     { enabled: !!movieId },
   );

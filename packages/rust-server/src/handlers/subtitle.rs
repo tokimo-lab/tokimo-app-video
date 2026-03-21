@@ -1,15 +1,19 @@
-use std::{env, sync::Arc};
+use std::{convert::Infallible, env, sync::Arc};
 
+use async_stream::stream;
 use axum::{
     extract::{Path, State},
+    response::sse::{Event, KeepAlive, Sse},
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use bytes::Bytes;
+use futures_util::stream::Stream;
 use serde::Deserialize;
 use subtitle_aggregator::models::{
     SubtitleDownloadRequest as AggDownloadRequest, SubtitleSearchRequest,
 };
+use tokio::sync::mpsc;
 
 use crate::{
     db::models::subtitle::SubtitleRecord,
@@ -64,21 +68,28 @@ pub async fn get_file_subtitles(
     }
 }
 
-/// POST /api/subtitles/search — concurrent multi-provider subtitle search.
+/// POST /api/subtitles/search — SSE streaming multi-provider subtitle search.
+/// Each SSE event is a JSON array of SubtitleSearchResult from one provider.
 pub async fn search(
     State(state): State<Arc<AppState>>,
     Json(input): Json<SubtitleSearchRequest>,
-) -> Result<
-    Json<ApiResponse<Vec<subtitle_aggregator::models::SubtitleSearchResult>>>,
-    (
-        axum::http::StatusCode,
-        Json<ApiResponse<Vec<subtitle_aggregator::models::SubtitleSearchResult>>>,
-    ),
-> {
-    match state.subtitle_aggregator.search(&input).await {
-        Ok(results) => Ok(ok(results)),
-        Err(e) => Err(err500(format!("字幕搜索失败: {e}"))),
-    }
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let (tx, mut rx) = mpsc::channel::<Vec<subtitle_aggregator::models::SubtitleSearchResult>>(50);
+    let aggregator = Arc::clone(&state.subtitle_aggregator);
+
+    tokio::spawn(async move {
+        aggregator.search_streaming(input, tx).await;
+    });
+
+    let s = stream! {
+        while let Some(results) = rx.recv().await {
+            if let Ok(data) = serde_json::to_string(&results) {
+                yield Ok::<Event, Infallible>(Event::default().data(data));
+            }
+        }
+    };
+
+    Sse::new(s).keep_alive(KeepAlive::default())
 }
 
 /// POST /api/subtitles/download — download via aggregator, save to storage + DB.
@@ -197,4 +208,9 @@ pub async fn delete_subtitle(
         Err(e) => Err(err500(e.to_string())),
     }
 }
+
+
+// ── Download request wrapper (adds file_id + aggregator routing fields) ───────
+
+
 
