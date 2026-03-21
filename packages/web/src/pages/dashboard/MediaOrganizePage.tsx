@@ -21,6 +21,7 @@ import {
   OrganizeToolbar,
 } from "../../components/dashboard/media-organize";
 import PathSelector from "../../components/dashboard/PathSelector";
+import { api } from "../../generated/rust-api";
 import { useAdultMode, useMessage } from "../../hooks";
 import { useSseEvent } from "../../hooks/SseContext";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
@@ -86,7 +87,7 @@ export default function OrganizeDialog({
   const [hideOrganized, setHideOrganized] = useState(false);
 
   // 媒体库列表（为 target 选择器提供选项）
-  const foldersQuery = trpc.mediaLibrary.list.useQuery();
+  const foldersQuery = api.mediaLibrary.list.useQuery();
   const mediaFolders = foldersQuery.data ?? [];
 
   // 全局成人模式开关

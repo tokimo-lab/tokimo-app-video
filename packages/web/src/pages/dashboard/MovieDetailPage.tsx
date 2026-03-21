@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
 import type { MediaFileOutput } from "@tokiomo/types";
 import { useEffect, useState } from "react";
@@ -6,7 +7,6 @@ import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
 import { usePlayer } from "../../contexts/PlayerContext";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt, useSseEvent } from "../../hooks";
-import { trpc } from "../../lib/trpc";
 import {
   CastRow,
   CrewRow,
@@ -35,10 +35,10 @@ function FavoriteButton({
   isFavorite: boolean;
   movieId: string;
 }) {
-  const utils = trpc.useUtils();
-  const toggle = trpc.mediaLibrary.toggleFavorite.useMutation({
+  const qc = useQueryClient();
+  const toggle = api.mediaLibrary.toggleFavorite.useMutation({
     onSuccess: () =>
-      void utils.mediaLibrary.getMovieDetail.invalidate({ id: movieId }),
+      void api.mediaLibrary.getMovieDetail.invalidate(qc, { id: movieId }),
   });
   return (
     <button
@@ -109,9 +109,9 @@ function ResumePromptModal({
 export default function MovieDetailPage() {
   const { id, movieId } = useParams<{ id: string; movieId: string }>();
   const navigate = useNavigate();
-  const utils = trpc.useUtils();
+  const qc = useQueryClient();
 
-  const { data: movie, isLoading } = trpc.mediaLibrary.getMovieDetail.useQuery(
+  const { data: movie, isLoading } = api.mediaLibrary.getMovieDetail.useQuery(
     { id: movieId! },
     { enabled: !!movieId },
   );
@@ -145,7 +145,7 @@ export default function MovieDetailPage() {
       event.movieId === movieId &&
       movieId
     ) {
-      utils.mediaLibrary.getMovieDetail.invalidate({ id: movieId });
+      api.mediaLibrary.getMovieDetail.invalidate(qc, { id: movieId });
     }
   });
 

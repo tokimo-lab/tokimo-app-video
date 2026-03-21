@@ -1,9 +1,10 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
 import type { EpisodeOutput } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../../generated/rust-api";
 import { useBackgroundArt } from "../../hooks";
-import { trpc } from "../../lib/trpc";
 import {
   CastRow,
   CrewRow,
@@ -23,10 +24,10 @@ function FavoriteButton({
   isFavorite: boolean;
   tvShowId: string;
 }) {
-  const utils = trpc.useUtils();
-  const toggle = trpc.mediaLibrary.toggleFavorite.useMutation({
+  const qc = useQueryClient();
+  const toggle = api.mediaLibrary.toggleFavorite.useMutation({
     onSuccess: () =>
-      void utils.mediaLibrary.getTvShowDetail.invalidate({ id: tvShowId }),
+      void api.mediaLibrary.getTvShowDetail.invalidate(qc, { id: tvShowId }),
   });
   return (
     <button
@@ -137,7 +138,7 @@ export default function TvShowDetailPage() {
   const navigate = useNavigate();
   const { setBackgroundArt } = useBackgroundArt();
 
-  const { data: show, isLoading } = trpc.mediaLibrary.getTvShowDetail.useQuery(
+  const { data: show, isLoading } = api.mediaLibrary.getTvShowDetail.useQuery(
     { id: tvId! },
     { enabled: !!tvId },
   );
