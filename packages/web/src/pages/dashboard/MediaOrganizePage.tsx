@@ -1,11 +1,17 @@
 /**
- * 资源整理页面
- * 扫描本地文件 → TMDB 识别 → 选择目标 → 执行整理
+ * 资源整理弹窗
+ * 从 MediaSourcesPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 
-import { Button, Card, HistoryOutlined, ScanOutlined } from "@acme/components";
-import type { OrganizeItem, WsJobEvent } from "@acme/types";
-import { useCallback, useState } from "react";
+import {
+  Button,
+  Card,
+  HistoryOutlined,
+  Modal,
+  ScanOutlined,
+} from "@tokiomo/components";
+import type { OrganizeItem, WsJobEvent } from "@tokiomo/types";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ManualMatchModal,
@@ -19,6 +25,17 @@ import { useAdultMode, useMessage } from "../../hooks";
 import { useSseEvent } from "../../hooks/SseContext";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 import { trpc } from "../../lib/trpc";
+
+export interface OrganizeDialogProps {
+  open: boolean;
+  onClose: () => void;
+  /** 预填的来源路径 */
+  initialSourcePath?: string;
+  /** 媒体来源 ID */
+  sourceId?: string;
+  /** 来源名称（显示在标题中） */
+  sourceName?: string;
+}
 
 /** 递归替换树中指定 ID 的条目 */
 function updateItemInTree(
@@ -34,14 +51,25 @@ function updateItemInTree(
   });
 }
 
-export default function MediaOrganizePage() {
+export default function OrganizeDialog({
+  open,
+  onClose,
+  initialSourcePath = "",
+  sourceId,
+  sourceName,
+}: OrganizeDialogProps) {
   const { t } = useTranslation();
   const message = useMessage();
   const utils = trpc.useUtils();
   const { session, isActive, isLoading: sessionLoading } = useOrganizeSession();
 
   // 源路径
-  const [sourcePath, setSourcePath] = useState("");
+  const [sourcePath, setSourcePath] = useState(initialSourcePath);
+
+  // 弹窗打开时同步初始路径
+  useEffect(() => {
+    if (open) setSourcePath(initialSourcePath);
+  }, [open, initialSourcePath]);
   // 手动搜索弹窗
   const [manualSearchItemId, setManualSearchItemId] = useState<string | null>(
     null,
@@ -57,8 +85,8 @@ export default function MediaOrganizePage() {
   // 过滤已整理条目
   const [hideOrganized, setHideOrganized] = useState(false);
 
-  // 媒体文件夹列表（为 target 选择器提供选项）
-  const foldersQuery = trpc.mediaFolder.listFolders.useQuery();
+  // 媒体库列表（为 target 选择器提供选项）
+  const foldersQuery = trpc.mediaLibrary.list.useQuery();
   const mediaFolders = foldersQuery.data ?? [];
 
   // 全局成人模式开关
@@ -201,8 +229,8 @@ export default function MediaOrganizePage() {
   const handleScan = useCallback(() => {
     const path = sourcePath.trim();
     if (!path) return;
-    scanMutation.mutate({ path });
-  }, [sourcePath, scanMutation]);
+    scanMutation.mutate({ path, sourceId });
+  }, [sourcePath, sourceId, scanMutation]);
 
   const handleIdentifyItem = useCallback(
     (itemId: string) => {
@@ -315,80 +343,90 @@ export default function MediaOrganizePage() {
   // Sync sourcePath from session when session changes
   const effectivePath = session?.sourcePath || sourcePath;
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{t("media.organize.title")}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("media.organize.subtitle")}
-          </p>
-        </div>
-        <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
-          {t("media.organize.history.title")}
-        </Button>
-      </div>
+  const title = sourceName
+    ? `${t("media.organize.title")} — ${sourceName}`
+    : t("media.organize.title");
 
-      {/* Source path selector */}
-      <Card size="small">
-        <div className="flex w-full">
-          <PathSelector
-            value={effectivePath}
-            onChange={setSourcePath}
-            placeholder={t("media.organize.sourcePathPlaceholder")}
-            disabled={isActive}
-          />
-          <Button
-            variant="primary"
-            icon={<ScanOutlined />}
-            onClick={handleScan}
-            loading={scanMutation.isPending}
-            disabled={isActive || !sourcePath.trim()}
-            className="!rounded-l-none"
-          >
-            {t("media.organize.scanButton")}
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      title={title}
+      footer={null}
+      width="95vw"
+      style={{ maxWidth: 1400, top: 24 }}
+      styles={{ body: { maxHeight: "calc(100vh - 120px)", overflowY: "auto", padding: "16px 24px" } }}
+      destroyOnClose
+    >
+      <div className="space-y-4">
+        {/* Source path selector */}
+        <Card size="small">
+          <div className="flex w-full">
+            <PathSelector
+              value={effectivePath}
+              onChange={setSourcePath}
+              sourceId={sourceId}
+              placeholder={t("media.organize.sourcePathPlaceholder")}
+              disabled={isActive}
+            />
+            <Button
+              variant="primary"
+              icon={<ScanOutlined />}
+              onClick={handleScan}
+              loading={scanMutation.isPending}
+              disabled={isActive || !sourcePath.trim()}
+              className="!rounded-l-none"
+            >
+              {t("media.organize.scanButton")}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Toolbar — show when session has items */}
+        {session && session.items.length > 0 && (
+          <Card size="small">
+            <OrganizeToolbar
+              session={session}
+              onIdentifyAll={() => identifyAllMutation.mutate()}
+              onExecute={() => executeMutation.mutate({})}
+              onCancel={() => cancelMutation.mutate()}
+              onClear={() => clearMutation.mutate()}
+              onViewReport={() => setReportOpen(true)}
+              identifyAllLoading={identifyAllMutation.isPending}
+              executeLoading={executeMutation.isPending}
+              hideOrganized={hideOrganized}
+              onToggleHideOrganized={() => setHideOrganized((v) => !v)}
+            />
+          </Card>
+        )}
+
+        {/* Item list table */}
+        {session && session.items.length > 0 && (
+          <Card size="small" styles={{ body: { padding: 0 } }}>
+            <OrganizeItemList
+              items={session.items}
+              mediaFolders={mediaFolders}
+              loading={sessionLoading}
+              sessionStatus={session.status}
+              onIdentifyItem={handleIdentifyItem}
+              onSelectMatch={handleSelectMatch}
+              onSelectMusicMatch={handleSelectMusicMatch}
+              onManualSearch={(itemId: string) => setManualSearchItemId(itemId)}
+              onResetMatch={handleResetMatch}
+              onUpdateTarget={handleUpdateTarget}
+              identifyingItemId={identifyingItemId}
+              hideOrganized={hideOrganized}
+            />
+          </Card>
+        )}
+
+        {/* History button */}
+        <div className="flex justify-end">
+          <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
+            {t("media.organize.history.title")}
           </Button>
         </div>
-      </Card>
-
-      {/* Toolbar — show when session has items */}
-      {session && session.items.length > 0 && (
-        <Card size="small">
-          <OrganizeToolbar
-            session={session}
-            onIdentifyAll={() => identifyAllMutation.mutate()}
-            onExecute={() => executeMutation.mutate({})}
-            onCancel={() => cancelMutation.mutate()}
-            onClear={() => clearMutation.mutate()}
-            onViewReport={() => setReportOpen(true)}
-            identifyAllLoading={identifyAllMutation.isPending}
-            executeLoading={executeMutation.isPending}
-            hideOrganized={hideOrganized}
-            onToggleHideOrganized={() => setHideOrganized((v) => !v)}
-          />
-        </Card>
-      )}
-
-      {/* Item list table */}
-      {session && session.items.length > 0 && (
-        <Card size="small" styles={{ body: { padding: 0 } }}>
-          <OrganizeItemList
-            items={session.items}
-            mediaFolders={mediaFolders}
-            loading={sessionLoading}
-            sessionStatus={session.status}
-            onIdentifyItem={handleIdentifyItem}
-            onSelectMatch={handleSelectMatch}
-            onSelectMusicMatch={handleSelectMusicMatch}
-            onManualSearch={(itemId: string) => setManualSearchItemId(itemId)}
-            onResetMatch={handleResetMatch}
-            onUpdateTarget={handleUpdateTarget}
-            identifyingItemId={identifyingItemId}
-            hideOrganized={hideOrganized}
-          />
-        </Card>
-      )}
+      </div>
 
       {/* Manual search modal */}
       <ManualMatchModal
@@ -416,6 +454,6 @@ export default function MediaOrganizePage() {
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
       />
-    </div>
+    </Modal>
   );
 }

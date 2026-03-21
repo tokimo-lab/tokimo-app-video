@@ -1,5 +1,5 @@
-import { ArrowLeftOutlined, Button, Spin } from "@acme/components";
-import type { EpisodeOutput } from "@acme/types";
+import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
+import type { EpisodeOutput } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useBackgroundArt } from "../../hooks";
