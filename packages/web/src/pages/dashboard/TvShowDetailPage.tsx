@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt } from "../../hooks";
+import { resolveStoragePath } from "../../lib/storage-url";
 import {
   CastRow,
   CrewRow,
@@ -66,7 +67,7 @@ function EpisodeRow({
         <div className="h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
           {episode.stillPath ? (
             <img
-              src={episode.stillPath}
+              src={resolveStoragePath(episode.stillPath)}
               alt=""
               className="h-full w-full object-cover"
               loading="lazy"
@@ -250,7 +251,7 @@ export default function TvShowDetailPage() {
           <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-600" />
           {show.posterPath && (
             <img
-              src={show.posterPath}
+              src={resolveStoragePath(show.posterPath)}
               alt={show.title}
               className="h-8 w-[21px] flex-shrink-0 rounded object-cover shadow"
             />
@@ -297,7 +298,7 @@ export default function TvShowDetailPage() {
               >
                 {sn.posterPath ? (
                   <img
-                    src={sn.posterPath}
+                    src={resolveStoragePath(sn.posterPath)}
                     alt=""
                     className="h-8 w-[22px] flex-shrink-0 rounded object-cover"
                     loading="lazy"
@@ -451,7 +452,7 @@ export default function TvShowDetailPage() {
                 >
                   {sn.posterPath ? (
                     <img
-                      src={sn.posterPath}
+                      src={resolveStoragePath(sn.posterPath)}
                       alt=""
                       className="h-10 w-7 flex-shrink-0 rounded object-cover"
                       loading="lazy"
@@ -512,7 +513,7 @@ export default function TvShowDetailPage() {
                 >
                   {col.posterPath && (
                     <img
-                      src={col.posterPath}
+                      src={resolveStoragePath(col.posterPath)}
                       alt={col.name}
                       className="h-12 w-8 flex-shrink-0 rounded object-cover"
                     />

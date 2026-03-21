@@ -7,6 +7,7 @@ import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
 import { usePlayer } from "../../contexts/PlayerContext";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt, useSseEvent } from "../../hooks";
+import { resolveStoragePath } from "../../lib/storage-url";
 import {
   CastRow,
   CrewRow,
@@ -356,7 +357,7 @@ export default function MovieDetailPage() {
                 >
                   {col.posterPath && (
                     <img
-                      src={col.posterPath}
+                      src={resolveStoragePath(col.posterPath)}
                       alt={col.name}
                       className="h-12 w-8 flex-shrink-0 rounded object-cover"
                     />
