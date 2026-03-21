@@ -13,30 +13,23 @@ use std::{net::SocketAddr, sync::Arc};
 use sqlx::PgPool;
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
-use tracing::{error, info, trace};
+use tracing::{info, trace};
 
 use crate::{
+    db::repos::{auth_repo::AuthRepo, media_file_repo::MediaFileRepo, subtitle_repo::SubtitleRepo},
     handlers::media_stream::stream_driver_file,
-    handlers::{err404, err500, err_resp, ApiResponse},
+    handlers::{err404, err500, err_resp},
     AppState,
 };
 
 use rust_subtitle::{
     resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
-    types::EmbeddedSubtitleRecord,
 };
 
 const LOCAL_MEDIA_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
 const REMOTE_FS_SOURCE_TYPES: [&str; 6] = ["smb", "nfs", "webdav", "ftp", "sftp", "s3"];
 const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
-
-struct MediaFileStreamTarget {
-    path: String,
-    source_id: Option<String>,
-    source_type: Option<String>,
-    media_server_id: Option<String>,
-}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -157,9 +150,10 @@ pub async fn stream_media_file(
         );
     }
 
-    let target = match load_media_file_stream_target(&db, &file_id).await {
-        Ok(target) => target,
-        Err(response) => return response.into_response(),
+    let target = match MediaFileRepo::load_stream_target(&db, &file_id).await {
+        Ok(Some(t)) => t,
+        Ok(None) => return err404::<()>("Media file not found".into()).into_response(),
+        Err(err) => return err500::<()>(format!("media file lookup failed: {err}")).into_response(),
     };
 
     if target.media_server_id.is_some() {
@@ -205,14 +199,22 @@ pub async fn stream_media_file(
     let tap_tx = if query.probe_only.unwrap_or(false) {
         None
     } else {
-        let (subs, start_time_ms) = load_file_subtitles_with_tracks(&db, &file_id).await.unwrap_or_default();
-        build_stream_tap(
-            &state.subtitle_cache,
-            &state.tap_registry,
-            subs,
-            &target.path,
-            start_time_ms,
-        )
+        match SubtitleRepo::load_file_subtitles(&db, &file_id).await {
+            Ok(rows) if !rows.is_empty() => {
+                let ffprobe_raw = rows[0].ffprobe_raw.clone();
+                let start_time_ms = extract_start_time_ms(&ffprobe_raw);
+                let subs: Vec<_> = rows.iter().map(|r| r.to_embedded_record()).collect();
+                let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
+                build_stream_tap(
+                    &state.subtitle_cache,
+                    &state.tap_registry,
+                    tracks,
+                    &target.path,
+                    start_time_ms,
+                )
+            }
+            _ => None,
+        }
     };
 
     stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
@@ -235,129 +237,39 @@ async fn validate_stream_access(
     access_token_header: Option<&axum::http::HeaderValue>,
     client_ip: std::net::IpAddr,
 ) -> Result<(), String> {
-    // Loopback requests (127.0.0.1 / ::1) are always trusted — local processes
-    // like ffprobe don't need to carry an access token.
     if client_ip.is_loopback() {
         return Ok(());
     }
 
     if let Some(token) = access_token {
-        if validate_internal_stream_token(db, token).await.is_ok() {
+        if AuthRepo::validate_internal_stream_token(db, token)
+            .await
+            .unwrap_or(false)
+        {
             return Ok(());
         }
     }
     if let Some(token) = access_token_header.and_then(|value| value.to_str().ok()) {
-        if validate_internal_stream_token(db, token).await.is_ok() {
+        if AuthRepo::validate_internal_stream_token(db, token)
+            .await
+            .unwrap_or(false)
+        {
             return Ok(());
         }
     }
     let session_id =
         session_id_from_cookie(cookie_header).ok_or_else(|| "Unauthorized".to_string())?;
-    validate_session(db, &session_id).await
-}
-
-async fn validate_session(db: &PgPool, session_id: &str) -> Result<(), String> {
-    let row = sqlx::query_scalar!(
-        r#"SELECT 1 AS "v!" FROM sessions WHERE id::text = $1 AND expires_at > NOW()"#,
-        session_id,
-    )
-    .fetch_optional(db)
-    .await
-    .map_err(|err| {
-        error!("local media session lookup failed: {}", err);
-        "Session validation failed".to_string()
-    })?;
-    if row.is_some() { Ok(()) } else { Err("Unauthorized".into()) }
-}
-
-async fn validate_internal_stream_token(db: &PgPool, access_token: &str) -> Result<(), String> {
-    let row = sqlx::query_scalar!(
-        r#"SELECT 1 AS "v!" FROM system_settings WHERE internal_stream_access_token = $1
-         AND internal_stream_access_token_expires_at > NOW() LIMIT 1"#,
-        access_token,
-    )
-    .fetch_optional(db)
-    .await
-    .map_err(|err| {
-        error!("internal stream token lookup failed: {}", err);
-        "Internal token validation failed".to_string()
-    })?;
-    if row.is_some() { Ok(()) } else { Err("Unauthorized".into()) }
-}
-
-// ── DB / VFS helpers ────────────────────────────────────────────────────────
-
-async fn load_media_file_stream_target(
-    db: &PgPool,
-    file_id: &str,
-) -> Result<MediaFileStreamTarget, (StatusCode, axum::Json<ApiResponse<()>>)> {
-    let row = sqlx::query!(
-        r#"SELECT mf.path, mf.source_id::text AS "source_id?", ms.type AS "source_type?",
-         mf.media_server_id::text AS "media_server_id?"
-         FROM media_files mf LEFT JOIN media_sources ms ON ms.id = mf.source_id
-         WHERE mf.id::text = $1"#,
-        file_id,
-    )
-    .fetch_optional(db)
-    .await
-    .map_err(|err| err500::<()>(format!("media file lookup failed: {err}")))?;
-
-    let Some(row) = row else {
-        return Err(err404::<()>("Media file not found".into()));
-    };
-
-    Ok(MediaFileStreamTarget {
-        path: row.path,
-        source_id: row.source_id,
-        source_type: row.source_type,
-        media_server_id: row.media_server_id,
-    })
-}
-
-/// Returns (subtitle_tracks, start_time_ms) for the given file.
-async fn load_file_subtitles_with_tracks(
-    db: &PgPool,
-    file_id: &str,
-) -> Result<(Vec<(Option<u64>, String, String)>, Option<f64>), String> {
-    let rows = sqlx::query!(
-        r#"
-        SELECT
-          s.id::text AS "id!", s.language AS "language!", s.title, s.format AS "format!",
-          s.is_default AS "is_default!", s.is_forced AS "is_forced!",
-          s.source_id::text AS source_id, mf.ffprobe_raw
-        FROM subtitles s
-        JOIN media_files mf ON mf.id = s.file_id
-        WHERE s.file_id::text = $1 AND s.source_type = 'embedded'
-        ORDER BY s.is_default DESC, s.language ASC, s.created_at ASC
-        "#,
-        file_id,
-    )
-    .fetch_all(db)
-    .await
-    .map_err(|err| format!("subtitle+ffprobe query failed: {}", err))?;
-
-    if rows.is_empty() {
-        return Ok((vec![], None));
+    if AuthRepo::validate_session(db, &session_id)
+        .await
+        .unwrap_or(false)
+    {
+        Ok(())
+    } else {
+        Err("Unauthorized".into())
     }
-
-    let ffprobe_raw: Option<serde_json::Value> = rows[0].ffprobe_raw.clone();
-    let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-
-    let subs: Vec<EmbeddedSubtitleRecord> = rows
-        .iter()
-        .map(|row| EmbeddedSubtitleRecord {
-            id: row.id.clone(),
-            language: row.language.clone(),
-            title: row.title.clone(),
-            format: row.format.clone(),
-            is_default: row.is_default,
-            is_forced: row.is_forced,
-            source_id: row.source_id.clone(),
-        })
-        .collect();
-
-    Ok((resolve_subtitle_tracks(&ffprobe_raw, &subs), start_time_ms))
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 /// Extract the start byte offset from an HTTP Range header (`bytes=START-...`).
 fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
