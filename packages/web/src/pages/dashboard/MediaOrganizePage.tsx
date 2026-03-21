@@ -1,6 +1,6 @@
 /**
  * 资源整理弹窗
- * 从 MediaSourcesPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
+ * 从 FileSystemsPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 
 import {
@@ -31,8 +31,8 @@ export interface OrganizeDialogProps {
   onClose: () => void;
   /** 预填的来源路径 */
   initialSourcePath?: string;
-  /** 媒体来源 ID */
-  sourceId?: string;
+  /** 文件系统 ID */
+  fileSystemId?: string;
   /** 来源名称（显示在标题中） */
   sourceName?: string;
 }
@@ -55,7 +55,7 @@ export default function OrganizeDialog({
   open,
   onClose,
   initialSourcePath = "",
-  sourceId,
+  fileSystemId,
   sourceName,
 }: OrganizeDialogProps) {
   const { t } = useTranslation();
@@ -229,8 +229,8 @@ export default function OrganizeDialog({
   const handleScan = useCallback(() => {
     const path = sourcePath.trim();
     if (!path) return;
-    scanMutation.mutate({ path, sourceId });
-  }, [sourcePath, sourceId, scanMutation]);
+    scanMutation.mutate({ path, sourceId: fileSystemId });
+  }, [sourcePath, fileSystemId, scanMutation]);
 
   const handleIdentifyItem = useCallback(
     (itemId: string) => {
@@ -371,7 +371,7 @@ export default function OrganizeDialog({
             <PathSelector
               value={effectivePath}
               onChange={setSourcePath}
-              sourceId={sourceId}
+              sourceId={fileSystemId}
               placeholder={t("media.organize.sourcePathPlaceholder")}
               disabled={isActive}
             />
