@@ -12,9 +12,9 @@ use tower_http::services::ServeFile;
 
 use crate::{
     db::repos::{
-        auth_repo::AuthRepo, media_file_repo::MediaFileRepo, subtitle_repo::SubtitleRepo,
+        auth_repo::AuthRepo, media::file_repo::MediaFileRepo, subtitle_repo::SubtitleRepo,
     },
-    handlers::media_stream::stream_driver_file,
+    handlers::media::stream::stream_driver_file,
     handlers::{err404, err500, err_resp},
     AppState,
 };
