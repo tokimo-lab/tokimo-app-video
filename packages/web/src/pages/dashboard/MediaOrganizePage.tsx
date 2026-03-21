@@ -355,7 +355,13 @@ export default function OrganizeDialog({
       footer={null}
       width="95vw"
       style={{ maxWidth: 1400, top: 24 }}
-      styles={{ body: { maxHeight: "calc(100vh - 120px)", overflowY: "auto", padding: "16px 24px" } }}
+      styles={{
+        body: {
+          maxHeight: "calc(100vh - 120px)",
+          overflowY: "auto",
+          padding: "16px 24px",
+        },
+      }}
       destroyOnClose
     >
       <div className="space-y-4">
@@ -422,7 +428,10 @@ export default function OrganizeDialog({
 
         {/* History button */}
         <div className="flex justify-end">
-          <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>
+          <Button
+            icon={<HistoryOutlined />}
+            onClick={() => setHistoryOpen(true)}
+          >
             {t("media.organize.history.title")}
           </Button>
         </div>

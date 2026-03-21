@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Deserialize;
-use sqlx::PgPool;
+use sea_orm::DatabaseConnection;
 use std::{net::SocketAddr, sync::Arc};
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
@@ -47,7 +47,7 @@ pub async fn stream_media_file(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
 ) -> Response {
-    let db = state.sources.db_pool();
+    let db = state.sources.db_conn();
     if let Err(err) = validate_stream_access(
         &db,
         request.headers().get(header::COOKIE),
@@ -154,7 +154,7 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
 }
 
 async fn validate_stream_access(
-    db: &PgPool,
+    db: &DatabaseConnection,
     cookie_header: Option<&axum::http::HeaderValue>,
     access_token: Option<&str>,
     access_token_header: Option<&axum::http::HeaderValue>,
