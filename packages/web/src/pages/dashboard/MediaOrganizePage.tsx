@@ -3,6 +3,7 @@
  * 从 FileSystemsPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Card,
@@ -25,7 +26,6 @@ import { api } from "../../generated/rust-api";
 import { useAdultMode, useMessage } from "../../hooks";
 import { useSseEvent } from "../../hooks/SseContext";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
-import { trpc } from "../../lib/trpc";
 
 export interface OrganizeDialogProps {
   open: boolean;
@@ -61,7 +61,7 @@ export default function OrganizeDialog({
 }: OrganizeDialogProps) {
   const { t } = useTranslation();
   const message = useMessage();
-  const utils = trpc.useUtils();
+  const qc = useQueryClient();
   const { session, isActive, isLoading: sessionLoading } = useOrganizeSession();
 
   // 源路径
@@ -99,7 +99,7 @@ export default function OrganizeDialog({
     useCallback(
       (event: WsJobEvent) => {
         if (event.type === "organize_item_update") {
-          utils.mediaOrganize.getSession.setData(undefined, (old) => {
+          api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
             if (!old) return old;
             return {
               ...old,
@@ -108,7 +108,7 @@ export default function OrganizeDialog({
             };
           });
         } else if (event.type === "organize_status_update") {
-          utils.mediaOrganize.getSession.setData(undefined, (old) => {
+          api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
             if (!old) return old;
             return {
               ...old,
@@ -119,27 +119,27 @@ export default function OrganizeDialog({
           // 终态时 invalidate 兜底（确保 report 等数据完整）
           const terminal = new Set(["identified", "done", "scanned"]);
           if (terminal.has(event.status)) {
-            utils.mediaOrganize.getSession.invalidate();
+            api.mediaOrganize.getSession.invalidate(qc);
           }
         }
       },
-      [utils],
+      [qc],
     ),
   );
 
   // ==================== Mutations ====================
 
-  const scanMutation = trpc.mediaOrganize.scan.useMutation({
+  const scanMutation = api.mediaOrganize.scan.useMutation({
     onSuccess: () => {
-      utils.mediaOrganize.getSession.invalidate();
+      api.mediaOrganize.getSession.invalidate(qc);
       message.success(t("media.organize.status.scanned"));
     },
     onError: (err) => message.error(err.message),
   });
 
-  const identifyItemMutation = trpc.mediaOrganize.identifyItem.useMutation({
+  const identifyItemMutation = api.mediaOrganize.identifyItem.useMutation({
     onSuccess: (updatedItem) => {
-      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+      api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
         if (!old) return old;
         return { ...old, items: updateItemInTree(old.items, updatedItem) };
       });
@@ -151,13 +151,13 @@ export default function OrganizeDialog({
     },
   });
 
-  const identifyAllMutation = trpc.mediaOrganize.identifyAll.useMutation({
+  const identifyAllMutation = api.mediaOrganize.identifyAll.useMutation({
     onError: (err) => message.error(err.message),
   });
 
-  const selectMatchMutation = trpc.mediaOrganize.selectMatch.useMutation({
+  const selectMatchMutation = api.mediaOrganize.selectMatch.useMutation({
     onSuccess: (updatedItem) => {
-      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+      api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
         if (!old) return old;
         return { ...old, items: updateItemInTree(old.items, updatedItem) };
       });
@@ -166,9 +166,9 @@ export default function OrganizeDialog({
   });
 
   const selectAdultMatchMutation =
-    trpc.mediaOrganize.selectAdultMatch.useMutation({
+    api.mediaOrganize.selectAdultMatch.useMutation({
       onSuccess: (updatedItem) => {
-        utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
           if (!old) return old;
           return { ...old, items: updateItemInTree(old.items, updatedItem) };
         });
@@ -177,9 +177,9 @@ export default function OrganizeDialog({
     });
 
   const selectMusicMatchMutation =
-    trpc.mediaOrganize.selectMusicMatch.useMutation({
+    api.mediaOrganize.selectMusicMatch.useMutation({
       onSuccess: (updatedItem) => {
-        utils.mediaOrganize.getSession.setData(undefined, (old) => {
+        api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
           if (!old) return old;
           return { ...old, items: updateItemInTree(old.items, updatedItem) };
         });
@@ -187,9 +187,9 @@ export default function OrganizeDialog({
       onError: (err) => message.error(err.message),
     });
 
-  const resetMatchMutation = trpc.mediaOrganize.resetMatch.useMutation({
+  const resetMatchMutation = api.mediaOrganize.resetMatch.useMutation({
     onSuccess: (updatedItem) => {
-      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+      api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
         if (!old) return old;
         return { ...old, items: updateItemInTree(old.items, updatedItem) };
       });
@@ -197,10 +197,10 @@ export default function OrganizeDialog({
     onError: (err) => message.error(err.message),
   });
 
-  const updateTargetMutation = trpc.mediaOrganize.updateTarget.useMutation({
+  const updateTargetMutation = api.mediaOrganize.updateTarget.useMutation({
     onSuccess: (updatedItem) => {
       // 直接更新缓存以立即反映变更，避免依赖 invalidate + refetch
-      utils.mediaOrganize.getSession.setData(undefined, (old) => {
+      api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
         if (!old) return old;
         return { ...old, items: updateItemInTree(old.items, updatedItem) };
       });
@@ -208,18 +208,18 @@ export default function OrganizeDialog({
     onError: (err) => message.error(err.message),
   });
 
-  const executeMutation = trpc.mediaOrganize.execute.useMutation({
+  const executeMutation = api.mediaOrganize.execute.useMutation({
     onError: (err) => message.error(err.message),
   });
 
-  const cancelMutation = trpc.mediaOrganize.cancel.useMutation({
-    onSuccess: () => utils.mediaOrganize.getSession.invalidate(),
+  const cancelMutation = api.mediaOrganize.cancel.useMutation({
+    onSuccess: () => api.mediaOrganize.getSession.invalidate(qc),
     onError: (err) => message.error(err.message),
   });
 
-  const clearMutation = trpc.mediaOrganize.clear.useMutation({
+  const clearMutation = api.mediaOrganize.clear.useMutation({
     onSuccess: () => {
-      utils.mediaOrganize.getSession.invalidate();
+      api.mediaOrganize.getSession.invalidate(qc);
       setSourcePath("");
     },
     onError: (err) => message.error(err.message),
