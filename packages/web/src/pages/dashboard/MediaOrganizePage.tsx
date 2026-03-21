@@ -371,7 +371,6 @@ export default function OrganizeDialog({
             <PathSelector
               value={effectivePath}
               onChange={setSourcePath}
-              sourceId={fileSystemId}
               placeholder={t("media.organize.sourcePathPlaceholder")}
               disabled={isActive}
             />
