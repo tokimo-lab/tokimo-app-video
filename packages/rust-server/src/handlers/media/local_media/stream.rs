@@ -90,7 +90,10 @@ pub async fn stream_media_file(
     }
 
     if target.source_type.as_deref() == Some("local") {
-        let response = match ServeFile::new(&target.path)
+        // media_files.path is relative to the source root; resolve the absolute
+        // path by prepending root_folder_path from the file_system config.
+        let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
+        let response = match ServeFile::new(&abs_path)
             .with_buf_chunk_size(LOCAL_MEDIA_STREAM_CHUNK_SIZE)
             .oneshot(request)
             .await
@@ -201,4 +204,20 @@ fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
         .and_then(|value| value.split('-').next())
         .and_then(|value| value.parse().ok())
         .unwrap_or(0)
+}
+
+/// Resolve the absolute local filesystem path by prepending the source's
+/// `root_folder_path` (or `root` / `path`) from its config JSON.
+fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) -> String {
+    let driver_root = config
+        .and_then(|c| {
+            c.get("root")
+                .or_else(|| c.get("root_folder_path"))
+                .or_else(|| c.get("path"))
+        })
+        .and_then(|v| v.as_str());
+    match driver_root {
+        Some(root) => format!("{}{}", root.trim_end_matches('/'), rel_path),
+        None => rel_path.to_string(),
+    }
 }

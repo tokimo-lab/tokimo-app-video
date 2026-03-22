@@ -9,7 +9,7 @@ use crate::AppState;
 
 pub async fn handle(
     db: &DatabaseConnection,
-    _state: &Arc<AppState>,
+    state: &Arc<AppState>,
     _job_id: Uuid,
     payload: &JsonValue,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
@@ -100,6 +100,21 @@ pub async fn handle(
 
     active.updated_at = Set(Some(now));
     active.update(db).await?;
+
+    // Broadcast event so frontend can refresh the person's page
+    let movie_id = payload
+        .get("movieId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let tv_show_id = payload
+        .get("tvShowId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let _ = state.event_tx.send(crate::queue::AppEvent::PersonScraped {
+        person_id: person_id.to_string(),
+        movie_id,
+        tv_show_id,
+    });
 
     info!("[tmdb_person_scrape] Updated person {person_id}");
     Ok(Some(json!({ "personId": person_id })))
