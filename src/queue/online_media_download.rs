@@ -574,6 +574,7 @@ async fn create_media_file_for_output(
         movie_id: Set(None),
         episode_id: Set(None),
         track_id: Set(None),
+        novel_id: Set(None),
         edition_id: Set(None),
         media_server_id: Set(None),
         ffprobe_raw: Set(None),
