@@ -39,10 +39,8 @@ pub async fn sync_subtitles(
             continue;
         }
 
-        // Subtitle filename must start with the video stem
-        if !entry
-            .to_ascii_lowercase()
-            .starts_with(&ctx.stem.to_ascii_lowercase())
+        // Subtitle filename must start with the video stem (case-sensitive, aligned with TS)
+        if !entry.starts_with(&ctx.stem)
         {
             continue;
         }

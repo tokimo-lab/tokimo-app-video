@@ -385,8 +385,9 @@ pub fn find_stem_poster_filename(dir_entries: &[String], stem: &str) -> Option<S
     let lower_stem = stem.to_ascii_lowercase();
     for ext in super::constants::POSTER_EXTENSIONS {
         let candidate = format!("{lower_stem}.{ext}");
-        if let Some(entry) = dir_entries.iter().find(|e| e.to_ascii_lowercase() == candidate) {
-            return Some(entry.clone());
+        // Return the lowercased candidate (aligned with TS which returns the candidate string)
+        if dir_entries.iter().any(|e| e.to_ascii_lowercase() == candidate) {
+            return Some(candidate);
         }
     }
     None

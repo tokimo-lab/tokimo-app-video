@@ -106,8 +106,5 @@ pub fn image_storage_ext(filename: &str) -> String {
         .next()
         .unwrap_or("jpg")
         .to_ascii_lowercase();
-    match ext.as_str() {
-        "png" | "webp" | "gif" | "bmp" | "avif" => ext,
-        _ => "jpg".to_string(),
-    }
+    if ext.is_empty() { "jpg".to_string() } else { ext }
 }
