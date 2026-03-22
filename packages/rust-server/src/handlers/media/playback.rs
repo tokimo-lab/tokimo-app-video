@@ -6,7 +6,7 @@ use axum::{
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use serde::Deserialize;
 use std::sync::Arc;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{file_systems, media_files, media_servers};
@@ -30,6 +30,10 @@ pub struct StreamUrlQuery {
     pub vc: String,
     #[serde(default)]
     pub vr: String,
+    #[serde(default)]
+    pub ac: String,
+    #[serde(default)]
+    pub containers: String,
     #[serde(rename = "h264Level")]
     pub h264_level: Option<String>,
     #[serde(rename = "hevcLevel")]
@@ -48,6 +52,33 @@ pub struct StreamUrlQuery {
     pub force_sdr: Option<String>,
     #[serde(rename = "audioIndex")]
     pub audio_index: Option<String>,
+    // Jellyfin-parity additions
+    #[serde(rename = "supportsAnamorphic")]
+    pub supports_anamorphic: Option<String>,
+    #[serde(rename = "hevcCodecTags")]
+    pub hevc_codec_tags: Option<String>,
+    #[serde(rename = "maxVideoBitDepth")]
+    pub max_video_bit_depth: Option<String>,
+    #[serde(rename = "maxAudioChannels")]
+    pub max_audio_channels: Option<String>,
+    #[serde(rename = "maxAudioBitrate")]
+    pub max_audio_bitrate: Option<String>,
+    #[serde(rename = "maxAudioSampleRate")]
+    pub max_audio_sample_rate: Option<String>,
+    #[serde(rename = "maxAudioBitDepth")]
+    pub max_audio_bit_depth: Option<String>,
+    /// Safari-specific: HEVC max framerate (60fps)
+    #[serde(rename = "hevcMaxFramerate")]
+    pub hevc_max_framerate: Option<String>,
+    /// AV1 max level (15-19, Jellyfin: browserDeviceProfile.js)
+    #[serde(rename = "av1Level")]
+    pub av1_level: Option<String>,
+    /// H.264 supported profiles ("high|main|baseline|constrained baseline|high 10")
+    #[serde(rename = "h264Profiles")]
+    pub h264_profiles: Option<String>,
+    /// HEVC supported profiles ("main|main 10")
+    #[serde(rename = "hevcProfiles")]
+    pub hevc_profiles: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -113,8 +144,29 @@ pub async fn stream_url(
         q.max_height.as_deref(),
         q.max_ref_frames.as_deref(),
         q.max_framerate.as_deref(),
+        q.supports_anamorphic.as_deref(),
+        q.hevc_codec_tags.as_deref(),
+        q.max_video_bit_depth.as_deref(),
+        q.max_audio_channels.as_deref(),
+        q.max_audio_bitrate.as_deref(),
+        q.max_audio_sample_rate.as_deref(),
+        q.max_audio_bit_depth.as_deref(),
+        q.hevc_max_framerate.as_deref(),
+        q.av1_level.as_deref(),
+        q.h264_profiles.as_deref(),
+        q.hevc_profiles.as_deref(),
     );
     let force_sdr = q.force_sdr.as_deref() == Some("1");
+    let client_containers: Vec<String> = if q.containers.is_empty() {
+        vec![]
+    } else {
+        q.containers.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect()
+    };
+    let client_audio_codecs: Vec<String> = if q.ac.is_empty() {
+        vec![]
+    } else {
+        q.ac.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect()
+    };
 
     // ── Media server (Plex / Emby / Jellyfin) ──────────────────────────────
     if let Some(ms) = media_server {
@@ -169,20 +221,32 @@ pub async fn stream_url(
         let audio_index = q.audio_index.as_deref().and_then(|s| s.parse::<usize>().ok()).unwrap_or(0);
         let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
 
-        let transcode_audio = transcode_decision::needs_audio_transcode(
+        let audio_reason = transcode_decision::audio_transcode_reason(
             selected_audio.map(|a| a.codec.as_str()),
+            selected_audio,
+            &client_profile,
+            &client_audio_codecs,
         );
+        let transcode_audio = audio_reason.is_some();
 
         let vs = VideoStreamInfo::from_json(file.video_streams.as_ref());
-        let transcode_video = transcode_decision::needs_video_transcode(
+        let video_reason = transcode_decision::video_transcode_reason(
             file.video_codec.as_deref(),
             file.video_profile.as_deref(),
             file.hdr_type.as_deref(),
-            &file.path,
             &vs,
             &client_profile,
         );
-        let transcode_container = transcode_decision::needs_container_transcode(&file.path);
+        let transcode_video = video_reason.is_some();
+        let container_reason = transcode_decision::container_transcode_reason(&file.path, &client_containers);
+        let transcode_container = container_reason.is_some();
+        let codec_tag_reason = transcode_decision::codec_tag_transcode_reason(
+            file.video_codec.as_deref(),
+            &vs,
+            &client_profile,
+            &file.path,
+        );
+        let transcode_codec_tag = codec_tag_reason.is_some();
 
         let is_hdr_content = transcode_decision::is_hdr(file.hdr_type.as_deref());
         let should_transcode_video = transcode_video || (force_sdr && is_hdr_content);
@@ -196,7 +260,45 @@ pub async fn stream_url(
             None
         };
 
-        if transcode_audio || should_transcode_video || transcode_container {
+        // Jellyfin three-way decision:
+        //   DirectPlay:    container + codecs + codec tag all supported by client
+        //   DirectStream:  container/audio/codec-tag issues but video ok → remux (-c:v copy)
+        //   Transcode:     video codec issues → re-encode
+        if transcode_audio || should_transcode_video || transcode_container || transcode_codec_tag {
+            // Collect all reasons for logging
+            let mut reasons = Vec::new();
+            if let Some(ref r) = container_reason {
+                reasons.push(r.clone());
+            }
+            if let Some(ref r) = codec_tag_reason {
+                reasons.push(r.clone());
+            }
+            if let Some(ref r) = video_reason {
+                reasons.push(r.clone());
+            } else if force_sdr && is_hdr_content {
+                reasons.push("ForceSDR (HDR→SDR tone mapping requested)".to_string());
+            }
+            if let Some(ref r) = audio_reason {
+                reasons.push(r.clone());
+            }
+
+            let play_method = if should_transcode_video {
+                "Transcode"
+            } else {
+                // DirectStream: container/audio/codec-tag issues only, video can be copied
+                "DirectStream (remux)"
+            };
+            info!(
+                "[Playback] {} → {play_method} | file={} | video={} profile={} hdr={} | audio={} | reasons=[{}]",
+                file.path,
+                file.id,
+                file.video_codec.as_deref().unwrap_or("?"),
+                file.video_profile.as_deref().unwrap_or("?"),
+                file.hdr_type.as_deref().unwrap_or("SDR"),
+                selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
+                reasons.join(", "),
+            );
+
             // Create HLS session
             match create_hls_session_internal(
                 &state,
@@ -216,6 +318,15 @@ pub async fn stream_url(
         }
 
         // Direct play
+        info!(
+            "[Playback] {} → DirectPlay | file={} | video={} profile={} hdr={} | audio={}",
+            file.path,
+            file.id,
+            file.video_codec.as_deref().unwrap_or("?"),
+            file.video_profile.as_deref().unwrap_or("?"),
+            file.hdr_type.as_deref().unwrap_or("SDR"),
+            selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
+        );
         let url = build_direct_stream_url(&file, &auth.user_id);
         return ok(StreamUrlDto { url }).into_response();
     }

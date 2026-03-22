@@ -41,6 +41,7 @@ pub async fn handle(
         base_url: None,
         image_base_url: None,
         cache_ttl: None,
+        http_client: state.http_client.clone(),
     });
 
     let tmdb_id_num: i64 = if let Some(tmdb_id) = tmdb_id {
