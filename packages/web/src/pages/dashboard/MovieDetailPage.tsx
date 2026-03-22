@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
-import type { MediaFileOutput } from "@tokiomo/types";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { MediaFileOutput } from "@/types";
 import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
 import { usePlayer } from "../../contexts/PlayerContext";
 import { api } from "../../generated/rust-api";

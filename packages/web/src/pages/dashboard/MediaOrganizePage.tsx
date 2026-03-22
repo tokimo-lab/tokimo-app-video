@@ -11,9 +11,9 @@ import {
   Modal,
   ScanOutlined,
 } from "@tokiomo/components";
-import type { OrganizeItem, WsJobEvent } from "@tokiomo/types";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { OrganizeItem, WsJobEvent } from "@/types";
 import {
   ManualMatchModal,
   OrganizeItemList,

@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
-import type { EpisodeOutput } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import type { EpisodeOutput } from "@/types";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt } from "../../hooks";
 import { resolveStoragePath } from "../../lib/storage-url";
