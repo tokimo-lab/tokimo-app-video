@@ -6,7 +6,8 @@ use serde_json::{json, Value as JsonValue};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::db::entities::download_records;
+use crate::db::entities::{download_records, file_systems, media_files};
+use crate::db::repos::job_repo::JobRepo;
 use crate::AppState;
 
 type HandlerResult = Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>>;
@@ -60,13 +61,36 @@ pub async fn handle(
         .order_by_asc(library_file_systems::Column::SortOrder)
         .all(db)
         .await?;
+    if lib_sources.is_empty() {
+        update_record_failed(db, record_uuid, "该媒体库未配置文件系统源，请先在媒体库设置中添加至少一个文件系统路径").await;
+        return Err("该媒体库未配置文件系统源".into());
+    }
     let default_source = lib_sources
         .iter()
         .find(|s| s.is_default_download)
         .or(lib_sources.first());
+    let download_source_id = default_source.map(|s| s.source_id);
     let organize_target_path = default_source
         .map(|s| s.root_path.clone())
-        .unwrap_or_else(|| "/media".into());
+        .unwrap_or_default();
+
+    // Fetch file system config (root_folder_path) for computing relative paths.
+    let fs_driver_root = if let Some(sid) = download_source_id {
+        file_systems::Entity::find_by_id(sid)
+            .one(db)
+            .await?
+            .and_then(|fs| {
+                fs.config.as_ref().and_then(|c| {
+                    c.get("root")
+                        .or_else(|| c.get("root_folder_path"))
+                        .or_else(|| c.get("path"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.trim_end_matches('/').to_string())
+                })
+            })
+    } else {
+        None
+    };
 
     // Parse analysis from payload.
     let analysis = payload.get("analysis").cloned().unwrap_or(json!({}));
@@ -353,6 +377,34 @@ pub async fn handle(
                 done_update.updated_at = Set(Some(done_now));
                 done_update.update(db).await?;
 
+                // Create media_file records and dispatch ffprobe jobs for each media file.
+                if let Some(source_id) = download_source_id {
+                    for output in &resp.output_files {
+                        if let Some(media_file_id) = create_media_file_for_output(
+                            db,
+                            output,
+                            source_id,
+                            fs_driver_root.as_deref(),
+                        )
+                        .await
+                        {
+                            if let Err(e) = JobRepo::create_job(
+                                db,
+                                "media_file_ffprobe",
+                                json!({ "mediaFileId": media_file_id.to_string() }),
+                                None,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    %media_file_id,
+                                    "Failed to dispatch ffprobe job: {e}"
+                                );
+                            }
+                        }
+                    }
+                }
+
                 return Ok(Some(json!({
                     "taskId": task_id,
                     "targetPath": resp.target_path,
@@ -415,5 +467,130 @@ async fn update_record_failed(db: &DatabaseConnection, record_id: Uuid, message:
             %record_id,
             "Failed to update download record to failed state: {e}"
         );
+    }
+}
+
+const MEDIA_EXTENSIONS: &[&str] = &[
+    "mp4", "m4v", "mkv", "avi", "wmv", "flv", "mov", "webm", "ts", "m2ts", "mts", "mpg", "mpeg",
+    "3gp", "rmvb", "rm", "mp3", "flac", "wav", "aac", "ogg", "opus", "m4a", "wma", "alac",
+];
+
+fn is_media_file(path: &str) -> bool {
+    let ext = path
+        .rsplit('.')
+        .next()
+        .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    MEDIA_EXTENSIONS.contains(&ext.as_str())
+}
+
+fn guess_mime(filename: &str) -> Option<String> {
+    let ext = filename.rsplit('.').next()?.to_ascii_lowercase();
+    let mime = match ext.as_str() {
+        "mp4" | "m4v" => "video/mp4",
+        "mkv" => "video/x-matroska",
+        "avi" => "video/x-msvideo",
+        "wmv" => "video/x-ms-wmv",
+        "flv" => "video/x-flv",
+        "mov" => "video/quicktime",
+        "webm" => "video/webm",
+        "ts" | "m2ts" | "mts" => "video/mp2t",
+        "mpg" | "mpeg" => "video/mpeg",
+        "3gp" => "video/3gpp",
+        "rmvb" | "rm" => "application/vnd.rn-realmedia-vbr",
+        "mp3" => "audio/mpeg",
+        "flac" => "audio/flac",
+        "wav" => "audio/wav",
+        "aac" => "audio/aac",
+        "ogg" | "opus" => "audio/ogg",
+        "m4a" => "audio/mp4",
+        "wma" => "audio/x-ms-wma",
+        "alac" => "audio/x-alac",
+        _ => return None,
+    };
+    Some(mime.to_string())
+}
+
+/// Converts an absolute output file path to a VFS-relative path by stripping
+/// the file system's driver root (e.g. `root_folder_path`).
+fn to_relative_path(abs_path: &str, driver_root: Option<&str>) -> String {
+    if let Some(root) = driver_root {
+        if abs_path.starts_with(root) && abs_path.len() > root.len() {
+            let rel = &abs_path[root.len()..];
+            if rel.starts_with('/') {
+                return rel.to_string();
+            }
+        }
+    }
+    abs_path.to_string()
+}
+
+/// Creates a `media_files` record for one downloaded output file. Returns the
+/// newly created media file ID, or `None` if the file is not a media file or
+/// the insert fails.
+async fn create_media_file_for_output(
+    db: &DatabaseConnection,
+    output: &rust_online_media_ingest::models::OutputFile,
+    source_id: Uuid,
+    driver_root: Option<&str>,
+) -> Option<Uuid> {
+    if !is_media_file(&output.path) {
+        return None;
+    }
+
+    let rel_path = to_relative_path(&output.path, driver_root);
+    let filename = output
+        .path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&output.path)
+        .to_string();
+    let size = output.size_bytes.map(|s| s as i64);
+    let mime = guess_mime(&filename);
+    let media_file_id = Uuid::new_v4();
+    let now = chrono::Utc::now().fixed_offset();
+
+    let model = media_files::ActiveModel {
+        id: Set(media_file_id),
+        source_id: Set(Some(source_id)),
+        path: Set(rel_path.clone()),
+        filename: Set(filename.clone()),
+        size: Set(size),
+        mime_type: Set(mime),
+        duration: Set(None),
+        checksum: Set(None),
+        video_codec: Set(None),
+        video_width: Set(None),
+        video_height: Set(None),
+        video_profile: Set(None),
+        hdr_type: Set(None),
+        video_streams: Set(None),
+        audio_streams: Set(None),
+        stream_key: Set(None),
+        is_available: Set(true),
+        scanned_at: Set(None),
+        created_at: Set(Some(now)),
+        updated_at: Set(Some(now)),
+        movie_id: Set(None),
+        episode_id: Set(None),
+        track_id: Set(None),
+        edition_id: Set(None),
+        media_server_id: Set(None),
+        ffprobe_raw: Set(None),
+    };
+
+    match media_files::Entity::insert(model).exec(db).await {
+        Ok(_) => {
+            info!(
+                %media_file_id,
+                %filename,
+                "Created media file record for online media download"
+            );
+            Some(media_file_id)
+        }
+        Err(e) => {
+            error!(%filename, "Failed to create media file record: {e}");
+            None
+        }
     }
 }
