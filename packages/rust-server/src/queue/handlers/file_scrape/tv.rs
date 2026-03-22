@@ -13,7 +13,7 @@ use crate::db::repos::job_repo::JobRepo;
 use crate::AppState;
 
 use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people};
+use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
 use super::nfo_parser::NfoInfo;
 
 pub struct TvResult {
@@ -82,27 +82,31 @@ pub async fn find_or_create_tv(
             update.exec(db).await?;
         }
 
-        // Genres + cast (TMDB preferred, NFO fallback)
+        // Genres (TMDB preferred, NFO fallback)
         if let Some(detail) = tmdb_detail {
             if let Some(genres) = &detail.genres {
                 sync_genres(db, genres, None, Some(tv_show_id)).await?;
-            }
-            if let Some(cast) = &detail.cast {
-                sync_people(db, cast, None, Some(tv_show_id)).await?;
             }
         } else if let Some(nfo) = nfo {
             if !nfo.genres.is_empty() {
                 sync_genres_from_names(db, &nfo.genres, None, Some(tv_show_id)).await?;
             }
-            if !nfo.actors.is_empty() {
-                super::movie::sync_nfo_actors(db, &nfo.actors, None, Some(tv_show_id)).await?;
-            }
         }
-        // Directors from NFO (always sync, even when TMDB cast is available)
-        if let Some(nfo) = nfo {
-            if !nfo.directors.is_empty() {
-                super::movie::sync_nfo_directors(db, &nfo.directors, None, Some(tv_show_id)).await?;
-            }
+        // Cast + directors: unified sync (aligned with TS syncPeopleForMedia)
+        {
+            let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail {
+                detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
+            } else if let Some(nfo) = nfo {
+                nfo.actors.iter().map(|a| CastMember {
+                    name: a.name.clone(),
+                    role: a.role.clone(),
+                    thumb: a.thumb.clone(),
+                }).collect()
+            } else {
+                vec![]
+            };
+            let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
+            sync_people_for_media(db, &cast, &directors, None, Some(tv_show_id)).await?;
         }
 
         upload_extra_art(db, state, None, Some(tv_show_id), &artwork.extra_art).await?;

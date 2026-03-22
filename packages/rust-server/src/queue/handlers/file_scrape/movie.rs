@@ -8,11 +8,11 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, media_credits, movies, persons};
+use crate::db::entities::{download_records, movies};
 use crate::AppState;
 
 use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use super::common::{dispatch_person_tmdb_scrape, is_unique_violation, sync_genres, sync_genres_from_names, sync_people};
+use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
 use super::nfo_parser::NfoInfo;
 
 pub struct MovieResult {
@@ -107,21 +107,22 @@ pub async fn find_or_create_movie(
         }
     }
 
-    // Sync cast/people (TMDB > NFO actors + NFO directors)
-    if let Some(detail) = tmdb_detail {
-        if let Some(cast) = &detail.cast {
-            sync_people(db, cast, Some(movie_id), None).await?;
-        }
-    } else if let Some(nfo) = nfo {
-        if !nfo.actors.is_empty() {
-            sync_nfo_actors(db, &nfo.actors, Some(movie_id), None).await?;
-        }
-    }
-    // Directors from NFO (always sync, even when TMDB cast is available)
-    if let Some(nfo) = nfo {
-        if !nfo.directors.is_empty() {
-            sync_nfo_directors(db, &nfo.directors, Some(movie_id), None).await?;
-        }
+    // Sync cast/people: unified approach (TMDB cast preferred, NFO actors fallback + NFO directors)
+    // Aligned with TS: single syncPeopleForMedia call with aggregated cast + directors
+    {
+        let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail {
+            detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
+        } else if let Some(nfo) = nfo {
+            nfo.actors.iter().map(|a| CastMember {
+                name: a.name.clone(),
+                role: a.role.clone(),
+                thumb: a.thumb.clone(),
+            }).collect()
+        } else {
+            vec![]
+        };
+        let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
+        sync_people_for_media(db, &cast, &directors, Some(movie_id), None).await?;
     }
 
     // Upload extra art
@@ -277,84 +278,6 @@ async fn create_movie_record(
     }
 }
 
-/// Sync NFO actors (without TMDB IDs) — creates persons by name.
-/// Aligned with TS: find by name only (no tmdb_id filter), dispatch person scrape.
-pub async fn sync_nfo_actors(
-    db: &DatabaseConnection,
-    actors: &[super::nfo_parser::NfoActor],
-    movie_id: Option<Uuid>,
-    tv_show_id: Option<Uuid>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    for (i, actor) in actors.iter().enumerate() {
-        let person = persons::Entity::find()
-            .filter(persons::Column::Name.eq(&actor.name))
-            .one(db)
-            .await?;
-
-        let (person_id, is_new) = match person {
-            Some(p) => (p.id, false),
-            None => {
-                let id = Uuid::new_v4();
-                let now = chrono::Utc::now().fixed_offset();
-                let active = persons::ActiveModel {
-                    id: Set(id),
-                    name: Set(actor.name.clone()),
-                    original_name: Set(None), aliases: Set(None), gender: Set(None),
-                    birthday: Set(None), birthplace: Set(None),
-                    profile_path: Set(actor.thumb.clone()), profile_key: Set(None),
-                    biography: Set(None), deathday: Set(None), known_for_dept: Set(None),
-                    popularity: Set(None), tmdb_id: Set(None), imdb_id: Set(None),
-                    javbus_id: Set(None), javdb_id: Set(None), tpdb_id: Set(None),
-                    mb_artist_id: Set(None), metadata: Set(None),
-                    created_at: Set(Some(now)), updated_at: Set(Some(now)),
-                };
-                match persons::Entity::insert(active).exec(db).await {
-                    Ok(_) => (id, true),
-                    Err(e) if is_unique_violation(&e) => {
-                        let found = persons::Entity::find()
-                            .filter(persons::Column::Name.eq(&actor.name))
-                            .one(db).await?
-                            .map(|p| p.id).ok_or(e)?;
-                        (found, false)
-                    }
-                    Err(e) => return Err(e.into()),
-                }
-            }
-        };
-
-        // Dispatch tmdb_person_scrape for new NFO-only persons
-        if is_new {
-            let _ = dispatch_person_tmdb_scrape(db, person_id, movie_id, tv_show_id).await;
-        }
-
-        // Check if credit already exists
-        let mut q = media_credits::Entity::find()
-            .filter(media_credits::Column::PersonId.eq(person_id))
-            .filter(media_credits::Column::Role.eq("actor"));
-        if let Some(mid) = movie_id { q = q.filter(media_credits::Column::MovieId.eq(mid)); }
-        else if let Some(tid) = tv_show_id { q = q.filter(media_credits::Column::TvShowId.eq(tid)); }
-        if q.one(db).await?.is_some() { continue; }
-
-        let credit = media_credits::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            person_id: Set(person_id),
-            role: Set("actor".to_string()),
-            character: Set(actor.role.clone()),
-            sort_order: Set(i as i32),
-            movie_id: Set(movie_id),
-            tv_show_id: Set(tv_show_id),
-            episode_id: Set(None),
-            album_id: Set(None),
-        };
-        match media_credits::Entity::insert(credit).exec(db).await {
-            Ok(_) => {}
-            Err(e) if is_unique_violation(&e) => {}
-            Err(e) => return Err(e.into()),
-        }
-    }
-    Ok(())
-}
-
 /// Fetch online_video metadata from download_records.
 pub async fn fetch_online_record(
     db: &DatabaseConnection,
@@ -371,86 +294,6 @@ pub async fn fetch_online_record(
         .one(db)
         .await?;
     Ok(record)
-}
-
-/// Sync NFO directors as "director" role credits.
-/// Aligned with TS: dispatch person scrape for new persons.
-pub async fn sync_nfo_directors(
-    db: &DatabaseConnection,
-    directors: &[String],
-    movie_id: Option<Uuid>,
-    tv_show_id: Option<Uuid>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    for (i, name) in directors.iter().enumerate() {
-        let trimmed = name.trim();
-        if trimmed.is_empty() { continue; }
-
-        let person = persons::Entity::find()
-            .filter(persons::Column::Name.eq(trimmed))
-            .one(db)
-            .await?;
-
-        let (person_id, is_new) = match person {
-            Some(p) => (p.id, false),
-            None => {
-                let id = Uuid::new_v4();
-                let now = chrono::Utc::now().fixed_offset();
-                let active = persons::ActiveModel {
-                    id: Set(id),
-                    name: Set(trimmed.to_string()),
-                    original_name: Set(None), aliases: Set(None), gender: Set(None),
-                    birthday: Set(None), birthplace: Set(None),
-                    profile_path: Set(None), profile_key: Set(None),
-                    biography: Set(None), deathday: Set(None), known_for_dept: Set(Some("Directing".to_string())),
-                    popularity: Set(None), tmdb_id: Set(None), imdb_id: Set(None),
-                    javbus_id: Set(None), javdb_id: Set(None), tpdb_id: Set(None),
-                    mb_artist_id: Set(None), metadata: Set(None),
-                    created_at: Set(Some(now)), updated_at: Set(Some(now)),
-                };
-                match persons::Entity::insert(active).exec(db).await {
-                    Ok(_) => (id, true),
-                    Err(e) if is_unique_violation(&e) => {
-                        let found = persons::Entity::find()
-                            .filter(persons::Column::Name.eq(trimmed))
-                            .one(db).await?
-                            .map(|p| p.id).ok_or(e)?;
-                        (found, false)
-                    }
-                    Err(e) => return Err(e.into()),
-                }
-            }
-        };
-
-        if is_new {
-            let _ = dispatch_person_tmdb_scrape(db, person_id, movie_id, tv_show_id).await;
-        }
-
-        // Check if director credit already exists
-        let mut q = media_credits::Entity::find()
-            .filter(media_credits::Column::PersonId.eq(person_id))
-            .filter(media_credits::Column::Role.eq("director"));
-        if let Some(mid) = movie_id { q = q.filter(media_credits::Column::MovieId.eq(mid)); }
-        else if let Some(tid) = tv_show_id { q = q.filter(media_credits::Column::TvShowId.eq(tid)); }
-        if q.one(db).await?.is_some() { continue; }
-
-        let credit = media_credits::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            person_id: Set(person_id),
-            role: Set("director".to_string()),
-            character: Set(None),
-            sort_order: Set(i as i32),
-            movie_id: Set(movie_id),
-            tv_show_id: Set(tv_show_id),
-            episode_id: Set(None),
-            album_id: Set(None),
-        };
-        match media_credits::Entity::insert(credit).exec(db).await {
-            Ok(_) => {}
-            Err(e) if is_unique_violation(&e) => {}
-            Err(e) => return Err(e.into()),
-        }
-    }
-    Ok(())
 }
 
 /// Download a remote thumbnail URL and upload to S3 as poster.
