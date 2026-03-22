@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
@@ -13,7 +13,7 @@ use crate::db::entities::{file_systems, media_files, media_servers};
 use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
 use crate::db::repos::media::PlaybackRepo;
 use crate::db::repos::settings_repo::SettingsRepo;
-use crate::handlers::user::extract_session_auth;
+use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::handlers::media::local_media::resolve_local_path;
 use crate::scheduler::tasks::persist_playback_progress;
@@ -74,13 +74,8 @@ pub async fn stream_url(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
     Query(q): Query<StreamUrlQuery>,
-    headers: HeaderMap,
+    AuthUser(auth): AuthUser,
 ) -> Response {
-    let auth = match extract_session_auth(&state.db, &headers).await {
-        Ok(a) => a,
-        Err(e) => return e.into_response(),
-    };
-
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
         Err(_) => return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid file ID".into()).into_response(),
@@ -327,11 +322,8 @@ async fn create_hls_session_internal(
 pub async fn stop_session_delete(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
-    headers: HeaderMap,
+    AuthUser(_): AuthUser,
 ) -> Response {
-    if let Err(e) = extract_session_auth(&state.db, &headers).await {
-        return e.into_response();
-    }
     stop_sessions_by_file(&state, &file_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
@@ -364,13 +356,8 @@ async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
 pub async fn resume_position(
     State(state): State<Arc<AppState>>,
     Query(q): Query<ResumePositionQuery>,
-    headers: HeaderMap,
+    AuthUser(auth): AuthUser,
 ) -> Response {
-    let auth = match extract_session_auth(&state.db, &headers).await {
-        Ok(a) => a,
-        Err(e) => return e.into_response(),
-    };
-
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => return err_resp::<ResumePositionDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response(),
@@ -389,13 +376,8 @@ pub async fn resume_position(
 pub async fn watch_history(
     State(state): State<Arc<AppState>>,
     Query(q): Query<WatchHistoryQuery>,
-    headers: HeaderMap,
+    AuthUser(auth): AuthUser,
 ) -> Response {
-    let auth = match extract_session_auth(&state.db, &headers).await {
-        Ok(a) => a,
-        Err(e) => return e.into_response(),
-    };
-
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => return err_resp::<Vec<WatchHistoryItemDto>>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response(),

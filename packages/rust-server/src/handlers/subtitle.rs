@@ -1,3 +1,4 @@
+use crate::db::ApiDateTimeExt;
 use std::{convert::Infallible, env, sync::Arc};
 
 use async_stream::stream;
@@ -59,7 +60,10 @@ pub async fn get_file_subtitles(
     Path(file_id): Path<String>,
 ) -> Result<
     Json<ApiResponse<Vec<SubtitleRecord>>>,
-    (axum::http::StatusCode, Json<ApiResponse<Vec<SubtitleRecord>>>),
+    (
+        axum::http::StatusCode,
+        Json<ApiResponse<Vec<SubtitleRecord>>>,
+    ),
 > {
     let base = storage_base_url();
     match SubtitleRepo::get_all_file_subtitles(&state.db, &file_id, &base).await {
@@ -185,7 +189,7 @@ pub async fn download(
         stream_index: None,
         storage_url,
         source: row.source,
-        created_at: row.created_at.to_rfc3339(),
+        created_at: row.created_at.to_api_datetime(),
     };
 
     Ok(ok(record))
@@ -209,8 +213,4 @@ pub async fn delete_subtitle(
     }
 }
 
-
 // ── Download request wrapper (adds file_id + aggregator routing fields) ───────
-
-
-
