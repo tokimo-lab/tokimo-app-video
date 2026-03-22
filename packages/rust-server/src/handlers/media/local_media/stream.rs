@@ -25,7 +25,10 @@ use rust_subtitle::{
 };
 
 const LOCAL_MEDIA_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
-const REMOTE_FS_SOURCE_TYPES: [&str; 6] = ["smb", "nfs", "webdav", "ftp", "sftp", "s3"];
+const REMOTE_FS_SOURCE_TYPES: [&str; 10] = [
+    "smb", "nfs", "webdav", "ftp", "sftp", "s3",
+    "115cloud", "aliyundrive", "baidu_netdisk", "quark",
+];
 const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
 
 #[derive(Deserialize)]
