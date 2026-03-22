@@ -120,7 +120,7 @@ pub async fn stream_media_file(
         if tap_tx.is_some() {
             if let Some(source_id) = target.source_id.as_deref() {
                 if let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
-                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx)
+                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id.clone()))
                         .await;
                 }
             }
@@ -158,7 +158,7 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
+    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id)).await
 }
 
 fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Option<String> {
@@ -233,4 +233,16 @@ pub(crate) fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Val
         Some(root) => format!("{}{}", root.trim_end_matches('/'), rel_path),
         None => rel_path.to_string(),
     }
+}
+
+/// Returns current stream speed (bytes/sec) for a media file.
+pub async fn stream_stats_handler(
+    Path(file_id): Path<String>,
+) -> axum::Json<serde_json::Value> {
+    let speed = crate::stream_stats::get_speed(&file_id);
+    let bytes_sent = crate::stream_stats::get_bytes_sent(&file_id);
+    axum::Json(serde_json::json!({
+        "speed": speed,
+        "bytesSent": bytes_sent
+    }))
 }
