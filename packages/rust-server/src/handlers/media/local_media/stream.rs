@@ -208,7 +208,7 @@ fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
 
 /// Resolve the absolute local filesystem path by prepending the source's
 /// `root_folder_path` (or `root` / `path`) from its config JSON.
-fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) -> String {
+pub(crate) fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) -> String {
     let driver_root = config
         .and_then(|c| {
             c.get("root")

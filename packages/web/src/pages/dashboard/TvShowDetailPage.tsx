@@ -198,7 +198,7 @@ export default function TvShowDetailPage() {
 
   useEffect(() => {
     if (show?.backdropPath) {
-      setBackgroundArt(show.backdropPath);
+      setBackgroundArt(resolveStoragePath(show.backdropPath));
     }
     return () => {
       setBackgroundArt(null);

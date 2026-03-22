@@ -132,7 +132,7 @@ export default function MovieDetailPage() {
   const { setBackgroundArt } = useBackgroundArt();
   useEffect(() => {
     if (movie?.backdropPath) {
-      setBackgroundArt(movie.backdropPath);
+      setBackgroundArt(resolveStoragePath(movie.backdropPath));
     }
     return () => {
       setBackgroundArt(null);

@@ -15,6 +15,7 @@ use crate::db::repos::media::PlaybackRepo;
 use crate::db::repos::settings_repo::SettingsRepo;
 use crate::handlers::user::extract_session_auth;
 use crate::handlers::{err_resp, ok};
+use crate::handlers::media::local_media::resolve_local_path;
 use crate::scheduler::tasks::persist_playback_progress;
 use crate::services::transcode_decision::{
     self, ClientProfile, VideoStreamInfo,
@@ -212,6 +213,7 @@ pub async fn stream_url(
                 tonemap_opts,
                 &vs,
                 source_type == "local",
+                source.config.as_ref(),
                 &auth.user_id,
             ).await {
                 Ok(url) => return ok(StreamUrlDto { url }).into_response(),
@@ -256,6 +258,7 @@ async fn create_hls_session_internal(
     tonemap: Option<TonemapOptions>,
     vs: &VideoStreamInfo,
     is_local: bool,
+    source_config: Option<&serde_json::Value>,
     user_id: &str,
 ) -> Result<String, String> {
     // Get internal stream access token
@@ -272,7 +275,11 @@ async fn create_hls_session_internal(
         input_url.push_str(&format!("?accessToken={}", urlencoding::encode(token)));
     }
 
-    let local_path = if is_local { Some(file.path.clone()) } else { None };
+    let local_path = if is_local {
+        Some(resolve_local_path(&file.path, source_config))
+    } else {
+        None
+    };
 
     let hls_audio_streams: Vec<HlsAudioStream> = audio_streams
         .iter()
