@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
+import { getGenreName } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { EpisodeOutput } from "@/types";
 import { api } from "../../generated/rust-api";
-import { useBackgroundArt } from "../../hooks";
+import { useBackgroundArt, useLang } from "../../hooks";
 import { resolveStoragePath } from "../../lib/storage-url";
 import {
   CastRow,
@@ -138,6 +139,7 @@ export default function TvShowDetailPage() {
   const { id, tvId } = useParams<{ id: string; tvId: string }>();
   const navigate = useNavigate();
   const { setBackgroundArt } = useBackgroundArt();
+  const { lang } = useLang();
 
   const { data: show, isLoading } = api.mediaLibrary.getTvShowDetail.useQuery(
     { id: tvId! },
@@ -274,7 +276,7 @@ export default function TvShowDetailPage() {
                       key={g.id}
                       className="rounded-full bg-gray-100 dark:bg-white/10 px-2 py-px text-[11px] text-gray-700 dark:text-gray-300"
                     >
-                      {g.name}
+                      {getGenreName(g.tmdbGenreId, lang) || g.name}
                     </span>
                   ))}
                 </div>
