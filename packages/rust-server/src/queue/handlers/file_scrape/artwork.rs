@@ -46,12 +46,10 @@ pub async fn dispatch_tmdb_image_job(
     entity_id: &str,
     field: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let size = if field == "backdropPath" { "w1280" } else { "w500" };
-    let url = format!("https://image.tmdb.org/t/p/{size}{tmdb_path}");
-    let storage_key = format!(
-        "tmdb-images/{entity}s/{entity_id}/{}.jpg",
-        if field == "backdropPath" { "backdrop" } else { "poster" }
-    );
+    // Aligned with TS: always w500, key = tmdb-images/{entity}/{entityId}/{field}.{ext}
+    let url = format!("https://image.tmdb.org/t/p/w500{tmdb_path}");
+    let ext = tmdb_path.rsplit('.').next().unwrap_or("jpg");
+    let storage_key = format!("tmdb-images/{entity}/{entity_id}/{field}.{ext}");
     JobRepo::create_job(
         db,
         "image_upload",
