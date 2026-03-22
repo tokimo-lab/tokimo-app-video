@@ -13,7 +13,7 @@ use crate::db::repos::job_repo::JobRepo;
 use crate::AppState;
 
 use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use super::common::{is_unique_violation, sync_genres, sync_people};
+use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people};
 use super::nfo_parser::NfoInfo;
 
 pub struct TvResult {
@@ -82,7 +82,7 @@ pub async fn find_or_create_tv(
             update.exec(db).await?;
         }
 
-        // Genres + cast
+        // Genres + cast (TMDB preferred, NFO fallback)
         if let Some(detail) = tmdb_detail {
             if let Some(genres) = &detail.genres {
                 sync_genres(db, genres, None, Some(tv_show_id)).await?;
@@ -91,6 +91,9 @@ pub async fn find_or_create_tv(
                 sync_people(db, cast, None, Some(tv_show_id)).await?;
             }
         } else if let Some(nfo) = nfo {
+            if !nfo.genres.is_empty() {
+                sync_genres_from_names(db, &nfo.genres, None, Some(tv_show_id)).await?;
+            }
             if !nfo.actors.is_empty() {
                 super::movie::sync_nfo_actors(db, &nfo.actors, None, Some(tv_show_id)).await?;
             }

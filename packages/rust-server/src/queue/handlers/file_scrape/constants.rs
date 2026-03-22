@@ -43,6 +43,7 @@ pub const EXTRA_ART: &[ExtraArtDef] = &[
 ];
 
 /// Map file extension to MIME type.
+/// Falls back to `video/{ext}` for unknown video extensions (aligned with TS).
 pub fn guess_mime(filename: &str) -> Option<String> {
     let ext = filename.rsplit('.').next()?.to_ascii_lowercase();
     let mime = match ext.as_str() {
@@ -56,7 +57,8 @@ pub fn guess_mime(filename: &str) -> Option<String> {
         "ts" | "m2ts" | "mts" => "video/mp2t",
         "mpg" | "mpeg" => "video/mpeg",
         "3gp" => "video/3gpp",
-        "rmvb" | "rm" => "application/vnd.rn-realmedia-vbr",
+        "rmvb" => "video/vnd.rn-realvideo",
+        "rm" => "application/vnd.rn-realmedia-vbr",
         "vob" => "video/dvd",
         "m4a" => "audio/mp4",
         "mp3" => "audio/mpeg",
@@ -66,7 +68,7 @@ pub fn guess_mime(filename: &str) -> Option<String> {
         "wav" => "audio/wav",
         "aac" => "audio/aac",
         "wma" => "audio/x-ms-wma",
-        _ => return None,
+        _ => return Some(format!("video/{ext}")),
     };
     Some(mime.to_string())
 }
