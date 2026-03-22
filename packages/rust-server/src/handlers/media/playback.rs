@@ -6,7 +6,7 @@ use axum::{
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use serde::Deserialize;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{file_systems, media_files, media_servers};
@@ -340,7 +340,7 @@ pub async fn stop_session_beacon(
 
 /// Shared logic: stop HLS sessions for a file and persist progress.
 async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
-    info!("[Playback] stop-session request for file {}", file_id);
+    debug!("[Playback] stop-session request for file {}", file_id);
     let snapshots = state.hls_manager.playback_snapshots().await;
     let file_snapshots: Vec<_> = snapshots.into_iter().filter(|s| s.file_id == file_id).collect();
     state.hls_manager.stop_session_for_file(file_id).await;

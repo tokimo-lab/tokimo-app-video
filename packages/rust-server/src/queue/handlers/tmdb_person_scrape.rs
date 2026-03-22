@@ -2,7 +2,7 @@ use rust_client_api::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
 use sea_orm::DatabaseConnection;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -47,7 +47,7 @@ pub async fn handle(
     });
 
     let tmdb_id_num: i64 = tmdb_id.parse()?;
-    info!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id}");
+    debug!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id}");
     let detail = client.get_person_detail(tmdb_id_num).await?;
 
     let now = chrono::Utc::now().fixed_offset();
@@ -116,7 +116,7 @@ pub async fn handle(
         tv_show_id,
     });
 
-    info!("[tmdb_person_scrape] Updated person {person_id}");
+    debug!("[tmdb_person_scrape] Updated person {person_id}");
     Ok(Some(json!({ "personId": person_id })))
 }
 

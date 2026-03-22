@@ -7,7 +7,7 @@ use axum::{
 };
 use rust_hls::{CreateSessionRequest, HlsSessionInfo};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 
 use crate::handlers::{err_resp, ok, ApiResponse};
 use crate::scheduler::tasks::persist_playback_progress;
@@ -32,7 +32,7 @@ pub async fn stop_session(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
 ) -> Response {
-    info!("[HLS] stop request for session {}", session_id);
+    debug!("[HLS] stop request for session {}", session_id);
     if let Some(snap) = state.hls_manager.stop_session(&session_id).await {
         if let Err(e) = persist_playback_progress(&state.db, &snap).await {
             warn!("[HLS] failed to persist final progress for {}: {}", session_id, e);
@@ -46,7 +46,7 @@ pub async fn stop_sessions_for_file(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
 ) -> Response {
-    info!("[HLS] stop-by-file request for file {}", file_id);
+    debug!("[HLS] stop-by-file request for file {}", file_id);
     // Get snapshots before stopping sessions
     let snapshots = state.hls_manager.playback_snapshots().await;
     let file_snapshots: Vec<_> = snapshots.into_iter().filter(|s| s.file_id == file_id).collect();
