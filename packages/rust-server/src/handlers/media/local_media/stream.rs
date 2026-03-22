@@ -89,9 +89,40 @@ pub async fn stream_media_file(
         .into_response();
     }
 
+    // Build subtitle tap for embedded subtitles (needed for SSE streaming).
+    let tap_tx = if query.probe_only.unwrap_or(false) {
+        None
+    } else {
+        match SubtitleRepo::load_file_subtitles(&db, &file_id).await {
+            Ok(rows) if !rows.is_empty() => {
+                let ffprobe_raw = rows[0].ffprobe_raw.clone();
+                let start_time_ms = extract_start_time_ms(&ffprobe_raw);
+                let subs: Vec<_> = rows.iter().map(|row| row.to_embedded_record()).collect();
+                let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
+                build_stream_tap(
+                    &state.subtitle_cache,
+                    &state.tap_registry,
+                    tracks,
+                    &target.path,
+                    start_time_ms,
+                )
+            }
+            _ => None,
+        }
+    };
+
     if target.source_type.as_deref() == Some("local") {
-        // media_files.path is relative to the source root; resolve the absolute
-        // path by prepending root_folder_path from the file_system config.
+        // When embedded subtitles need tapping, stream through VFS so chunks
+        // are fed to the subtitle extractor. Otherwise use ServeFile for efficiency.
+        if tap_tx.is_some() {
+            if let Some(source_id) = target.source_id.as_deref() {
+                if let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
+                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx)
+                        .await;
+                }
+            }
+        }
+
         let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
         let response = match ServeFile::new(&abs_path)
             .with_buf_chunk_size(LOCAL_MEDIA_STREAM_CHUNK_SIZE)
@@ -122,27 +153,6 @@ pub async fn stream_media_file(
     let vfs = match state.sources.ensure_vfs(source_id).await {
         Ok(vfs) => vfs,
         Err(err) => return err404::<()>(err).into_response(),
-    };
-
-    let tap_tx = if query.probe_only.unwrap_or(false) {
-        None
-    } else {
-        match SubtitleRepo::load_file_subtitles(&db, &file_id).await {
-            Ok(rows) if !rows.is_empty() => {
-                let ffprobe_raw = rows[0].ffprobe_raw.clone();
-                let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-                let subs: Vec<_> = rows.iter().map(|row| row.to_embedded_record()).collect();
-                let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
-                build_stream_tap(
-                    &state.subtitle_cache,
-                    &state.tap_registry,
-                    tracks,
-                    &target.path,
-                    start_time_ms,
-                )
-            }
-            _ => None,
-        }
     };
 
     stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
