@@ -45,10 +45,13 @@ pub async fn find_or_create_movie(
         .and_then(|d| d.imdb_id.clone())
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
-    // Check existing by external IDs (same library)
-    let existing = find_existing_movie(db, library_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+    // Check existing by external IDs first, then fall back to title+year (same library)
+    let existing = find_existing_movie(db, library_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
+        .or(find_existing_movie_by_title(db, library_id, parsed_title, parsed_year).await?);
 
     let movie_id = if let Some(existing_id) = existing {
+        // If this file brought new external IDs, backfill them onto the existing record
+        backfill_external_ids(db, existing_id, tmdb_detail, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
         movies::Entity::update_many()
             .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
             .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
@@ -154,6 +157,70 @@ async fn find_existing_movie(
         .one(db)
         .await?;
     Ok(existing.map(|m| m.id))
+}
+
+/// Fallback dedup: match by title + year within the same library.
+/// Only used when external IDs are unavailable (e.g. TMDB search failed).
+async fn find_existing_movie_by_title(
+    db: &DatabaseConnection,
+    library_id: Uuid,
+    title: &str,
+    year: Option<i32>,
+) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+    if title.is_empty() {
+        return Ok(None);
+    }
+    let mut query = movies::Entity::find()
+        .filter(movies::Column::LibraryId.eq(library_id))
+        .filter(movies::Column::Title.eq(title));
+    if let Some(y) = year {
+        query = query.filter(movies::Column::Year.eq(y));
+    }
+    let existing = query.one(db).await?;
+    if let Some(ref m) = existing {
+        info!(
+            "[file_scrape] Dedup by title+year: found existing movie '{}' ({})",
+            title,
+            m.id
+        );
+    }
+    Ok(existing.map(|m| m.id))
+}
+
+/// Backfill external IDs onto an existing movie when a new file brings better metadata.
+/// e.g. MKV was scraped with tmdb_id but BDMV matched by title — now copy tmdb_id over.
+async fn backfill_external_ids(
+    db: &DatabaseConnection,
+    movie_id: Uuid,
+    tmdb_detail: Option<&TmdbMediaDetail>,
+    tmdb_id: Option<&str>,
+    imdb_id: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let existing = movies::Entity::find_by_id(movie_id).one(db).await?;
+    let Some(existing) = existing else { return Ok(()) };
+
+    let need_tmdb = existing.tmdb_id.is_none() && tmdb_id.is_some();
+    let need_imdb = existing.imdb_id.is_none() && imdb_id.is_some();
+    let need_overview = existing.overview.is_none() && tmdb_detail.and_then(|d| d.base.overview.as_ref()).is_some();
+
+    if !need_tmdb && !need_imdb && !need_overview {
+        return Ok(());
+    }
+
+    let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(movie_id));
+    if need_tmdb {
+        update = update.col_expr(movies::Column::TmdbId, Expr::value(tmdb_id.unwrap()));
+        info!("[file_scrape] Backfilled tmdb_id={} onto movie {}", tmdb_id.unwrap(), movie_id);
+    }
+    if need_imdb {
+        update = update.col_expr(movies::Column::ImdbId, Expr::value(imdb_id.unwrap()));
+    }
+    if need_overview {
+        let overview = tmdb_detail.unwrap().base.overview.clone().unwrap();
+        update = update.col_expr(movies::Column::Overview, Expr::value(overview));
+    }
+    update.exec(db).await?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -267,7 +334,8 @@ async fn create_movie_record(
             Ok(movie_id)
         }
         Err(e) if is_unique_violation(&e) => {
-            let existing = find_existing_movie(db, library_id, tmdb_id_str, imdb_id_str).await?;
+            let existing = find_existing_movie(db, library_id, tmdb_id_str, imdb_id_str).await?
+                .or(find_existing_movie_by_title(db, library_id, parsed_title, parsed_year).await?);
             if let Some(id) = existing {
                 info!("[file_scrape] Movie already exists (concurrent): {title}");
                 Ok(id)
