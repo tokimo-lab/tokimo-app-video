@@ -95,6 +95,12 @@ pub async fn find_or_create_tv(
                 super::movie::sync_nfo_actors(db, &nfo.actors, None, Some(tv_show_id)).await?;
             }
         }
+        // Directors from NFO (always sync, even when TMDB cast is available)
+        if let Some(nfo) = nfo {
+            if !nfo.directors.is_empty() {
+                super::movie::sync_nfo_directors(db, &nfo.directors, None, Some(tv_show_id)).await?;
+            }
+        }
 
         upload_extra_art(db, state, None, Some(tv_show_id), &artwork.extra_art).await?;
     }

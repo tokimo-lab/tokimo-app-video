@@ -65,13 +65,25 @@ pub async fn find_or_create_movie(
     };
 
     // Upload artwork
-    let (poster_path, backdrop_path) = upload_poster_and_backdrop(
+    let (mut poster_path, backdrop_path) = upload_poster_and_backdrop(
         db, state, "movie", movie_id, artwork,
         nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
         tmdb_detail.and_then(|d| d.base.poster_path.as_deref()),
         tmdb_detail.and_then(|d| d.base.backdrop_path.as_deref()),
     )
     .await?;
+
+    // Online video thumbnail fallback: download remote thumbnail as poster
+    if poster_path.is_none() {
+        if let Some(thumb_url) = online_record.and_then(|r| r.thumbnail_url.as_deref()) {
+            if !thumb_url.is_empty() {
+                match download_thumbnail(state, thumb_url, "movies", &movie_id.to_string()).await {
+                    Ok(sp) => { poster_path = Some(sp); }
+                    Err(e) => { tracing::warn!("[file_scrape] thumbnail download failed: {e}"); }
+                }
+            }
+        }
+    }
 
     if poster_path.is_some() || backdrop_path.is_some() {
         let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(movie_id));
@@ -91,7 +103,7 @@ pub async fn find_or_create_movie(
         }
     }
 
-    // Sync cast/people (TMDB > NFO)
+    // Sync cast/people (TMDB > NFO actors + NFO directors)
     if let Some(detail) = tmdb_detail {
         if let Some(cast) = &detail.cast {
             sync_people(db, cast, Some(movie_id), None).await?;
@@ -99,6 +111,12 @@ pub async fn find_or_create_movie(
     } else if let Some(nfo) = nfo {
         if !nfo.actors.is_empty() {
             sync_nfo_actors(db, &nfo.actors, Some(movie_id), None).await?;
+        }
+    }
+    // Directors from NFO (always sync, even when TMDB cast is available)
+    if let Some(nfo) = nfo {
+        if !nfo.directors.is_empty() {
+            sync_nfo_directors(db, &nfo.directors, Some(movie_id), None).await?;
         }
     }
 
@@ -343,4 +361,102 @@ pub async fn fetch_online_record(
         .one(db)
         .await?;
     Ok(record)
+}
+
+/// Sync NFO directors as "director" role credits.
+pub async fn sync_nfo_directors(
+    db: &DatabaseConnection,
+    directors: &[String],
+    movie_id: Option<Uuid>,
+    tv_show_id: Option<Uuid>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    for (i, name) in directors.iter().enumerate() {
+        let trimmed = name.trim();
+        if trimmed.is_empty() { continue; }
+
+        let person = persons::Entity::find()
+            .filter(persons::Column::Name.eq(trimmed))
+            .one(db)
+            .await?;
+
+        let person_id = match person {
+            Some(p) => p.id,
+            None => {
+                let id = Uuid::new_v4();
+                let now = chrono::Utc::now().fixed_offset();
+                let active = persons::ActiveModel {
+                    id: Set(id),
+                    name: Set(trimmed.to_string()),
+                    original_name: Set(None), aliases: Set(None), gender: Set(None),
+                    birthday: Set(None), birthplace: Set(None),
+                    profile_path: Set(None), profile_key: Set(None),
+                    biography: Set(None), deathday: Set(None), known_for_dept: Set(Some("Directing".to_string())),
+                    popularity: Set(None), tmdb_id: Set(None), imdb_id: Set(None),
+                    javbus_id: Set(None), javdb_id: Set(None), tpdb_id: Set(None),
+                    mb_artist_id: Set(None), metadata: Set(None),
+                    created_at: Set(Some(now)), updated_at: Set(Some(now)),
+                };
+                match persons::Entity::insert(active).exec(db).await {
+                    Ok(_) => id,
+                    Err(e) if is_unique_violation(&e) => {
+                        persons::Entity::find()
+                            .filter(persons::Column::Name.eq(trimmed))
+                            .one(db).await?
+                            .map(|p| p.id).ok_or(e)?
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            }
+        };
+
+        // Check if director credit already exists
+        let mut q = media_credits::Entity::find()
+            .filter(media_credits::Column::PersonId.eq(person_id))
+            .filter(media_credits::Column::Role.eq("director"));
+        if let Some(mid) = movie_id { q = q.filter(media_credits::Column::MovieId.eq(mid)); }
+        else if let Some(tid) = tv_show_id { q = q.filter(media_credits::Column::TvShowId.eq(tid)); }
+        if q.one(db).await?.is_some() { continue; }
+
+        let credit = media_credits::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            person_id: Set(person_id),
+            role: Set("director".to_string()),
+            character: Set(None),
+            sort_order: Set(i as i32),
+            movie_id: Set(movie_id),
+            tv_show_id: Set(tv_show_id),
+            episode_id: Set(None),
+            album_id: Set(None),
+        };
+        match media_credits::Entity::insert(credit).exec(db).await {
+            Ok(_) => {}
+            Err(e) if is_unique_violation(&e) => {}
+            Err(e) => return Err(e.into()),
+        }
+    }
+    Ok(())
+}
+
+/// Download a remote thumbnail URL and upload to S3 as poster.
+async fn download_thumbnail(
+    state: &Arc<AppState>,
+    url: &str,
+    entity_kind: &str,
+    entity_id: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let resp = reqwest::get(url).await?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()).into());
+    }
+    let bytes = resp.bytes().await?;
+    let ext = url
+        .rsplit('.')
+        .next()
+        .and_then(|e| {
+            let lower = e.split('?').next().unwrap_or(e).to_ascii_lowercase();
+            if matches!(lower.as_str(), "jpg" | "jpeg" | "png" | "webp") { Some(lower) } else { None }
+        })
+        .unwrap_or_else(|| "jpg".to_string());
+    let key = format!("library-images/{entity_kind}/{entity_id}/poster.{ext}");
+    super::artwork::upload_image_buffer(state, &bytes, &key).await
 }
