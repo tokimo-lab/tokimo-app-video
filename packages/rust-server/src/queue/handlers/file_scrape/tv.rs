@@ -101,6 +101,7 @@ pub async fn find_or_create_tv(
                     name: a.name.clone(),
                     role: a.role.clone(),
                     thumb: a.thumb.clone(),
+                    tmdb_id: None,
                 }).collect()
             } else {
                 vec![]

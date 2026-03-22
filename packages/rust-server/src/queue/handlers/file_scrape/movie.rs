@@ -117,6 +117,7 @@ pub async fn find_or_create_movie(
                 name: a.name.clone(),
                 role: a.role.clone(),
                 thumb: a.thumb.clone(),
+                tmdb_id: None,
             }).collect()
         } else {
             vec![]

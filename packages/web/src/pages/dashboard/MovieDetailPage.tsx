@@ -292,9 +292,19 @@ export default function MovieDetailPage() {
                   {movie.contentRating}
                 </span>
               )}
-              {movie.rating != null && (
+              {movie.tmdbRating != null && (
                 <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400">
-                  ★ {movie.rating.toFixed(1)}
+                  TMDB ★ {movie.tmdbRating.toFixed(1)}
+                </span>
+              )}
+              {movie.imdbRating != null && (
+                <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  IMDb ★ {movie.imdbRating.toFixed(1)}
+                </span>
+              )}
+              {movie.doubanRating != null && (
+                <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">
+                  豆瓣 ★ {movie.doubanRating.toFixed(1)}
                 </span>
               )}
               <MediaTagsRow

@@ -34,9 +34,6 @@ pub async fn handle(
     };
 
     let tmdb_id = person.tmdb_id.as_deref();
-    let Some(tmdb_id) = tmdb_id else {
-        return Err("Person has no tmdbId".into());
-    };
 
     let client = TmdbClient::new(TmdbConfig {
         api_key,
@@ -46,7 +43,27 @@ pub async fn handle(
         cache_ttl: None,
     });
 
-    let tmdb_id_num: i64 = tmdb_id.parse()?;
+    let tmdb_id_num: i64 = if let Some(tmdb_id) = tmdb_id {
+        tmdb_id.parse()?
+    } else {
+        // No tmdb_id — search TMDB by name
+        let results = client.search_person(&person.name).await?;
+        let first = results.into_iter().next().ok_or_else(|| {
+            format!("TMDB search found no results for person '{}'", person.name)
+        })?;
+        let found_id = first.id;
+
+        // Persist tmdb_id so future scrapes skip the search
+        let expr_val = sea_orm::prelude::Expr::value(found_id.to_string());
+        persons::Entity::update_many()
+            .col_expr(persons::Column::TmdbId, expr_val)
+            .filter(persons::Column::Id.eq(person_uuid))
+            .exec(db)
+            .await?;
+
+        found_id
+    };
+
     debug!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id}");
     let detail = client.get_person_detail(tmdb_id_num).await?;
 
@@ -76,6 +93,33 @@ pub async fn handle(
     }
     if let Some(dept) = &detail.known_for_department {
         active.known_for_dept = Set(Some(dept.clone()));
+    }
+
+    // Map TMDB gender int → string (0=unset, 1=female, 2=male, 3=non-binary)
+    if let Some(g) = detail.gender {
+        let label = match g {
+            1 => Some("female"),
+            2 => Some("male"),
+            3 => Some("non-binary"),
+            _ => None,
+        };
+        if let Some(label) = label {
+            active.gender = Set(Some(label.to_string()));
+        }
+    }
+
+    // Aliases from also_known_as
+    if let Some(aka) = &detail.also_known_as {
+        if !aka.is_empty() {
+            active.aliases = Set(Some(aka.clone()));
+        }
+    }
+
+    // IMDb ID from external_ids
+    if let Some(ext) = &detail.external_ids {
+        if let Some(imdb_id) = &ext.imdb_id {
+            active.imdb_id = Set(Some(imdb_id.clone()));
+        }
     }
 
     // Dispatch image_upload job for the profile image

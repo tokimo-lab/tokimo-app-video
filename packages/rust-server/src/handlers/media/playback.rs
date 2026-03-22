@@ -12,7 +12,6 @@ use uuid::Uuid;
 use crate::db::entities::{file_systems, media_files, media_servers};
 use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
 use crate::db::repos::media::PlaybackRepo;
-use crate::db::repos::settings_repo::SettingsRepo;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::handlers::media::local_media::resolve_local_path;
@@ -256,19 +255,11 @@ async fn create_hls_session_internal(
     source_config: Option<&serde_json::Value>,
     user_id: &str,
 ) -> Result<String, String> {
-    // Get internal stream access token
-    let internal_token = SettingsRepo::get_internal_stream_token(&state.db)
-        .await
-        .ok()
-        .flatten();
-
     let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
     let base_url = format!("http://127.0.0.1:{port}");
 
-    let mut input_url = format!("{base_url}/api/media-files/{}/stream", file.id);
-    if let Some(ref token) = internal_token {
-        input_url.push_str(&format!("?accessToken={}", urlencoding::encode(token)));
-    }
+    // No accessToken needed — the stream endpoint allows loopback requests without auth
+    let input_url = format!("{base_url}/api/media-files/{}/stream", file.id);
 
     let local_path = if is_local {
         Some(resolve_local_path(&file.path, source_config))
