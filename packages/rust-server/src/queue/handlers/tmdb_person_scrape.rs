@@ -49,9 +49,10 @@ pub async fn handle(
     } else {
         // No tmdb_id — search TMDB by name
         let results = client.search_person(&person.name).await?;
-        let first = results.into_iter().next().ok_or_else(|| {
-            format!("TMDB search found no results for person '{}'", person.name)
-        })?;
+        let first = results
+            .into_iter()
+            .next()
+            .ok_or_else(|| format!("TMDB search found no results for person '{}'", person.name))?;
         let found_id = first.id;
 
         // Persist tmdb_id so future scrapes skip the search
@@ -165,14 +166,12 @@ pub async fn handle(
     Ok(Some(json!({ "personId": person_id })))
 }
 
-/// Get TMDB API key from tmdb_settings table.
+/// Get TMDB API key from config.
 async fn get_tmdb_api_key(
     db: &DatabaseConnection,
 ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    use crate::db::entities::tmdb_settings;
-    use sea_orm::*;
+    use crate::db::repos::config_repo::{ConfigRepo, TmdbSettings};
 
-    let setting = tmdb_settings::Entity::find().one(db).await?;
-
-    Ok(setting.and_then(|s| s.api_key))
+    let setting = ConfigRepo::get::<TmdbSettings>(db).await?;
+    Ok(setting.api_key)
 }

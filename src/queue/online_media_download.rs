@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use sea_orm::*;
 use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::*;
 use serde_json::{json, Value as JsonValue};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -47,8 +47,8 @@ pub async fn handle(
     };
 
     // Get scraping settings for NFO generation.
-    use crate::db::entities::scraping_settings;
-    let scraping_row = scraping_settings::Entity::find().one(db).await?;
+    use crate::db::repos::config_repo::{ConfigRepo, ScrapingSettings};
+    let scraping_row = ConfigRepo::get::<ScrapingSettings>(db).await.ok();
     let generate_nfo = scraping_row
         .as_ref()
         .map(|s| s.generate_nfo)
@@ -62,7 +62,12 @@ pub async fn handle(
         .all(db)
         .await?;
     if lib_sources.is_empty() {
-        update_record_failed(db, record_uuid, "该媒体库未配置文件系统源，请先在媒体库设置中添加至少一个文件系统路径").await;
+        update_record_failed(
+            db,
+            record_uuid,
+            "该媒体库未配置文件系统源，请先在媒体库设置中添加至少一个文件系统路径",
+        )
+        .await;
         return Err("该媒体库未配置文件系统源".into());
     }
     let default_source = lib_sources
@@ -99,12 +104,8 @@ pub async fn handle(
         .get("downloadFormat")
         .and_then(|v| v.as_str())
         .unwrap_or("auto");
-    let media_title = payload
-        .get("mediaTitle")
-        .and_then(|v| v.as_str());
-    let media_year = payload
-        .get("mediaYear")
-        .and_then(|v| v.as_str());
+    let media_title = payload.get("mediaTitle").and_then(|v| v.as_str());
+    let media_year = payload.get("mediaYear").and_then(|v| v.as_str());
 
     let library_type = &library.r#type;
     let content_type = analysis
@@ -112,21 +113,14 @@ pub async fn handle(
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let is_audio_only = download_format == "audio_only"
-        || (download_format != "video"
-            && (library_type == "music" || content_type == "music"));
+        || (download_format != "video" && (library_type == "music" || content_type == "music"));
 
-    let settings = library
-        .settings
-        .as_ref()
-        .cloned()
-        .unwrap_or(json!({}));
+    let settings = library.settings.as_ref().cloned().unwrap_or(json!({}));
     let link_mode = settings
         .get("linkMode")
         .and_then(|v| v.as_str())
         .unwrap_or("hardlink");
-    let organize_lang = settings
-        .get("organizeLang")
-        .and_then(|v| v.as_str());
+    let organize_lang = settings.get("organizeLang").and_then(|v| v.as_str());
 
     // Build CreateTaskRequest and call TaskManager directly.
     use rust_online_media_ingest::models::CreateTaskRequest;
@@ -173,9 +167,7 @@ pub async fn handle(
                 .get("thumbnailUrl")
                 .and_then(|v| v.as_str())
                 .map(String::from),
-            duration_seconds: analysis
-                .get("durationSeconds")
-                .and_then(|v| v.as_u64()),
+            duration_seconds: analysis.get("durationSeconds").and_then(|v| v.as_u64()),
             uploader: analysis
                 .get("uploader")
                 .and_then(|v| v.as_str())
@@ -285,9 +277,8 @@ pub async fn handle(
                 "Task not found during polling"
             );
             if poll_failure_count > poll_retry_limit {
-                let err_msg = format!(
-                    "在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})"
-                );
+                let err_msg =
+                    format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
                 update_record_failed(db, record_uuid, &err_msg).await;
                 return Err(err_msg.into());
             }
@@ -334,18 +325,17 @@ pub async fn handle(
         // Progress updates are automatically broadcast via the job worker's
         // mark_completed / mark_failed lifecycle. For intermediate progress,
         // we update the job row directly so the SSE stream picks it up.
-        if let Ok(Some(model)) =
-            crate::db::repos::job_repo::JobRepo::update_progress(
-                db,
-                _job_id,
-                resp.progress.map(|p| p.round() as i32).unwrap_or(0),
-                Some(json!({
-                    "recordId": record_id,
-                    "taskId": task_id,
-                    "stage": resp.stage,
-                })),
-            )
-            .await
+        if let Ok(Some(model)) = crate::db::repos::job_repo::JobRepo::update_progress(
+            db,
+            _job_id,
+            resp.progress.map(|p| p.round() as i32).unwrap_or(0),
+            Some(json!({
+                "recordId": record_id,
+                "taskId": task_id,
+                "stage": resp.stage,
+            })),
+        )
+        .await
         {
             let _ = state.event_tx.send(crate::queue::AppEvent::JobUpdate {
                 job: crate::db::models::job::JobOutput::from(model),
