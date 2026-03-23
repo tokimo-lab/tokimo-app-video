@@ -99,6 +99,38 @@ pub fn image_mime(ext: &str) -> &'static str {
     }
 }
 
+pub const PHOTO_EXTENSIONS: &[&str] = &[
+    "jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif",
+    "heic", "heif", "avif", "raw", "cr2", "cr3", "nef", "arw",
+    "dng", "orf", "rw2", "pef", "srw", "raf",
+];
+
+pub fn is_photo_file(filename: &str) -> bool {
+    let ext = filename
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    PHOTO_EXTENSIONS.contains(&ext.as_str())
+}
+
+pub fn guess_photo_mime(filename: &str) -> Option<String> {
+    let ext = filename.rsplit('.').next()?.to_ascii_lowercase();
+    let mime = match ext.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "tiff" | "tif" => "image/tiff",
+        "heic" | "heif" => "image/heif",
+        "avif" => "image/avif",
+        "svg" => "image/svg+xml",
+        _ => return Some(format!("image/{ext}")),
+    };
+    Some(mime.to_string())
+}
+
 /// Extract image file extension (defaults to "jpg").
 pub fn image_storage_ext(filename: &str) -> String {
     let ext = filename
