@@ -13,7 +13,7 @@ import {
 } from "@tokiomo/components";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { OrganizeItem, WsJobEvent } from "@/types";
+import type { OrganizeItem } from "@/types";
 import {
   ManualMatchModal,
   OrganizeItemList,
@@ -24,7 +24,6 @@ import {
 import PathSelector from "../../components/dashboard/PathSelector";
 import { api } from "../../generated/rust-api";
 import { useAdultMode, useMessage } from "../../hooks";
-import { useSseEvent } from "../../hooks/SseContext";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 
 export interface OrganizeDialogProps {
@@ -92,40 +91,6 @@ export default function OrganizeDialog({
 
   // 全局成人模式开关
   const { enabled: adultModeEnabled } = useAdultMode();
-
-  // ==================== SSE 实时推送 ====================
-
-  useSseEvent(
-    useCallback(
-      (event: WsJobEvent) => {
-        if (event.type === "organize_item_update") {
-          api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              items: updateItemInTree(old.items, event.item),
-              progress: event.progress ?? old.progress,
-            };
-          });
-        } else if (event.type === "organize_status_update") {
-          api.mediaOrganize.getSession.setData(qc, undefined, (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              status: event.status,
-              progress: event.progress ?? old.progress,
-            };
-          });
-          // 终态时 invalidate 兜底（确保 report 等数据完整）
-          const terminal = new Set(["identified", "done", "scanned"]);
-          if (terminal.has(event.status)) {
-            api.mediaOrganize.getSession.invalidate(qc);
-          }
-        }
-      },
-      [qc],
-    ),
-  );
 
   // ==================== Mutations ====================
 
