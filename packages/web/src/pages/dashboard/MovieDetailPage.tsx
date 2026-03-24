@@ -37,9 +37,9 @@ function FavoriteButton({
   movieId: string;
 }) {
   const qc = useQueryClient();
-  const toggle = api.mediaLibrary.toggleFavorite.useMutation({
+  const toggle = api.app.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.mediaLibrary.getMovieDetail.invalidate(qc, { id: movieId }),
+      void api.app.getMovieDetail.invalidate(qc, { id: movieId }),
   });
   return (
     <button
@@ -112,7 +112,7 @@ export default function MovieDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: movie, isLoading } = api.mediaLibrary.getMovieDetail.useQuery(
+  const { data: movie, isLoading } = api.app.getMovieDetail.useQuery(
     { id: movieId! },
     { enabled: !!movieId },
   );
@@ -146,7 +146,7 @@ export default function MovieDetailPage() {
       event.movieId === movieId &&
       movieId
     ) {
-      api.mediaLibrary.getMovieDetail.invalidate(qc, { id: movieId });
+      api.app.getMovieDetail.invalidate(qc, { id: movieId });
     }
   });
 
@@ -162,9 +162,7 @@ export default function MovieDetailPage() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">未找到该电影</p>
-        <Button onClick={() => navigate(`/dashboard/library/${id}`)}>
-          返回
-        </Button>
+        <Button onClick={() => navigate(`/dashboard/app/${id}`)}>返回</Button>
       </div>
     );
   }
@@ -220,7 +218,7 @@ export default function MovieDetailPage() {
         <div className="mb-6">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/dashboard/library/${id}`)}
+            onClick={() => navigate(`/dashboard/app/${id}`)}
           >
             返回
           </Button>

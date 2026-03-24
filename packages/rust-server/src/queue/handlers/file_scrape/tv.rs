@@ -27,7 +27,7 @@ pub async fn find_or_create_tv(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     tmdb: Option<&TmdbClient>,
-    library_id: Uuid,
+    app_id: Uuid,
     tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
     parsed_title: &str,
@@ -45,7 +45,7 @@ pub async fn find_or_create_tv(
         .and_then(|d| d.imdb_id.clone())
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
-    let existing = find_existing_tv_show(db, library_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+    let existing = find_existing_tv_show(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
 
     let (tv_show_id, is_new) = if let Some(existing_id) = existing {
         tv_shows::Entity::update_many()
@@ -56,7 +56,7 @@ pub async fn find_or_create_tv(
         (existing_id, false)
     } else {
         let id = create_tv_show_record(
-            db, library_id, tmdb_detail, nfo, parsed_title, parsed_year,
+            db, app_id, tmdb_detail, nfo, parsed_title, parsed_year,
             tmdb_id_str.as_deref(), imdb_id_str.as_deref(),
         ).await?;
         (id, true)
@@ -129,7 +129,7 @@ pub async fn find_or_create_tv(
 }
 
 async fn find_existing_tv_show(
-    db: &DatabaseConnection, library_id: Uuid,
+    db: &DatabaseConnection, app_id: Uuid,
     tmdb_id: Option<&str>, imdb_id: Option<&str>,
 ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
     if tmdb_id.is_none() && imdb_id.is_none() { return Ok(None); }
@@ -137,7 +137,7 @@ async fn find_existing_tv_show(
     if let Some(tid) = tmdb_id { conditions = conditions.add(tv_shows::Column::TmdbId.eq(tid)); }
     if let Some(iid) = imdb_id { conditions = conditions.add(tv_shows::Column::ImdbId.eq(iid)); }
     let existing = tv_shows::Entity::find()
-        .filter(tv_shows::Column::LibraryId.eq(library_id))
+        .filter(tv_shows::Column::AppId.eq(app_id))
         .filter(conditions)
         .one(db).await?;
     Ok(existing.map(|s| s.id))
@@ -145,7 +145,7 @@ async fn find_existing_tv_show(
 
 #[allow(clippy::too_many_arguments)]
 async fn create_tv_show_record(
-    db: &DatabaseConnection, library_id: Uuid,
+    db: &DatabaseConnection, app_id: Uuid,
     tmdb_detail: Option<&TmdbMediaDetail>, nfo: Option<&NfoInfo>,
     parsed_title: &str, parsed_year: Option<i32>,
     tmdb_id_str: Option<&str>, imdb_id_str: Option<&str>,
@@ -179,7 +179,7 @@ async fn create_tv_show_record(
     let metadata_json = if metadata_map.is_empty() { None } else { Some(serde_json::Value::Object(metadata_map)) };
 
     let model = tv_shows::ActiveModel {
-        id: Set(show_id), library_id: Set(library_id),
+        id: Set(show_id), app_id: Set(app_id),
         title: Set(title.clone()), original_title: Set(original_title), sort_title: Set(None),
         year: Set(year), first_air_date: Set(first_air_date), last_air_date: Set(None),
         status: Set(tmdb_detail.and_then(|d| d.status.clone())),
@@ -203,7 +203,7 @@ async fn create_tv_show_record(
             Ok(show_id)
         }
         Err(e) if is_unique_violation(&e) => {
-            let existing = find_existing_tv_show(db, library_id, tmdb_id_str, imdb_id_str).await?;
+            let existing = find_existing_tv_show(db, app_id, tmdb_id_str, imdb_id_str).await?;
             if let Some(id) = existing {
                 info!("[file_scrape] TV show already exists (concurrent): {title}");
                 Ok(id)

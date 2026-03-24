@@ -29,21 +29,21 @@ pub async fn handle(
         .get("url")
         .and_then(|v| v.as_str())
         .ok_or("Missing url")?;
-    let target_library_id = payload
-        .get("targetLibraryId")
+    let target_app_id = payload
+        .get("targetAppId")
         .and_then(|v| v.as_str())
-        .ok_or("Missing targetLibraryId")?;
+        .ok_or("Missing targetAppId")?;
 
     let record_uuid = Uuid::parse_str(record_id)?;
 
-    // Validate library exists.
-    use crate::db::entities::media_libraries;
-    let lib_uuid = Uuid::parse_str(target_library_id)?;
-    let library = media_libraries::Entity::find_by_id(lib_uuid)
+    // Validate app exists.
+    use crate::db::entities::apps;
+    let lib_uuid = Uuid::parse_str(target_app_id)?;
+    let target_app = apps::Entity::find_by_id(lib_uuid)
         .one(db)
         .await?;
-    let Some(library) = library else {
-        return Err("目标媒体库不存在".into());
+    let Some(target_app) = target_app else {
+        return Err("目标应用不存在".into());
     };
 
     // Get scraping settings for NFO generation.
@@ -55,20 +55,20 @@ pub async fn handle(
         .unwrap_or(false);
 
     // Resolve default download source root path.
-    use crate::db::entities::library_file_systems;
-    let lib_sources = library_file_systems::Entity::find()
-        .filter(library_file_systems::Column::LibraryId.eq(lib_uuid))
-        .order_by_asc(library_file_systems::Column::SortOrder)
+    use crate::db::entities::app_file_systems;
+    let lib_sources = app_file_systems::Entity::find()
+        .filter(app_file_systems::Column::AppId.eq(lib_uuid))
+        .order_by_asc(app_file_systems::Column::SortOrder)
         .all(db)
         .await?;
     if lib_sources.is_empty() {
         update_record_failed(
             db,
             record_uuid,
-            "该媒体库未配置文件系统源，请先在媒体库设置中添加至少一个文件系统路径",
+            "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径",
         )
         .await;
-        return Err("该媒体库未配置文件系统源".into());
+        return Err("该应用未配置文件系统源".into());
     }
     let default_source = lib_sources
         .iter()
@@ -107,15 +107,15 @@ pub async fn handle(
     let media_title = payload.get("mediaTitle").and_then(|v| v.as_str());
     let media_year = payload.get("mediaYear").and_then(|v| v.as_str());
 
-    let library_type = &library.r#type;
+    let app_type = &target_app.r#type;
     let content_type = analysis
         .get("contentType")
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let is_audio_only = download_format == "audio_only"
-        || (download_format != "video" && (library_type == "music" || content_type == "music"));
+        || (download_format != "video" && (app_type == "music" || content_type == "music"));
 
-    let settings = library.settings.as_ref().cloned().unwrap_or(json!({}));
+    let settings = target_app.settings.as_ref().cloned().unwrap_or(json!({}));
     let link_mode = settings
         .get("linkMode")
         .and_then(|v| v.as_str())
@@ -146,11 +146,11 @@ pub async fn handle(
         }),
         audio_only: if is_audio_only { Some(true) } else { None },
         audio_container: None,
-        target_library_id: target_library_id.into(),
+        target_library_id: target_app_id.into(),
         target_folder_config_snapshot:
             rust_online_media_ingest::models::TargetFolderConfigSnapshot {
-                id: target_library_id.into(),
-                content_type: library_type.clone(),
+                id: target_app_id.into(),
+                content_type: app_type.clone(),
                 download_path: organize_target_path.clone(),
                 target_path: organize_target_path.clone(),
                 link_mode: link_mode.into(),

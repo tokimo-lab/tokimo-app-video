@@ -27,9 +27,9 @@ function FavoriteButton({
   tvShowId: string;
 }) {
   const qc = useQueryClient();
-  const toggle = api.mediaLibrary.toggleFavorite.useMutation({
+  const toggle = api.app.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.mediaLibrary.getTvShowDetail.invalidate(qc, { id: tvShowId }),
+      void api.app.getTvShowDetail.invalidate(qc, { id: tvShowId }),
   });
   return (
     <button
@@ -141,7 +141,7 @@ export default function TvShowDetailPage() {
   const { setBackgroundArt } = useBackgroundArt();
   const { lang } = useLang();
 
-  const { data: show, isLoading } = api.mediaLibrary.getTvShowDetail.useQuery(
+  const { data: show, isLoading } = api.app.getTvShowDetail.useQuery(
     { id: tvId! },
     { enabled: !!tvId },
   );
@@ -219,9 +219,7 @@ export default function TvShowDetailPage() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">未找到该剂集</p>
-        <Button onClick={() => navigate(`/dashboard/library/${id}`)}>
-          返回
-        </Button>
+        <Button onClick={() => navigate(`/dashboard/app/${id}`)}>返回</Button>
       </div>
     );
   }
@@ -245,7 +243,7 @@ export default function TvShowDetailPage() {
           <button
             type="button"
             className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-            onClick={() => navigate(`/dashboard/library/${id}`)}
+            onClick={() => navigate(`/dashboard/app/${id}`)}
           >
             <ArrowLeftOutlined />
             <span>返回</span>
@@ -337,7 +335,7 @@ export default function TvShowDetailPage() {
         <div className="mb-6">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/dashboard/library/${id}`)}
+            onClick={() => navigate(`/dashboard/app/${id}`)}
           >
             返回
           </Button>

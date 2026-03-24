@@ -24,7 +24,7 @@ pub struct MovieResult {
 pub async fn find_or_create_movie(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
-    library_id: Uuid,
+    app_id: Uuid,
     lib_type: &str,
     tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
@@ -46,8 +46,8 @@ pub async fn find_or_create_movie(
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
     // Check existing by external IDs first, then fall back to title+year (same library)
-    let existing = find_existing_movie(db, library_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
-        .or(find_existing_movie_by_title(db, library_id, parsed_title, parsed_year).await?);
+    let existing = find_existing_movie(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
+        .or(find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await?);
 
     let movie_id = if let Some(existing_id) = existing {
         // If this file brought new external IDs, backfill them onto the existing record
@@ -61,7 +61,7 @@ pub async fn find_or_create_movie(
         existing_id
     } else {
         create_movie_record(
-            db, library_id, is_adult, should_use_tmdb, tmdb_detail, nfo, online_record,
+            db, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo, online_record,
             parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
         )
         .await?
@@ -137,7 +137,7 @@ pub async fn find_or_create_movie(
 
 async fn find_existing_movie(
     db: &DatabaseConnection,
-    library_id: Uuid,
+    app_id: Uuid,
     tmdb_id: Option<&str>,
     imdb_id: Option<&str>,
 ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
@@ -152,7 +152,7 @@ async fn find_existing_movie(
         conditions = conditions.add(movies::Column::ImdbId.eq(iid));
     }
     let existing = movies::Entity::find()
-        .filter(movies::Column::LibraryId.eq(library_id))
+        .filter(movies::Column::AppId.eq(app_id))
         .filter(conditions)
         .one(db)
         .await?;
@@ -163,7 +163,7 @@ async fn find_existing_movie(
 /// Only used when external IDs are unavailable (e.g. TMDB search failed).
 async fn find_existing_movie_by_title(
     db: &DatabaseConnection,
-    library_id: Uuid,
+    app_id: Uuid,
     title: &str,
     year: Option<i32>,
 ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
@@ -171,7 +171,7 @@ async fn find_existing_movie_by_title(
         return Ok(None);
     }
     let mut query = movies::Entity::find()
-        .filter(movies::Column::LibraryId.eq(library_id))
+        .filter(movies::Column::AppId.eq(app_id))
         .filter(movies::Column::Title.eq(title));
     if let Some(y) = year {
         query = query.filter(movies::Column::Year.eq(y));
@@ -226,7 +226,7 @@ async fn backfill_external_ids(
 #[allow(clippy::too_many_arguments)]
 async fn create_movie_record(
     db: &DatabaseConnection,
-    library_id: Uuid,
+    app_id: Uuid,
     is_adult: bool,
     should_use_tmdb: bool,
     tmdb_detail: Option<&TmdbMediaDetail>,
@@ -293,7 +293,7 @@ async fn create_movie_record(
 
     let model = movies::ActiveModel {
         id: Set(movie_id),
-        library_id: Set(library_id),
+        app_id: Set(app_id),
         title: Set(title.clone()),
         original_title: Set(original_title),
         sort_title: Set(None),
@@ -334,8 +334,8 @@ async fn create_movie_record(
             Ok(movie_id)
         }
         Err(e) if is_unique_violation(&e) => {
-            let existing = find_existing_movie(db, library_id, tmdb_id_str, imdb_id_str).await?
-                .or(find_existing_movie_by_title(db, library_id, parsed_title, parsed_year).await?);
+            let existing = find_existing_movie(db, app_id, tmdb_id_str, imdb_id_str).await?
+                .or(find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await?);
             if let Some(id) = existing {
                 info!("[file_scrape] Movie already exists (concurrent): {title}");
                 Ok(id)
@@ -350,13 +350,13 @@ async fn create_movie_record(
 /// Fetch online_video metadata from download_records.
 pub async fn fetch_online_record(
     db: &DatabaseConnection,
-    library_id: Uuid,
+    app_id: Uuid,
     dir_path: &str,
 ) -> Result<Option<download_records::Model>, Box<dyn std::error::Error + Send + Sync>> {
     let dir_basename = dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");
     if dir_basename.is_empty() { return Ok(None); }
     let record = download_records::Entity::find()
-        .filter(download_records::Column::TargetLibraryId.eq(library_id))
+        .filter(download_records::Column::TargetAppId.eq(app_id))
         .filter(download_records::Column::SourceOrigin.eq("online_media"))
         .filter(download_records::Column::TargetPath.contains(dir_basename))
         .order_by_desc(download_records::Column::CreatedAt)
