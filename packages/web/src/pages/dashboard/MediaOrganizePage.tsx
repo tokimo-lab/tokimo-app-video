@@ -319,11 +319,11 @@ export default function OrganizeDialog({
       onCancel={onClose}
       title={title}
       footer={null}
-      width="95vw"
+      width="95%"
       style={{ maxWidth: 1400, top: 24 }}
       styles={{
         body: {
-          maxHeight: "calc(100vh - 120px)",
+          maxHeight: "calc(100% - 120px)",
           overflowY: "auto",
           padding: "16px 24px",
         },
