@@ -2,8 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import type { EpisodeOutput } from "@/types";
+import { useWindowNav } from "../../components/window-manager/WindowNavContext";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt, useLang } from "../../hooks";
 import { resolveStoragePath } from "../../lib/storage-url";
@@ -136,8 +136,8 @@ function EpisodeRow({
 }
 
 export default function TvShowDetailPage() {
-  const { id, tvId } = useParams<{ id: string; tvId: string }>();
-  const navigate = useNavigate();
+  const { params, goBack } = useWindowNav();
+  const tvId = params.tvShowId as string | undefined;
   const { setBackgroundArt } = useBackgroundArt();
   const { lang } = useLang();
 
@@ -219,7 +219,7 @@ export default function TvShowDetailPage() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">未找到该剂集</p>
-        <Button onClick={() => navigate(`/dashboard/app/${id}`)}>返回</Button>
+        <Button onClick={() => goBack()}>返回</Button>
       </div>
     );
   }
@@ -229,7 +229,7 @@ export default function TvShowDetailPage() {
   const isFavorite = show.isFavorite ?? false;
 
   return (
-    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-6 lg:-mt-6 lg:-mb-6">
+    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
       {/* ── Fixed scroll header (out of flow, no layout impact) ── */}
       <div
         className={`glass-sidebar fixed top-16 lg:top-0 left-0 right-0 lg:left-64 z-30 flex flex-col border-r-0 border-b border-b-[var(--border-base)] transition-all duration-200 ${
@@ -243,7 +243,7 @@ export default function TvShowDetailPage() {
           <button
             type="button"
             className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-            onClick={() => navigate(`/dashboard/app/${id}`)}
+            onClick={() => goBack()}
           >
             <ArrowLeftOutlined />
             <span>返回</span>
@@ -333,10 +333,7 @@ export default function TvShowDetailPage() {
       {/* ── Header ── */}
       <div className="relative z-10 px-6 pt-6 pb-6">
         <div className="mb-6">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/dashboard/app/${id}`)}
-          >
+          <Button icon={<ArrowLeftOutlined />} onClick={() => goBack()}>
             返回
           </Button>
         </div>

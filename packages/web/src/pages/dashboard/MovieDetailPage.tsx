@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import type { MediaFileOutput } from "@/types";
 import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
+import { useWindowNav } from "../../components/window-manager/WindowNavContext";
 import { usePlayer } from "../../contexts/PlayerContext";
 import { api } from "../../generated/rust-api";
 import { useBackgroundArt, useSseEvent } from "../../hooks";
@@ -108,8 +108,8 @@ function ResumePromptModal({
 }
 
 export default function MovieDetailPage() {
-  const { id, movieId } = useParams<{ id: string; movieId: string }>();
-  const navigate = useNavigate();
+  const { params, goBack } = useWindowNav();
+  const movieId = params.movieId as string | undefined;
   const qc = useQueryClient();
 
   const { data: movie, isLoading } = api.app.getMovieDetail.useQuery(
@@ -162,7 +162,7 @@ export default function MovieDetailPage() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">未找到该电影</p>
-        <Button onClick={() => navigate(`/dashboard/app/${id}`)}>返回</Button>
+        <Button onClick={() => goBack()}>返回</Button>
       </div>
     );
   }
@@ -192,7 +192,7 @@ export default function MovieDetailPage() {
   };
 
   return (
-    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-6 lg:-mt-6 lg:-mb-6">
+    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
       {/* ── Resume prompt ── */}
       <ResumePromptModal
         open={resumePrompt !== null}
@@ -216,10 +216,7 @@ export default function MovieDetailPage() {
       {/* ── Header ── */}
       <div className="relative z-10 px-6 pt-6 pb-6">
         <div className="mb-6">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(`/dashboard/app/${id}`)}
-          >
+          <Button icon={<ArrowLeftOutlined />} onClick={() => goBack()}>
             返回
           </Button>
         </div>
