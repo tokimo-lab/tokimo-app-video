@@ -185,6 +185,11 @@ impl AppSyncService {
                     "Sync completed: \"{}\" — {} jobs dispatched",
                     library.name, sync_result.total_jobs
                 );
+
+                // Auto-enqueue AI processing jobs for photo libraries
+                if is_photo_type(lib_type) && sync_result.total_jobs > 0 {
+                    Self::enqueue_photo_ai_jobs(db, app_id).await;
+                }
             }
             Err(err) => {
                 error!("Sync failed for library \"{}\": {}", library.name, err);
@@ -193,6 +198,35 @@ impl AppSyncService {
         }
 
         result
+    }
+
+    /// Enqueue batch AI processing jobs (face detect, OCR, CLIP, reverse geocode)
+    /// for a photo library. Skips job types that already have a pending job.
+    async fn enqueue_photo_ai_jobs(db: &DatabaseConnection, app_id: Uuid) {
+        let ai_job_types = [
+            "photo_face_detect",
+            "photo_ocr",
+            "photo_clip",
+            "photo_reverse_geocode",
+        ];
+        let payload = json!({ "appId": app_id.to_string() });
+
+        for job_type in ai_job_types {
+            match JobRepo::count_pending(db, job_type).await {
+                Ok(n) if n > 0 => {
+                    info!("[auto_ai] Skipping {job_type}: {n} pending job(s) already exist");
+                }
+                Ok(_) => {
+                    match JobRepo::create_job(db, job_type, payload.clone(), None).await {
+                        Ok(_) => info!("[auto_ai] Enqueued {job_type} for app {app_id}"),
+                        Err(e) => warn!("[auto_ai] Failed to enqueue {job_type}: {e}"),
+                    }
+                }
+                Err(e) => {
+                    warn!("[auto_ai] Failed to check pending {job_type}: {e}");
+                }
+            }
+        }
     }
 
     // ── core sync logic ─────────────────────────────────────────────────
