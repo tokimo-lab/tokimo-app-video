@@ -35,7 +35,7 @@ function FavoriteButton({
     <button
       type="button"
       title={isFavorite ? "取消收藏" : "收藏"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-gray-400 hover:text-red-400"}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-zinc-600 dark:text-zinc-400 hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "tvshow", id: tvShowId })}
     >
       {isFavorite ? "♥" : "♡"}
@@ -74,7 +74,7 @@ function EpisodeRow({
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs font-medium text-gray-400">
+            <div className="flex h-full items-center justify-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
               E{episode.episodeNumber}
             </div>
           )}
@@ -85,7 +85,7 @@ function EpisodeRow({
               第 {episode.episodeNumber} 集
             </span>
             {episode.runtime != null && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">
                 {formatRuntime(episode.runtime)}
               </span>
             )}
@@ -99,10 +99,12 @@ function EpisodeRow({
             {episode.title ?? `第 ${episode.episodeNumber} 集`}
           </p>
           {episode.airDate && (
-            <p className="mt-0.5 text-xs text-gray-400">{episode.airDate}</p>
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+              {episode.airDate}
+            </p>
           )}
         </div>
-        <span className="mt-1 flex-shrink-0 text-xs text-gray-400">
+        <span className="mt-1 flex-shrink-0 text-xs text-zinc-600 dark:text-zinc-400">
           {open ? "▲" : "▼"}
         </span>
       </button>
@@ -110,7 +112,7 @@ function EpisodeRow({
       {open && (
         <div className="border-t border-[var(--glass-border)] p-3">
           {episode.overview && (
-            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mb-3 text-sm text-gray-600 dark:text-zinc-400">
               {episode.overview}
             </p>
           )}
@@ -242,7 +244,7 @@ export default function TvShowDetailPage() {
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             type="button"
-            className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             onClick={() => goBack()}
           >
             <ArrowLeftOutlined />
@@ -260,7 +262,7 @@ export default function TvShowDetailPage() {
             <p className="truncate font-semibold text-sm text-gray-900 dark:text-gray-100">
               {show.title}
             </p>
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-zinc-400">
               {show.originalTitle && show.originalTitle !== show.title && (
                 <span className="truncate max-w-[120px]">
                   {show.originalTitle}
@@ -272,7 +274,7 @@ export default function TvShowDetailPage() {
                   {show.genres.slice(0, 3).map((g) => (
                     <span
                       key={g.id}
-                      className="rounded-full bg-gray-100 dark:bg-white/10 px-2 py-px text-[11px] text-gray-700 dark:text-gray-300"
+                      className="rounded-full bg-gray-100 dark:bg-white/10 px-2 py-px text-[11px] text-gray-700 dark:text-zinc-300"
                     >
                       {getGenreName(g.tmdbGenreId, lang) || g.name}
                     </span>
@@ -293,7 +295,7 @@ export default function TvShowDetailPage() {
                 className={`flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
                   selectedSeason?.id === sn.id
                     ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white"
-                    : "hover:bg-gray-100 dark:hover:bg-white/8 text-gray-700 dark:text-gray-300"
+                    : "hover:bg-gray-100 dark:hover:bg-white/8 text-gray-700 dark:text-zinc-300"
                 }`}
               >
                 {sn.posterPath ? (
@@ -317,7 +319,7 @@ export default function TvShowDetailPage() {
                       className={`text-[11px] leading-tight ${
                         selectedSeason?.id === sn.id
                           ? "text-white/70"
-                          : "text-gray-400"
+                          : "text-zinc-600 dark:text-zinc-400"
                       }`}
                     >
                       {sn.episodeCount} 集
@@ -354,23 +356,23 @@ export default function TvShowDetailPage() {
               <FavoriteButton isFavorite={isFavorite} tvShowId={show.id} />
             </div>
             {show.originalTitle && show.originalTitle !== show.title && (
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-zinc-400">
                 {show.originalTitle}
               </p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               {show.year && (
-                <span className="text-gray-600 dark:text-gray-300">
+                <span className="text-gray-600 dark:text-zinc-300">
                   {show.year}
                 </span>
               )}
               {seasons.length > 0 && (
-                <span className="text-gray-600 dark:text-gray-300">
+                <span className="text-gray-600 dark:text-zinc-300">
                   · {seasons.length} 季
                 </span>
               )}
               {show.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-gray-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-zinc-300">
                   {show.contentRating}
                 </span>
               )}
@@ -378,7 +380,7 @@ export default function TvShowDetailPage() {
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                     show.status === "ended"
-                      ? "bg-gray-200/60 dark:bg-gray-600/60 text-gray-700 dark:text-gray-300"
+                      ? "bg-gray-200/60 dark:bg-gray-600/60 text-gray-700 dark:text-zinc-300"
                       : "bg-green-100/60 dark:bg-green-600/60 text-green-700 dark:text-green-200"
                   }`}
                 >
@@ -424,7 +426,7 @@ export default function TvShowDetailPage() {
         {show.overview && (
           <div className="mb-6">
             <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <p className="text-sm leading-relaxed text-gray-700 dark:text-zinc-300">
               {show.overview}
             </p>
           </div>
@@ -474,7 +476,7 @@ export default function TvShowDetailPage() {
                       {sn.title ?? `第 ${sn.seasonNumber} 季`}
                     </p>
                     {sn.episodeCount != null && (
-                      <p className="text-[11px] text-gray-400">
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
                         {sn.episodeCount} 集
                       </p>
                     )}
@@ -499,7 +501,7 @@ export default function TvShowDetailPage() {
                   />
                 ))}
                 {(selectedSeason.episodes ?? []).length === 0 && (
-                  <p className="py-8 text-center text-sm text-gray-400">
+                  <p className="py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">
                     暂无剧集数据
                   </p>
                 )}

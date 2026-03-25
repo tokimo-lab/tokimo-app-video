@@ -45,7 +45,7 @@ function FavoriteButton({
     <button
       type="button"
       title={isFavorite ? "取消收藏" : "收藏"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-gray-400 hover:text-red-400"}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-zinc-600 dark:text-zinc-400 hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "movie", id: movieId })}
     >
       {isFavorite ? "♥" : "♡"}
@@ -259,7 +259,7 @@ export default function MovieDetailPage() {
             </div>
             {(movie.originalTitle && movie.originalTitle !== movie.title) ||
             movie.tagline ? (
-              <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-zinc-400">
                 {movie.originalTitle && movie.originalTitle !== movie.title
                   ? movie.originalTitle
                   : null}
@@ -273,17 +273,17 @@ export default function MovieDetailPage() {
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               {movie.year && (
-                <span className="text-gray-600 dark:text-gray-300">
+                <span className="text-gray-600 dark:text-zinc-300">
                   {movie.year}
                 </span>
               )}
               {movie.runtime != null && (
-                <span className="text-gray-600 dark:text-gray-300">
+                <span className="text-gray-600 dark:text-zinc-300">
                   · {formatRuntime(movie.runtime)}
                 </span>
               )}
               {movie.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-gray-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-zinc-300">
                   {movie.contentRating}
                 </span>
               )}
@@ -344,7 +344,7 @@ export default function MovieDetailPage() {
         {movie.overview && (
           <div className="mb-8">
             <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <p className="text-sm leading-relaxed text-gray-700 dark:text-zinc-300">
               {movie.overview}
             </p>
           </div>
