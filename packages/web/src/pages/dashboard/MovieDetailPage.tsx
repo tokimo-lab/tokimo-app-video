@@ -1,12 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
 import { useEffect, useState } from "react";
+import {
+  useBackgroundArt,
+  usePlayer,
+  useSseEvent,
+  useWindowNav,
+} from "@/system";
 import type { MediaFileOutput } from "@/types";
 import { WatchHistoryTable } from "../../components/player/WatchHistoryTable";
-import { useWindowNav } from "../../components/window-manager/WindowNavContext";
-import { usePlayer } from "../../contexts/PlayerContext";
 import { api } from "../../generated/rust-api";
-import { useBackgroundArt, useSseEvent } from "../../hooks";
 import { resolveStoragePath } from "../../lib/storage-url";
 import {
   CastRow,

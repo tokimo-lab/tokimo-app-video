@@ -2,7 +2,7 @@
  * VideoContent — Window content adapter for video files.
  */
 
-import type { WindowState } from "../../../contexts/WindowManagerContext";
+import type { WindowState } from "@/system";
 import { buildFileUrl } from "../../file-manager/types";
 import { VideoPlayer } from "../../player/VideoPlayer";
 import { buildSshFileUrl } from "../file-url";

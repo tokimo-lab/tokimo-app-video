@@ -2,10 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBackgroundArt, useLang, useWindowNav } from "@/system";
 import type { EpisodeOutput } from "@/types";
-import { useWindowNav } from "../../components/window-manager/WindowNavContext";
 import { api } from "../../generated/rust-api";
-import { useBackgroundArt, useLang } from "../../hooks";
 import { resolveStoragePath } from "../../lib/storage-url";
 import {
   CastRow,

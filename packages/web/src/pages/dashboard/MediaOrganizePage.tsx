@@ -13,6 +13,7 @@ import {
 } from "@tokiomo/components";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useMessage } from "@/system";
 import type { OrganizeItem } from "@/types";
 import {
   ManualMatchModal,
@@ -23,7 +24,7 @@ import {
 } from "../../components/dashboard/media-organize";
 import PathSelector from "../../components/dashboard/PathSelector";
 import { api } from "../../generated/rust-api";
-import { useAdultMode, useMessage } from "../../hooks";
+import { useAdultMode } from "../../hooks";
 import { useOrganizeSession } from "../../hooks/useOrganizeSession";
 
 export interface OrganizeDialogProps {
