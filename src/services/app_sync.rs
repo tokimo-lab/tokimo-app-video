@@ -1,5 +1,5 @@
 use crate::db::ApiDateTimeExt;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::Utc;
 use sea_orm::*;
@@ -19,7 +19,7 @@ use crate::db::entities::{
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::error::AppError;
-use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, PHOTO_EXTENSIONS};
+use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS AppType).
@@ -481,10 +481,9 @@ impl AppSyncService {
 
         if is_novel_type(lib_type) {
             info!(
-                "Novel app sync: skipping file walk for source \"{}\" (novels are managed via download)",
+                "Novel app sync: walking file system source \"{}\" for novel files",
                 source.name
             );
-            return Ok(0);
         }
 
         if is_music {
@@ -523,9 +522,12 @@ impl AppSyncService {
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
         let is_photo = is_photo_type(lib_type);
+        let is_novel = is_novel_type(lib_type);
         let walk_handle = tokio::spawn(async move {
             if is_photo {
                 walk_files_streaming(vfs, &walk_root, &walk_source_id, &PHOTO_EXTENSIONS, tx).await
+            } else if is_novel {
+                walk_files_streaming(vfs, &walk_root, &walk_source_id, &NOVEL_EXTENSIONS, tx).await
             } else {
                 walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await
             }
@@ -538,13 +540,18 @@ impl AppSyncService {
         let mut total_jobs = 0u64;
         let mut skipped = 0u64;
 
+        // For novels: buffer .txt files grouped by directory, emit one job per directory.
+        // Non-txt novel files (epub/mobi/etc.) get individual jobs like before.
+        let mut novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>> =
+            HashMap::new();
+
         while let Some(video) = rx.recv().await {
             seen_paths.insert(video.file_path.clone());
             let checksum = format!("{}:{}", video.file_size, video.mtime);
 
-            // Photo libraries skip the media_files dedup — the file_scrape handler
-            // checks photos table directly for idempotency.
-            if !is_photo {
+            // Photo and novel libraries skip the media_files dedup — the handlers
+            // check their own tables directly for idempotency.
+            if !is_photo && !is_novel {
                 let existing =
                     Self::find_existing_media_file(db, source_id, &video.file_path, is_movie, is_tv)
                         .await?;
@@ -565,8 +572,18 @@ impl AppSyncService {
                 }
             }
 
+            // Novel .txt files: group by parent directory for chapter-based novels
+            if is_novel && video.file_path.to_lowercase().ends_with(".txt") {
+                novel_dir_files
+                    .entry(video.dir_path.clone())
+                    .or_default()
+                    .push(video);
+                continue;
+            }
+
+            let job_type = if is_novel { "novel_scrape" } else { "file_scrape" };
             jobs_batch.push((
-                "file_scrape",
+                job_type,
                 json!({
                     "filePath": video.file_path,
                     "dirPath": video.dir_path,
@@ -580,6 +597,39 @@ impl AppSyncService {
             ));
 
             // Flush batch periodically
+            if jobs_batch.len() >= Self::JOB_BATCH_FLUSH_SIZE {
+                total_jobs +=
+                    JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
+            }
+        }
+
+        // Emit consolidated novel directory jobs (one per directory of .txt chapters)
+        for (dir_path, files) in &novel_dir_files {
+            let chapter_files: Vec<serde_json::Value> = files
+                .iter()
+                .map(|f| {
+                    json!({
+                        "filePath": f.file_path,
+                        "fileSize": f.file_size,
+                        "checksum": format!("{}:{}", f.file_size, f.mtime),
+                    })
+                })
+                .collect();
+            let total_size: u64 = files.iter().map(|f| f.file_size).sum();
+
+            jobs_batch.push((
+                "novel_scrape",
+                json!({
+                    "dirPath": dir_path,
+                    "chapterFiles": chapter_files,
+                    "totalSize": total_size,
+                    "appId": app_id.to_string(),
+                    "sourceId": source_id.to_string(),
+                    "libType": lib_type,
+                }),
+                None,
+            ));
+
             if jobs_batch.len() >= Self::JOB_BATCH_FLUSH_SIZE {
                 total_jobs +=
                     JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
