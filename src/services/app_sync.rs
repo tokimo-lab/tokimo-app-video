@@ -1,7 +1,10 @@
 use crate::db::ApiDateTimeExt;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use chrono::Utc;
+use next_fs::Vfs;
+use regex_lite::Regex;
 use sea_orm::*;
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -13,13 +16,13 @@ use rust_client_api::media_servers::{
 };
 
 use crate::db::entities::{
-    episodes, file_systems, app_file_systems, media_files, apps, media_servers,
-    movies, music_albums, photos, seasons, tv_shows,
+    episodes, file_systems, app_file_systems, media_credits, media_files, apps, media_servers,
+    movies, music_albums, music_tracks, persons, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::error::AppError;
-use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
+use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS AppType).
@@ -104,6 +107,45 @@ pub struct SyncStatusOutput {
 #[serde(rename_all = "camelCase")]
 pub struct SyncResult {
     pub total_jobs: u64,
+}
+
+// ── music sync types ────────────────────────────────────────────────────
+
+/// Audio tag info extracted from a file via lofty.
+struct AudioTagInfo {
+    title: Option<String>,
+    artist: Option<String>,
+    album_artist: Option<String>,
+    album: Option<String>,
+    track_number: Option<i32>,
+    disc_number: Option<i32>,
+    year: Option<i32>,
+    genre: Option<String>,
+    duration: Option<i32>,
+    bitrate: Option<i32>,
+    sample_rate: Option<i32>,
+    codec: Option<String>,
+    mb_track_id: Option<String>,
+    mb_album_id: Option<String>,
+}
+
+/// Collected audio file info for music sync.
+struct CollectedAudioFile {
+    file_path: String,
+    dir_path: String,
+    file_size: u64,
+    mtime: i64,
+    source_id: Uuid,
+    tags: Option<AudioTagInfo>,
+}
+
+/// Grouped album info.
+struct AlbumGroup {
+    artist_name: String,
+    album_title: String,
+    year: Option<i32>,
+    dir_path: String,
+    files: Vec<CollectedAudioFile>,
 }
 
 pub struct AppSyncService;
@@ -533,11 +575,7 @@ impl AppSyncService {
         }
 
         if is_music {
-            warn!(
-                "Music sync for source \"{}\" ({}) not yet implemented in Rust, skipping",
-                source.name, source_type
-            );
-            return Ok(0);
+            return Self::sync_music_source(db, sources, app_id, source, root_path).await;
         }
 
         let is_local = source_type == "local";
@@ -726,6 +764,907 @@ impl AppSyncService {
         }
 
         Ok(total_jobs)
+    }
+
+    // ── music sync ──────────────────────────────────────────────────────
+
+    /// Audio MIME types by extension.
+    fn audio_mime_type(file_path: &str) -> &'static str {
+        let ext = file_path
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
+        match ext.as_str() {
+            "flac" => "audio/flac",
+            "mp3" => "audio/mpeg",
+            "m4a" | "alac" => "audio/mp4",
+            "ogg" => "audio/ogg",
+            "opus" => "audio/opus",
+            "wav" => "audio/wav",
+            "aac" => "audio/aac",
+            "wma" => "audio/x-ms-wma",
+            "ape" => "audio/x-ape",
+            "dsf" => "audio/dsf",
+            "dff" => "audio/dff",
+            "aiff" | "aif" => "audio/aiff",
+            _ => "audio/unknown",
+        }
+    }
+
+    /// Cover art filenames to search for in an album directory.
+    const COVER_ART_NAMES: &'static [&'static str] = &[
+        "cover.jpg",
+        "cover.png",
+        "folder.jpg",
+        "folder.png",
+        "front.jpg",
+        "front.png",
+        "album.jpg",
+        "album.png",
+    ];
+
+    /// Read audio tags from a local file using lofty.
+    fn read_audio_tags(path: &std::path::Path) -> Option<AudioTagInfo> {
+        use lofty::file::{AudioFile, TaggedFileExt};
+        use lofty::tag::Accessor;
+
+        let tagged_file = lofty::read_from_path(path).ok()?;
+        let properties = tagged_file.properties();
+        let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
+
+        let (title, artist, album_artist, album, track_number, disc_number, year, genre, mb_track_id, mb_album_id) =
+            if let Some(tag) = tag {
+                (
+                    tag.title().map(|s| s.to_string()),
+                    tag.artist().map(|s| s.to_string()),
+                    tag.get_string(&lofty::tag::ItemKey::AlbumArtist).map(|s| s.to_string()),
+                    tag.album().map(|s| s.to_string()),
+                    tag.track().map(|n| n as i32),
+                    tag.disk().map(|n| n as i32),
+                    tag.year().map(|n| n as i32),
+                    tag.genre().map(|s| s.to_string()),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzRecordingId).map(|s| s.to_string()),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzReleaseId).map(|s| s.to_string()),
+                )
+            } else {
+                (None, None, None, None, None, None, None, None, None, None)
+            };
+
+        let duration_secs = if properties.duration().as_secs() > 0 {
+            Some(properties.duration().as_secs() as i32)
+        } else {
+            None
+        };
+
+        let bitrate = properties.audio_bitrate().map(|b| b as i32);
+        let sample_rate = properties.sample_rate().map(|r| r as i32);
+
+        let codec = {
+            let file_type = tagged_file.file_type();
+            Some(format!("{:?}", file_type))
+        };
+
+        Some(AudioTagInfo {
+            title,
+            artist,
+            album_artist,
+            album,
+            track_number,
+            disc_number,
+            year,
+            genre,
+            duration: duration_secs,
+            bitrate,
+            sample_rate,
+            codec,
+            mb_track_id,
+            mb_album_id,
+        })
+    }
+
+    /// Parse music filename to extract track number, title, and artist.
+    /// Patterns: "01. Artist - Title", "01 - Title", "01 Title", fallback to filename.
+    fn parse_music_filename(file_name: &str, parent_dir: Option<&str>) -> (Option<i32>, Option<String>, Option<String>, Option<String>) {
+        let dot_pos = file_name.rfind('.');
+        let name = if let Some(pos) = dot_pos {
+            &file_name[..pos]
+        } else {
+            file_name
+        };
+
+        let mut track_number: Option<i32> = None;
+        let mut artist: Option<String> = None;
+        let mut track_title: Option<String> = None;
+
+        // Pattern 1: "01. Artist - Title" or "01 - Artist - Title"
+        let re1 = Regex::new(r"^(\d{1,3})[.\s]+(.+?)\s*-\s*(.+)$").unwrap();
+        if let Some(caps) = re1.captures(name) {
+            track_number = caps.get(1).and_then(|m| m.as_str().parse().ok());
+            artist = caps.get(2).map(|m| m.as_str().trim().to_string());
+            track_title = caps.get(3).map(|m| m.as_str().trim().to_string());
+        }
+
+        // Pattern 2: "01 - Title" (no artist)
+        if track_title.is_none() {
+            let re2 = Regex::new(r"^(\d{1,3})\s*[-–.]\s*(.+)$").unwrap();
+            if let Some(caps) = re2.captures(name) {
+                track_number = caps.get(1).and_then(|m| m.as_str().parse().ok());
+                track_title = caps.get(2).map(|m| m.as_str().trim().to_string());
+            }
+        }
+
+        // Pattern 3: "01 Title" (number then space)
+        if track_title.is_none() {
+            let re3 = Regex::new(r"^(\d{1,3})\s+(.+)$").unwrap();
+            if let Some(caps) = re3.captures(name) {
+                track_number = caps.get(1).and_then(|m| m.as_str().parse().ok());
+                track_title = caps.get(2).map(|m| m.as_str().trim().to_string());
+            }
+        }
+
+        // Fallback: entire filename as title
+        if track_title.is_none() {
+            track_title = Some(name.to_string());
+        }
+
+        // Album from parent directory (strip trailing year like "(2024)" or "[2024]")
+        let album = parent_dir.map(|d| {
+            let re_year = Regex::new(r"\s*[(\[][0-9]{4}[)\]]\s*$").unwrap();
+            re_year.replace(d, "").trim().to_string()
+        });
+
+        (track_number, track_title, artist, album)
+    }
+
+    /// Get album info from a collected file — prefer tags, fall back to filename parsing.
+    fn get_album_info(file: &CollectedAudioFile) -> (String, String, Option<i32>) {
+        if let Some(ref tags) = file.tags {
+            if let Some(ref album) = tags.album {
+                let artist_name = tags
+                    .album_artist
+                    .clone()
+                    .or_else(|| tags.artist.clone())
+                    .unwrap_or_else(|| "Unknown Artist".to_string());
+                return (artist_name, album.clone(), tags.year);
+            }
+        }
+
+        let file_name = file
+            .file_path
+            .rsplit('/')
+            .next()
+            .unwrap_or(&file.file_path);
+        let parent_dir = file.dir_path.rsplit('/').next();
+
+        let (_, _, parsed_artist, _) =
+            Self::parse_music_filename(file_name, parent_dir);
+
+        let artist_name = parsed_artist
+            .or_else(|| file.tags.as_ref().and_then(|t| t.artist.clone()))
+            .unwrap_or_else(|| "Unknown Artist".to_string());
+
+        let dir_name = file
+            .dir_path
+            .rsplit('/')
+            .next()
+            .unwrap_or("Unknown Album");
+        let album_title = dir_name.to_string();
+
+        let year = file.tags.as_ref().and_then(|t| t.year);
+        (artist_name, album_title, year)
+    }
+
+    /// Group collected audio files into album groups.
+    fn group_files_into_albums(files: Vec<CollectedAudioFile>) -> Vec<AlbumGroup> {
+        let mut groups: HashMap<String, AlbumGroup> = HashMap::new();
+        for file in files {
+            let (artist_name, album_title, year) = Self::get_album_info(&file);
+            let key = format!(
+                "{}||{}",
+                artist_name.to_lowercase(),
+                album_title.to_lowercase()
+            );
+            let group = groups.entry(key).or_insert_with(|| AlbumGroup {
+                artist_name: artist_name.clone(),
+                album_title: album_title.clone(),
+                year,
+                dir_path: file.dir_path.clone(),
+                files: Vec::new(),
+            });
+            if group.year.is_none() && year.is_some() {
+                group.year = year;
+            }
+            group.files.push(file);
+        }
+        groups.into_values().collect()
+    }
+
+    /// Find or create a Person record by name.
+    async fn find_or_create_person(
+        db: &DatabaseConnection,
+        name: &str,
+    ) -> Result<Uuid, AppError> {
+        let existing = persons::Entity::find()
+            .filter(persons::Column::Name.eq(name))
+            .one(db)
+            .await?;
+        if let Some(p) = existing {
+            return Ok(p.id);
+        }
+
+        let id = Uuid::new_v4();
+        let active = persons::ActiveModel {
+            id: Set(id),
+            name: Set(name.to_string()),
+            ..Default::default()
+        };
+        persons::Entity::insert(active).exec(db).await?;
+        Ok(id)
+    }
+
+    /// Find or create a MusicAlbum for the given group.
+    async fn find_or_create_album(
+        db: &DatabaseConnection,
+        app_id: Uuid,
+        group: &AlbumGroup,
+    ) -> Result<Uuid, AppError> {
+        // Find existing albums with matching title in this library
+        let candidates = music_albums::Entity::find()
+            .filter(music_albums::Column::AppId.eq(app_id))
+            .filter(music_albums::Column::Title.eq(&group.album_title))
+            .find_with_related(media_credits::Entity)
+            .all(db)
+            .await?;
+
+        // Match by artist name via credits → person
+        for (album, credits) in &candidates {
+            for credit in credits {
+                if let Some(person) = persons::Entity::find_by_id(credit.person_id)
+                    .one(db)
+                    .await?
+                {
+                    if person.name.to_lowercase() == group.artist_name.to_lowercase() {
+                        return Ok(album.id);
+                    }
+                }
+            }
+        }
+
+        let max_disc = group
+            .files
+            .iter()
+            .filter_map(|f| f.tags.as_ref().and_then(|t| t.disc_number))
+            .max()
+            .unwrap_or(1);
+
+        let sort_title = {
+            let re = Regex::new(r"(?i)^(the|a|an)\s+").unwrap();
+            re.replace(&group.album_title, "").to_string()
+        };
+
+        let id = Uuid::new_v4();
+        let now = Utc::now().fixed_offset();
+        let active = music_albums::ActiveModel {
+            id: Set(id),
+            app_id: Set(app_id),
+            title: Set(group.album_title.clone()),
+            sort_title: Set(Some(sort_title)),
+            year: Set(group.year),
+            total_tracks: Set(Some(group.files.len() as i32)),
+            total_discs: Set(Some(max_disc)),
+            created_at: Set(Some(now)),
+            updated_at: Set(Some(now)),
+            ..Default::default()
+        };
+        music_albums::Entity::insert(active).exec(db).await?;
+        Ok(id)
+    }
+
+    /// Ensure an "artist" MediaCredit exists linking person to album.
+    async fn ensure_artist_credit(
+        db: &DatabaseConnection,
+        album_id: Uuid,
+        person_id: Uuid,
+    ) -> Result<(), AppError> {
+        let existing = media_credits::Entity::find()
+            .filter(media_credits::Column::PersonId.eq(person_id))
+            .filter(media_credits::Column::AlbumId.eq(album_id))
+            .filter(media_credits::Column::Role.eq("artist"))
+            .one(db)
+            .await?;
+        if existing.is_some() {
+            return Ok(());
+        }
+
+        let active = media_credits::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            person_id: Set(person_id),
+            album_id: Set(Some(album_id)),
+            role: Set("artist".to_string()),
+            ..Default::default()
+        };
+        media_credits::Entity::insert(active).exec(db).await?;
+        Ok(())
+    }
+
+    /// Upsert a MusicTrack record.
+    async fn upsert_track(
+        db: &DatabaseConnection,
+        album_id: Uuid,
+        file: &CollectedAudioFile,
+    ) -> Result<Uuid, AppError> {
+        let file_name = file
+            .file_path
+            .rsplit('/')
+            .next()
+            .unwrap_or(&file.file_path);
+        let parent_dir = file.dir_path.rsplit('/').next();
+
+        let (parsed_track_num, parsed_title, _, _) =
+            Self::parse_music_filename(file_name, parent_dir);
+
+        let track_title = file
+            .tags
+            .as_ref()
+            .and_then(|t| t.title.clone())
+            .or(parsed_title)
+            .unwrap_or_else(|| {
+                // Fallback: filename without extension
+                let dot = file_name.rfind('.');
+                if let Some(pos) = dot {
+                    file_name[..pos].to_string()
+                } else {
+                    file_name.to_string()
+                }
+            });
+
+        let track_number = file
+            .tags
+            .as_ref()
+            .and_then(|t| t.track_number)
+            .or(parsed_track_num);
+        let disc_number = file.tags.as_ref().and_then(|t| t.disc_number);
+
+        // Try to find existing track
+        let mut query = music_tracks::Entity::find()
+            .filter(music_tracks::Column::AlbumId.eq(album_id))
+            .filter(music_tracks::Column::Title.eq(&track_title));
+        if let Some(tn) = track_number {
+            query = query.filter(music_tracks::Column::TrackNumber.eq(tn));
+        }
+        if let Some(dn) = disc_number {
+            query = query.filter(music_tracks::Column::DiscNumber.eq(dn));
+        }
+        let existing = query.one(db).await?;
+
+        if let Some(existing) = existing {
+            // Update metadata if available from tags
+            if let Some(ref tags) = file.tags {
+                let mut active: music_tracks::ActiveModel = existing.clone().into();
+                let mut changed = false;
+                if tags.disc_number.is_some() && existing.disc_number != tags.disc_number {
+                    active.disc_number = Set(tags.disc_number);
+                    changed = true;
+                }
+                if tags.duration.is_some() && existing.duration != tags.duration {
+                    active.duration = Set(tags.duration);
+                    changed = true;
+                }
+                if tags.genre.is_some() && existing.genre != tags.genre {
+                    active.genre = Set(tags.genre.clone());
+                    changed = true;
+                }
+                if tags.bitrate.is_some() && existing.bitrate != tags.bitrate {
+                    active.bitrate = Set(tags.bitrate);
+                    changed = true;
+                }
+                if tags.sample_rate.is_some() && existing.sample_rate != tags.sample_rate {
+                    active.sample_rate = Set(tags.sample_rate);
+                    changed = true;
+                }
+                if tags.codec.is_some() && existing.codec != tags.codec {
+                    active.codec = Set(tags.codec.clone());
+                    changed = true;
+                }
+                if changed {
+                    active.update(db).await?;
+                }
+            }
+            return Ok(existing.id);
+        }
+
+        // Check mbTrackId uniqueness before creating
+        let safe_mb_track_id = if let Some(ref mb_id) =
+            file.tags.as_ref().and_then(|t| t.mb_track_id.clone())
+        {
+            let conflict = music_tracks::Entity::find()
+                .filter(music_tracks::Column::MbTrackId.eq(mb_id.as_str()))
+                .one(db)
+                .await?;
+            if conflict.is_none() {
+                Some(mb_id.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let id = Uuid::new_v4();
+        let active = music_tracks::ActiveModel {
+            id: Set(id),
+            album_id: Set(album_id),
+            title: Set(track_title),
+            track_number: Set(track_number),
+            disc_number: Set(disc_number),
+            duration: Set(file.tags.as_ref().and_then(|t| t.duration)),
+            genre: Set(file.tags.as_ref().and_then(|t| t.genre.clone())),
+            bitrate: Set(file.tags.as_ref().and_then(|t| t.bitrate)),
+            sample_rate: Set(file.tags.as_ref().and_then(|t| t.sample_rate)),
+            codec: Set(file.tags.as_ref().and_then(|t| t.codec.clone())),
+            mb_track_id: Set(safe_mb_track_id),
+            ..Default::default()
+        };
+        music_tracks::Entity::insert(active).exec(db).await?;
+        Ok(id)
+    }
+
+    /// Upsert a MediaFile record linked to a music track.
+    async fn upsert_music_media_file(
+        db: &DatabaseConnection,
+        file: &CollectedAudioFile,
+        track_id: Uuid,
+    ) -> Result<(), AppError> {
+        let checksum = format!("{}:{}", file.file_size, file.mtime);
+        let file_name = file
+            .file_path
+            .rsplit('/')
+            .next()
+            .unwrap_or(&file.file_path);
+        let mime_type = Self::audio_mime_type(&file.file_path);
+        let now = Utc::now().fixed_offset();
+
+        let existing = media_files::Entity::find()
+            .filter(media_files::Column::SourceId.eq(file.source_id))
+            .filter(media_files::Column::Path.eq(&file.file_path))
+            .one(db)
+            .await?;
+
+        if let Some(existing) = existing {
+            if existing.checksum.as_deref() == Some(&checksum)
+                && existing.track_id == Some(track_id)
+            {
+                return Ok(());
+            }
+            let mut active: media_files::ActiveModel = existing.into();
+            active.checksum = Set(Some(checksum));
+            active.track_id = Set(Some(track_id));
+            active.size = Set(Some(file.file_size as i64));
+            active.mime_type = Set(Some(mime_type.to_string()));
+            active.duration = Set(file.tags.as_ref().and_then(|t| t.duration));
+            active.filename = Set(file_name.to_string());
+            active.scanned_at = Set(Some(now));
+            active.updated_at = Set(Some(now));
+            active.update(db).await?;
+            return Ok(());
+        }
+
+        let active = media_files::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            source_id: Set(Some(file.source_id)),
+            path: Set(file.file_path.clone()),
+            filename: Set(file_name.to_string()),
+            size: Set(Some(file.file_size as i64)),
+            mime_type: Set(Some(mime_type.to_string())),
+            duration: Set(file.tags.as_ref().and_then(|t| t.duration)),
+            checksum: Set(Some(checksum)),
+            track_id: Set(Some(track_id)),
+            scanned_at: Set(Some(now)),
+            created_at: Set(Some(now)),
+            ..Default::default()
+        };
+        media_files::Entity::insert(active).exec(db).await?;
+        Ok(())
+    }
+
+    /// Update album metadata after all tracks have been processed.
+    async fn update_album_metadata(
+        db: &DatabaseConnection,
+        album_id: Uuid,
+        group: &AlbumGroup,
+        is_local: bool,
+        vfs: Option<&Arc<Vfs>>,
+    ) -> Result<(), AppError> {
+        let max_disc = group
+            .files
+            .iter()
+            .filter_map(|f| f.tags.as_ref().and_then(|t| t.disc_number))
+            .max()
+            .unwrap_or(1);
+
+        let mb_album_id = group
+            .files
+            .iter()
+            .find_map(|f| f.tags.as_ref().and_then(|t| t.mb_album_id.clone()));
+
+        // Check mbAlbumId uniqueness
+        let safe_mb_album_id = if let Some(ref mb_id) = mb_album_id {
+            let conflict = music_albums::Entity::find()
+                .filter(music_albums::Column::MbAlbumId.eq(mb_id.as_str()))
+                .one(db)
+                .await?;
+            if conflict.is_none() || conflict.map(|c| c.id) == Some(album_id) {
+                Some(mb_id.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let now = Utc::now().fixed_offset();
+        let metadata = if !is_local {
+            Some(json!({"needsTagRead": true}))
+        } else {
+            None
+        };
+
+        let album = music_albums::Entity::find_by_id(album_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("album {album_id} not found")))?;
+
+        let mut active: music_albums::ActiveModel = album.into();
+        active.total_tracks = Set(Some(group.files.len() as i32));
+        active.total_discs = Set(Some(max_disc));
+        active.updated_at = Set(Some(now));
+        if group.year.is_some() {
+            active.year = Set(group.year);
+        }
+        if safe_mb_album_id.is_some() {
+            active.mb_album_id = Set(safe_mb_album_id);
+        }
+        if let Some(meta) = metadata {
+            active.metadata = Set(Some(meta));
+        }
+        active.update(db).await?;
+
+        // Try to find local cover art
+        if is_local {
+            if let Some(vfs) = vfs {
+                for cover_name in Self::COVER_ART_NAMES {
+                    let cover_path = format!(
+                        "{}/{}",
+                        group.dir_path.trim_end_matches('/'),
+                        cover_name
+                    );
+                    match vfs.stat(std::path::Path::new(&cover_path)).await {
+                        Ok(_) => {
+                            // Store VFS-relative cover path
+                            let album = music_albums::Entity::find_by_id(album_id)
+                                .one(db)
+                                .await?;
+                            if let Some(album) = album {
+                                let mut active: music_albums::ActiveModel = album.into();
+                                active.cover_path = Set(Some(cover_path));
+                                active.update(db).await?;
+                            }
+                            break;
+                        }
+                        Err(_) => continue,
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Process one album group: create album, artist, credits, tracks, media files.
+    async fn process_album_group(
+        db: &DatabaseConnection,
+        app_id: Uuid,
+        group: &AlbumGroup,
+        is_local: bool,
+        vfs: Option<&Arc<Vfs>>,
+    ) -> Result<(), AppError> {
+        let album_id = Self::find_or_create_album(db, app_id, group).await?;
+        let person_id = Self::find_or_create_person(db, &group.artist_name).await?;
+        Self::ensure_artist_credit(db, album_id, person_id).await?;
+
+        for file in &group.files {
+            match Self::upsert_track(db, album_id, file).await {
+                Ok(track_id) => {
+                    if let Err(e) = Self::upsert_music_media_file(db, file, track_id).await {
+                        error!(
+                            "Failed to upsert media file \"{}\": {}",
+                            file.file_path
+                                .rsplit('/')
+                                .next()
+                                .unwrap_or(&file.file_path),
+                            e
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!(
+                        "Track upsert failed \"{}\": {}",
+                        file.file_path
+                            .rsplit('/')
+                            .next()
+                            .unwrap_or(&file.file_path),
+                        e
+                    );
+                }
+            }
+        }
+
+        Self::update_album_metadata(db, album_id, group, is_local, vfs).await?;
+        Ok(())
+    }
+
+    /// Full music sync for a single file-system source.
+    async fn sync_music_source(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        app_id: Uuid,
+        source: &file_systems::Model,
+        root_path: &str,
+    ) -> Result<u64, AppError> {
+        let source_type = &source.r#type;
+        let is_local = source_type == "local";
+        let is_remote = is_remote_fs_type(source_type);
+
+        if !is_local && !is_remote {
+            warn!(
+                "Unsupported source type \"{}\" for music source \"{}\", skipping",
+                source_type, source.name
+            );
+            return Ok(0);
+        }
+
+        let source_id_str = source.id.to_string();
+        let vfs = sources.ensure_vfs(&source_id_str).await.map_err(|e| {
+            AppError::Internal(format!(
+                "Failed to get VFS for source {} ({}): {}",
+                source.name, source_id_str, e
+            ))
+        })?;
+
+        let vfs_root = to_vfs_path(root_path, source);
+
+        // Walk audio files
+        let (tx, mut rx) = mpsc::channel::<crate::handlers::media::fs::VideoFileInfo>(256);
+        let walk_root = vfs_root.clone();
+        let walk_source_id = source_id_str.clone();
+        let walk_vfs = vfs.clone();
+        let walk_handle = tokio::spawn(async move {
+            walk_files_streaming(walk_vfs, &walk_root, &walk_source_id, &AUDIO_EXTENSIONS, tx)
+                .await
+        });
+
+        // Collect audio files
+        let source_id = source.id;
+        let mut collected: Vec<CollectedAudioFile> = Vec::new();
+        let mut seen_paths: HashSet<String> = HashSet::new();
+
+        while let Some(audio_file) = rx.recv().await {
+            seen_paths.insert(audio_file.file_path.clone());
+            let checksum = format!("{}:{}", audio_file.file_size, audio_file.mtime);
+
+            // Skip unchanged files
+            let existing = media_files::Entity::find()
+                .filter(media_files::Column::SourceId.eq(source_id))
+                .filter(media_files::Column::Path.eq(&audio_file.file_path))
+                .filter(media_files::Column::TrackId.is_not_null())
+                .one(db)
+                .await?;
+
+            if let Some(ref ex) = existing {
+                if ex.checksum.as_deref() == Some(&checksum) {
+                    continue;
+                }
+            }
+
+            // Read tags for local sources using lofty (in blocking task)
+            let tags = if is_local {
+                // Resolve full filesystem path for local tag reading
+                let driver_root = source
+                    .config
+                    .as_ref()
+                    .and_then(|c| {
+                        c.get("root")
+                            .or_else(|| c.get("root_folder_path"))
+                            .or_else(|| c.get("path"))
+                    })
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let full_path = if audio_file.file_path.starts_with('/') {
+                    format!(
+                        "{}{}",
+                        driver_root.trim_end_matches('/'),
+                        &audio_file.file_path
+                    )
+                } else {
+                    format!(
+                        "{}/{}",
+                        driver_root.trim_end_matches('/'),
+                        &audio_file.file_path
+                    )
+                };
+                let path = std::path::PathBuf::from(&full_path);
+                tokio::task::spawn_blocking(move || Self::read_audio_tags(&path))
+                    .await
+                    .ok()
+                    .flatten()
+            } else {
+                None
+            };
+
+            collected.push(CollectedAudioFile {
+                file_path: audio_file.file_path,
+                dir_path: audio_file.dir_path,
+                file_size: audio_file.file_size,
+                mtime: audio_file.mtime,
+                source_id,
+                tags,
+            });
+        }
+
+        // Wait for walk to complete
+        let walk_stats = walk_handle
+            .await
+            .map_err(|e| {
+                AppError::Internal(format!(
+                    "Walk task panicked for music source \"{}\": {}",
+                    source.name, e
+                ))
+            })?
+            .map_err(|e| {
+                AppError::Internal(format!(
+                    "Failed to walk music source \"{}\" root={}: {}",
+                    source.name, vfs_root, e
+                ))
+            })?;
+
+        info!(
+            "[{}({})] Music walk done: {} dirs, {} audio files found, {} new/changed",
+            source.name, source_type, walk_stats.visited_dirs, walk_stats.found_videos,
+            collected.len()
+        );
+
+        if collected.is_empty() {
+            // Still run cleanup even if no new files
+            Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths)
+                .await?;
+            return Ok(0);
+        }
+
+        // Group into albums
+        let album_groups = Self::group_files_into_albums(collected);
+        info!(
+            "Music sync: {} files grouped into {} albums",
+            seen_paths.len(),
+            album_groups.len()
+        );
+
+        // Process each album group
+        let vfs_ref = if is_local { Some(&vfs) } else { None };
+        let mut processed_albums = 0u64;
+        for (i, group) in album_groups.iter().enumerate() {
+            if let Err(e) = Self::process_album_group(db, app_id, group, is_local, vfs_ref).await {
+                error!(
+                    "Album processing failed \"{}\" by \"{}\": {}",
+                    group.album_title, group.artist_name, e
+                );
+            }
+            processed_albums += 1;
+            if (i + 1) % 10 == 0 {
+                info!(
+                    "Music sync progress: {}/{} albums processed",
+                    i + 1,
+                    album_groups.len()
+                );
+            }
+        }
+
+        // Cleanup missing files
+        Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths)
+            .await?;
+
+        info!(
+            "[{}({})] Music sync done: {} albums processed",
+            source.name, source_type, processed_albums
+        );
+
+        // Return number of new/changed files processed (not job count, since music
+        // sync processes inline rather than dispatching jobs)
+        Ok(processed_albums)
+    }
+
+    /// Remove music-related DB records for files no longer on disk.
+    async fn cleanup_missing_music_files(
+        db: &DatabaseConnection,
+        _app_id: Uuid,
+        source_id: Uuid,
+        root_path: &str,
+        seen_paths: &HashSet<String>,
+    ) -> Result<(), AppError> {
+        let normalized_root = root_path.trim_end_matches('/');
+        let prefix = format!("{}/", normalized_root);
+
+        // Find all music media_files for this source under root_path
+        let db_files = media_files::Entity::find()
+            .filter(media_files::Column::SourceId.eq(source_id))
+            .filter(media_files::Column::TrackId.is_not_null())
+            .filter(
+                sea_orm::Condition::any()
+                    .add(media_files::Column::Path.eq(normalized_root))
+                    .add(media_files::Column::Path.starts_with(&prefix)),
+            )
+            .all(db)
+            .await?;
+
+        let stale_files: Vec<&media_files::Model> = db_files
+            .iter()
+            .filter(|f| !seen_paths.contains(&f.path))
+            .collect();
+
+        if stale_files.is_empty() {
+            return Ok(());
+        }
+
+        info!(
+            "Cleaning up {} missing music files (source={}, root={})",
+            stale_files.len(),
+            source_id,
+            root_path
+        );
+
+        let stale_file_ids: Vec<Uuid> = stale_files.iter().map(|f| f.id).collect();
+        let track_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.track_id).collect();
+
+        // Delete stale media files
+        media_files::Entity::delete_many()
+            .filter(media_files::Column::Id.is_in(stale_file_ids))
+            .exec(db)
+            .await?;
+
+        // Cascade: delete orphan tracks (no remaining files)
+        let mut album_ids: HashSet<Uuid> = HashSet::new();
+        for track_id in &track_ids {
+            let remaining = media_files::Entity::find()
+                .filter(media_files::Column::TrackId.eq(*track_id))
+                .count(db)
+                .await?;
+            if remaining == 0 {
+                if let Some(track) = music_tracks::Entity::find_by_id(*track_id)
+                    .one(db)
+                    .await?
+                {
+                    album_ids.insert(track.album_id);
+                    music_tracks::Entity::delete_by_id(*track_id)
+                        .exec(db)
+                        .await?;
+                }
+            }
+        }
+
+        // Cascade: delete orphan albums (no remaining tracks)
+        for album_id in &album_ids {
+            let remaining = music_tracks::Entity::find()
+                .filter(music_tracks::Column::AlbumId.eq(*album_id))
+                .count(db)
+                .await?;
+            if remaining == 0 {
+                music_albums::Entity::delete_by_id(*album_id)
+                    .exec(db)
+                    .await?;
+            }
+        }
+
+        Ok(())
     }
 
     // ── find existing media file ────────────────────────────────────────
