@@ -204,7 +204,7 @@ impl AppSyncService {
     /// for a photo library. Skips job types that already have a pending job.
     /// Respects per-app settings: `autoOcr`, `autoClip`, `autoFace`, `autoGeo`
     /// (all default to `true` when absent).
-    async fn enqueue_photo_ai_jobs(db: &DatabaseConnection, app_id: Uuid) {
+    pub async fn enqueue_photo_ai_jobs(db: &DatabaseConnection, app_id: Uuid) {
         // Read per-app AI flags from app.settings JSONB
         let app_settings = match apps::Entity::find_by_id(app_id).one(db).await {
             Ok(Some(app)) => app.settings.unwrap_or_else(|| json!({})),
