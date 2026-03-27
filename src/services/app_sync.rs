@@ -202,13 +202,42 @@ impl AppSyncService {
 
     /// Enqueue batch AI processing jobs (face detect, OCR, CLIP, reverse geocode)
     /// for a photo library. Skips job types that already have a pending job.
+    /// Respects per-app settings: `autoOcr`, `autoClip`, `autoFace`, `autoGeo`
+    /// (all default to `true` when absent).
     async fn enqueue_photo_ai_jobs(db: &DatabaseConnection, app_id: Uuid) {
-        let ai_job_types = [
-            "photo_face_detect",
-            "photo_ocr",
-            "photo_clip",
-            "photo_reverse_geocode",
-        ];
+        // Read per-app AI flags from app.settings JSONB
+        let app_settings = match apps::Entity::find_by_id(app_id).one(db).await {
+            Ok(Some(app)) => app.settings.unwrap_or_else(|| json!({})),
+            Ok(None) => {
+                warn!("[auto_ai] App {app_id} not found, skipping AI jobs");
+                return;
+            }
+            Err(e) => {
+                warn!("[auto_ai] Failed to load app {app_id}: {e}");
+                return;
+            }
+        };
+
+        let auto_flag = |key: &str| -> bool {
+            app_settings.get(key).and_then(|v| v.as_bool()).unwrap_or(true)
+        };
+
+        let ai_job_types: Vec<&str> = [
+            ("photo_face_detect", auto_flag("autoFace")),
+            ("photo_ocr", auto_flag("autoOcr")),
+            ("photo_clip", auto_flag("autoClip")),
+            ("photo_reverse_geocode", auto_flag("autoGeo")),
+        ]
+        .into_iter()
+        .filter(|(job_type, enabled)| {
+            if !enabled {
+                info!("[auto_ai] Skipping {job_type}: disabled in app settings");
+            }
+            *enabled
+        })
+        .map(|(job_type, _)| job_type)
+        .collect();
+
         let payload = json!({ "appId": app_id.to_string() });
 
         for job_type in ai_job_types {
