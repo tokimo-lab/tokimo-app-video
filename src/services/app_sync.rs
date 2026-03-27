@@ -347,6 +347,12 @@ impl AppSyncService {
     ) -> Result<(), AppError> {
         info!("Clearing data for library {app_id} (type={lib_type})");
 
+        // Cancel all pending/running jobs for this library
+        let cancelled = JobRepo::cancel_jobs_by_app_id(db, app_id).await?;
+        if cancelled > 0 {
+            info!("  Cancelled {cancelled} pending/running jobs");
+        }
+
         // Collect source_ids for this library (used to clean orphaned media_files)
         let source_ids: Vec<Uuid> = app_file_systems::Entity::find()
             .filter(app_file_systems::Column::AppId.eq(app_id))
