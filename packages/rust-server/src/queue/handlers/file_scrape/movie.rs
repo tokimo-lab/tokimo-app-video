@@ -1,5 +1,8 @@
 //! Movie creation and lookup logic aligned with TS file-scrape.ts.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use rust_client_api::metadata_providers::tmdb::TmdbMediaDetail;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
@@ -19,7 +22,18 @@ pub struct MovieResult {
     pub movie_id: Uuid,
 }
 
+/// Compute a stable i64 advisory lock key from (app_id, title, year).
+fn movie_lock_key(app_id: Uuid, title: &str, year: Option<i32>) -> i64 {
+    let mut h = DefaultHasher::new();
+    app_id.hash(&mut h);
+    title.to_lowercase().hash(&mut h);
+    year.hash(&mut h);
+    h.finish() as i64
+}
+
 /// Find or create a movie record, fully aligned with TS logic.
+/// Uses a PostgreSQL advisory lock keyed on (app_id, title, year) to prevent
+/// concurrent workers from creating duplicate movie records when tmdb_id is NULL.
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_movie(
     db: &DatabaseConnection,
@@ -45,26 +59,36 @@ pub async fn find_or_create_movie(
         .and_then(|d| d.imdb_id.clone())
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
+    // Acquire advisory lock to serialize concurrent movie creation for the same title+year.
+    // This prevents the race where multiple workers all find no existing movie and all insert.
+    let lock_key = movie_lock_key(app_id, parsed_title, parsed_year);
+    let txn = db.begin().await?;
+    txn.execute_unprepared(&format!("SELECT pg_advisory_xact_lock({lock_key})"))
+        .await?;
+
     // Check existing by external IDs first, then fall back to title+year (same library)
-    let existing = find_existing_movie(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
-        .or(find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await?);
+    let existing = find_existing_movie(&txn, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
+        .or(find_existing_movie_by_title(&txn, app_id, parsed_title, parsed_year).await?);
 
     let movie_id = if let Some(existing_id) = existing {
         // If this file brought new external IDs, backfill them onto the existing record
-        backfill_external_ids(db, existing_id, tmdb_detail, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+        backfill_external_ids(&txn, existing_id, tmdb_detail, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
         movies::Entity::update_many()
             .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
             .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
             .filter(movies::Column::Id.eq(existing_id))
-            .exec(db)
+            .exec(&txn)
             .await?;
+        txn.commit().await?;
         existing_id
     } else {
-        create_movie_record(
-            db, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo, online_record,
+        let id = create_movie_record(
+            &txn, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo, online_record,
             parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
         )
-        .await?
+        .await?;
+        txn.commit().await?;
+        id
     };
 
     // Upload artwork
@@ -136,7 +160,7 @@ pub async fn find_or_create_movie(
 }
 
 async fn find_existing_movie(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     app_id: Uuid,
     tmdb_id: Option<&str>,
     imdb_id: Option<&str>,
@@ -162,7 +186,7 @@ async fn find_existing_movie(
 /// Fallback dedup: match by title + year within the same library.
 /// Only used when external IDs are unavailable (e.g. TMDB search failed).
 async fn find_existing_movie_by_title(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     app_id: Uuid,
     title: &str,
     year: Option<i32>,
@@ -190,7 +214,7 @@ async fn find_existing_movie_by_title(
 /// Backfill external IDs onto an existing movie when a new file brings better metadata.
 /// e.g. MKV was scraped with tmdb_id but BDMV matched by title — now copy tmdb_id over.
 async fn backfill_external_ids(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     movie_id: Uuid,
     tmdb_detail: Option<&TmdbMediaDetail>,
     tmdb_id: Option<&str>,
@@ -225,7 +249,7 @@ async fn backfill_external_ids(
 
 #[allow(clippy::too_many_arguments)]
 async fn create_movie_record(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     app_id: Uuid,
     is_adult: bool,
     should_use_tmdb: bool,

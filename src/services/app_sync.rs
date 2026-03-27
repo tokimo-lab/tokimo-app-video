@@ -167,7 +167,18 @@ impl AppSyncService {
             library.name, app_id, lib_type
         );
 
-        // 2. Update sync status to "syncing"
+        // 2. Guard against concurrent syncs for the same library
+        if library.sync_status == "syncing" && !clear_data {
+            warn!(
+                "Library \"{}\" is already syncing, skipping duplicate sync request",
+                library.name
+            );
+            return Err(AppError::Conflict(
+                "Library is already syncing".into(),
+            ));
+        }
+
+        // 3. Update sync status to "syncing"
         AppRepo::update_sync_status(db, app_id, "syncing", None).await?;
 
         // Wrap the actual work so we can catch errors and set status to "failed".
