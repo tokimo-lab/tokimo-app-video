@@ -305,6 +305,13 @@ export default function MovieDetailPage() {
                   豆瓣 ★ {movie.doubanRating.toFixed(1)}
                 </span>
               )}
+              {movie.scrapedAt ? (
+                <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
+                  ✨ 已刮削
+                </span>
+              ) : (
+                <span className="text-xs text-orange-400">未刮削</span>
+              )}
               <MediaTagsRow
                 genres={movie.genres}
                 tmdbId={movie.tmdbId}
