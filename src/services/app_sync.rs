@@ -629,12 +629,34 @@ impl AppSyncService {
         let mut novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>> =
             HashMap::new();
 
+        // Pre-load existing photo paths for this source to skip already-indexed photos
+        // without creating 170K+ redundant file_scrape jobs every sync.
+        let existing_photo_paths: HashSet<String> = if is_photo {
+            photos::Entity::find()
+                .filter(photos::Column::AppId.eq(app_id))
+                .filter(photos::Column::SourceId.eq(source_id))
+                .select_only()
+                .column(photos::Column::Path)
+                .into_tuple::<String>()
+                .all(db)
+                .await?
+                .into_iter()
+                .collect()
+        } else {
+            HashSet::new()
+        };
+
         while let Some(video) = rx.recv().await {
             seen_paths.insert(video.file_path.clone());
             let checksum = format!("{}:{}", video.file_size, video.mtime);
 
-            // Photo and novel libraries skip the media_files dedup — the handlers
-            // check their own tables directly for idempotency.
+            // Photo libraries: skip already-indexed photos (dedup by path).
+            if is_photo && existing_photo_paths.contains(&video.file_path) {
+                skipped += 1;
+                continue;
+            }
+
+            // Video/TV/Movie libraries: check media_files table with checksum.
             if !is_photo && !is_novel {
                 let existing =
                     Self::find_existing_media_file(db, source_id, &video.file_path, is_movie, is_tv)
