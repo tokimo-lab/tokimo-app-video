@@ -918,6 +918,69 @@ impl AppSyncService {
     }
 
     /// Get album info from a collected file — prefer tags, fall back to filename parsing.
+    /// Strip date-prefix noise from album/folder titles.
+    ///
+    /// Handles two patterns:
+    /// - `"2002年07月18日 - 八度空间"` → `"八度空间"`
+    /// - `"2003年11月11日《寻找周杰伦EP》"` → `"寻找周杰伦EP"`
+    fn extract_clean_title(title: &str) -> String {
+        let t = title.trim();
+
+        // Pattern 1: "YYYY年MM月DD日[ ]- title" or "YYYY年MM月DD日- title"
+        // Match everything before " - " or "- " if the prefix is only date characters
+        if let Some(pos) = t.find(" - ").or_else(|| {
+            // also handle "日-" (no space before dash)
+            t.find("日-").map(|p| p + '日'.len_utf8())
+        }) {
+            let before = &t[..pos];
+            let is_date_prefix = !before.is_empty()
+                && before.chars().all(|c| {
+                    c.is_ascii_digit()
+                        || c == '年'
+                        || c == '月'
+                        || c == '日'
+                        || c == '-'
+                        || c == ' '
+                });
+            if is_date_prefix {
+                // Skip the separator (either " - " or "- ")
+                let rest = if t[pos..].starts_with(" - ") {
+                    &t[pos + 3..]
+                } else {
+                    &t[pos + 1..]
+                };
+                if !rest.trim().is_empty() {
+                    return rest.trim().to_string();
+                }
+            }
+        }
+
+        // Pattern 2: "YYYY年...《title》[optional suffix]"
+        if let (Some(start), Some(end)) = (t.find('《'), t.rfind('》')) {
+            let pre = &t[..start];
+            let is_date_prefix = pre.trim().is_empty()
+                || pre.trim().chars().all(|c| {
+                    c.is_ascii_digit()
+                        || c == '年'
+                        || c == '月'
+                        || c == '日'
+                        || c == '-'
+                        || c == ' '
+                });
+            if is_date_prefix && end > start {
+                let inside = &t[start + '《'.len_utf8()..end];
+                let suffix = t[end + '》'.len_utf8()..].trim();
+                if suffix.is_empty() {
+                    return inside.trim().to_string();
+                } else {
+                    return format!("{} {}", inside.trim(), suffix);
+                }
+            }
+        }
+
+        t.to_string()
+    }
+
     fn get_album_info(file: &CollectedAudioFile) -> (String, String, Option<i32>) {
         if let Some(ref tags) = file.tags {
             if let Some(ref album) = tags.album {
@@ -926,7 +989,8 @@ impl AppSyncService {
                     .clone()
                     .or_else(|| tags.artist.clone())
                     .unwrap_or_else(|| "Unknown Artist".to_string());
-                return (artist_name, album.clone(), tags.year);
+                let clean_album = Self::extract_clean_title(album);
+                return (artist_name, clean_album, tags.year);
             }
         }
 
@@ -949,7 +1013,7 @@ impl AppSyncService {
             .rsplit('/')
             .next()
             .unwrap_or("Unknown Album");
-        let album_title = dir_name.to_string();
+        let album_title = Self::extract_clean_title(dir_name);
 
         let year = file.tags.as_ref().and_then(|t| t.year);
         (artist_name, album_title, year)

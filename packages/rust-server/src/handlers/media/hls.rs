@@ -91,6 +91,8 @@ pub async fn get_segment(
     State(state): State<Arc<AppState>>,
     Path((session_id, segment)): Path<(String, String)>,
 ) -> Response {
+    let req_start = std::time::Instant::now();
+
     let session = match state.hls_manager.get_session(&session_id).await {
         Some(s) => s,
         None => {
@@ -114,20 +116,33 @@ pub async fn get_segment(
         }
     };
 
+    let prepare_ms = req_start.elapsed().as_millis();
+
     // Phase 2: wait for the segment WITHOUT holding the session lock.
     // This allows concurrent stop / seek requests to proceed normally.
     let segment_path = wait_handle.wait().await;
 
+    let wait_ms = req_start.elapsed().as_millis();
+
     let segment_path = match segment_path {
         Some(path) => path,
         None => {
-            warn!("[HLS:{}] segment {} not available", session_id, segment);
+            warn!(
+                "[HLS:{}] segment {} wait timeout (prepare={}ms wait={}ms)",
+                session_id, segment, prepare_ms, wait_ms
+            );
             return StatusCode::NOT_FOUND.into_response();
         }
     };
 
     match tokio::fs::read(&segment_path).await {
         Ok(data) => {
+            let total_ms = req_start.elapsed().as_millis();
+            let size_kb = data.len() / 1024;
+            debug!(
+                "[HLS:{}] segment {} served: {}KB prepare={}ms wait={}ms total={}ms",
+                session_id, segment, size_kb, prepare_ms, wait_ms, total_ms
+            );
             // fMP4 segments (.tokimo/.m4s) and init segments (.mp4) use video/mp4;
             // legacy MPEG-TS (.ts) uses video/mp2t.
             let content_type = if segment.ends_with(".tokimo")
