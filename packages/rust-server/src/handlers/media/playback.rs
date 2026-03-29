@@ -9,17 +9,17 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::{file_systems, media_files, media_servers};
-use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
+use crate::db::models::playback::{
+    AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
+};
 use crate::db::repos::media::PlaybackRepo;
+use crate::handlers::media::local_media::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
-use crate::handlers::media::local_media::resolve_local_path;
 use crate::scheduler::tasks::persist_playback_progress;
-use crate::services::transcode_decision::{
-    self, ClientProfile, VideoStreamInfo,
-};
-use crate::AppState;
+use crate::services::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
 
 // ── Query parameters ─────────────────────────────────────────────────────────
@@ -108,7 +108,10 @@ pub async fn stream_url(
 ) -> Response {
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
-        Err(_) => return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid file ID".into()).into_response(),
+        Err(_) => {
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid file ID".into())
+                .into_response();
+        }
     };
 
     let db = &state.db;
@@ -116,20 +119,34 @@ pub async fn stream_url(
     // Look up media file
     let file = match media_files::Entity::find_by_id(file_uuid).one(db).await {
         Ok(Some(f)) => f,
-        Ok(None) => return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into()).into_response(),
-        Err(e) => return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Ok(None) => {
+            return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into())
+                .into_response();
+        }
+        Err(e) => {
+            return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                .into_response();
+        }
     };
 
     // Look up media server (if any)
     let media_server = if let Some(ms_id) = file.media_server_id {
-        media_servers::Entity::find_by_id(ms_id).one(db).await.ok().flatten()
+        media_servers::Entity::find_by_id(ms_id)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
     } else {
         None
     };
 
     // Look up source (file_systems)
     let source = if let Some(src_id) = file.source_id {
-        file_systems::Entity::find_by_id(src_id).one(db).await.ok().flatten()
+        file_systems::Entity::find_by_id(src_id)
+            .one(db)
+            .await
+            .ok()
+            .flatten()
     } else {
         None
     };
@@ -160,12 +177,19 @@ pub async fn stream_url(
     let client_containers: Vec<String> = if q.containers.is_empty() {
         vec![]
     } else {
-        q.containers.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect()
+        q.containers
+            .split(',')
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect()
     };
     let client_audio_codecs: Vec<String> = if q.ac.is_empty() {
         vec![]
     } else {
-        q.ac.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect()
+        q.ac.split(',')
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect()
     };
 
     // ── Media server (Plex / Emby / Jellyfin) ──────────────────────────────
@@ -175,35 +199,62 @@ pub async fn stream_url(
 
         if ms_type == "plex" {
             let Some(token) = &ms.token else {
-                return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, "Plex server not configured".into()).into_response();
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Plex server not configured".into(),
+                )
+                .into_response();
             };
             let Some(stream_key) = &file.stream_key else {
-                return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "No stream key for this file".into()).into_response();
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::NOT_FOUND,
+                    "No stream key for this file".into(),
+                )
+                .into_response();
             };
-            let key = if stream_key.starts_with('/') { stream_key.clone() } else { format!("/{stream_key}") };
+            let key = if stream_key.starts_with('/') {
+                stream_key.clone()
+            } else {
+                format!("/{stream_key}")
+            };
             let url = format!("{base_url}{key}?X-Plex-Token={token}&download=1");
             return ok(StreamUrlDto { url }).into_response();
         }
 
         if ms_type == "emby" || ms_type == "jellyfin" {
             let Some(api_key) = &ms.api_key else {
-                return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, format!("{ms_type} server not configured")).into_response();
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("{ms_type} server not configured"),
+                )
+                .into_response();
             };
             let Some(stream_key) = &file.stream_key else {
-                return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "No stream key for this file".into()).into_response();
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::NOT_FOUND,
+                    "No stream key for this file".into(),
+                )
+                .into_response();
             };
             let encoded_key = urlencoding::encode(stream_key);
             let encoded_api_key = urlencoding::encode(api_key);
-            let url = format!("{base_url}/Videos/{encoded_key}/stream?api_key={encoded_api_key}&static=true");
+            let url = format!(
+                "{base_url}/Videos/{encoded_key}/stream?api_key={encoded_api_key}&static=true"
+            );
             return ok(StreamUrlDto { url }).into_response();
         }
 
-        return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, format!("Unsupported media server type: {ms_type}")).into_response();
+        return err_resp::<StreamUrlDto>(
+            StatusCode::BAD_REQUEST,
+            format!("Unsupported media server type: {ms_type}"),
+        )
+        .into_response();
     }
 
     // ── Filesystem source ───────────────────────────────────────────────────
     let Some(source) = source else {
-        return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "File has no source".into()).into_response();
+        return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "File has no source".into())
+            .into_response();
     };
 
     let source_type = source.r#type.as_str();
@@ -211,14 +262,21 @@ pub async fn stream_url(
 
     if is_network || source_type == "local" {
         // Audio-only → direct stream
-        if transcode_decision::is_audio_only_file(file.video_codec.as_deref(), file.mime_type.as_deref()) {
+        if transcode_decision::is_audio_only_file(
+            file.video_codec.as_deref(),
+            file.mime_type.as_deref(),
+        ) {
             let url = build_direct_stream_url(&file, &auth.user_id);
             return ok(StreamUrlDto { url }).into_response();
         }
 
         // Parse stream metadata
         let audio_streams = AudioStreamInfo::from_json_array(file.audio_streams.as_ref());
-        let audio_index = q.audio_index.as_deref().and_then(|s| s.parse::<usize>().ok()).unwrap_or(0);
+        let audio_index = q
+            .audio_index
+            .as_deref()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(0);
         let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
 
         let audio_reason = transcode_decision::audio_transcode_reason(
@@ -238,7 +296,8 @@ pub async fn stream_url(
             &client_profile,
         );
         let transcode_video = video_reason.is_some();
-        let container_reason = transcode_decision::container_transcode_reason(&file.path, &client_containers);
+        let container_reason =
+            transcode_decision::container_transcode_reason(&file.path, &client_containers);
         let transcode_container = container_reason.is_some();
         let codec_tag_reason = transcode_decision::codec_tag_transcode_reason(
             file.video_codec.as_deref(),
@@ -255,6 +314,10 @@ pub async fn stream_url(
                 algorithm: "bt2390".to_string(),
                 peak: 100.0,
                 desat: 0.0,
+                // Jellyfin default TonemappingMode is "max"
+                mode: "max".to_string(),
+                param: 0.0,
+                range: "auto".to_string(),
             })
         } else {
             None
@@ -312,9 +375,17 @@ pub async fn stream_url(
                 source_type == "local",
                 source.config.as_ref(),
                 &auth.user_id,
-            ).await {
+            )
+            .await
+            {
                 Ok(url) => return ok(StreamUrlDto { url }).into_response(),
-                Err(e) => return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, format!("HLS stream failed: {e}")).into_response(),
+                Err(e) => {
+                    return err_resp::<StreamUrlDto>(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("HLS stream failed: {e}"),
+                    )
+                    .into_response();
+                }
             }
         }
 
@@ -332,7 +403,11 @@ pub async fn stream_url(
         return ok(StreamUrlDto { url }).into_response();
     }
 
-    err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, format!("Unsupported source type: {source_type}")).into_response()
+    err_resp::<StreamUrlDto>(
+        StatusCode::BAD_REQUEST,
+        format!("Unsupported source type: {source_type}"),
+    )
+    .into_response()
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
@@ -447,11 +522,17 @@ pub async fn stop_session_beacon(
 async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
     debug!("[Playback] stop-session request for file {}", file_id);
     let snapshots = state.hls_manager.playback_snapshots().await;
-    let file_snapshots: Vec<_> = snapshots.into_iter().filter(|s| s.file_id == file_id).collect();
+    let file_snapshots: Vec<_> = snapshots
+        .into_iter()
+        .filter(|s| s.file_id == file_id)
+        .collect();
     state.hls_manager.stop_session_for_file(file_id).await;
     for snap in &file_snapshots {
         if let Err(e) = persist_playback_progress(&state.db, snap).await {
-            warn!("[Playback] failed to persist final progress for {}: {}", snap.session_id, e);
+            warn!(
+                "[Playback] failed to persist final progress for {}: {}",
+                snap.session_id, e
+            );
         }
     }
 }
@@ -465,7 +546,13 @@ pub async fn resume_position(
 ) -> Response {
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
-        Err(_) => return err_resp::<ResumePositionDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response(),
+        Err(_) => {
+            return err_resp::<ResumePositionDto>(
+                StatusCode::BAD_REQUEST,
+                "Invalid user ID".into(),
+            )
+            .into_response();
+        }
     };
     let movie_id = q.movie_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
@@ -485,7 +572,13 @@ pub async fn watch_history(
 ) -> Response {
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
-        Err(_) => return err_resp::<Vec<WatchHistoryItemDto>>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response(),
+        Err(_) => {
+            return err_resp::<Vec<WatchHistoryItemDto>>(
+                StatusCode::BAD_REQUEST,
+                "Invalid user ID".into(),
+            )
+            .into_response();
+        }
     };
     let movie_id = q.movie_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
