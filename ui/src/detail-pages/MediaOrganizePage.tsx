@@ -13,19 +13,19 @@ import {
 } from "@tokiomo/components";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMessage } from "@/system";
-import type { OrganizeItem } from "@/types";
 import {
   ManualMatchModal,
   OrganizeItemList,
   OrganizeReportHistory,
   OrganizeReportModal,
   OrganizeToolbar,
-} from "../../components/dashboard/media-organize";
-import PathSelector from "../../components/dashboard/PathSelector";
-import { api } from "../../generated/rust-api";
-import { useAdultMode } from "../../hooks";
-import { useOrganizeSession } from "../../hooks/useOrganizeSession";
+} from "@/apps/media-organize/components";
+import { useOrganizeSession } from "@/apps/media-organize/hooks/useOrganizeSession";
+import PathSelector from "@/apps/settings/components/PathSelector";
+import { api } from "@/generated/rust-api";
+import { useAdultMode } from "@/shared/hooks";
+import { useMessage } from "@/system";
+import type { OrganizeItem } from "@/types";
 
 export interface OrganizeDialogProps {
   open: boolean;
