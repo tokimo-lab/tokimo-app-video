@@ -1,18 +1,18 @@
 /**
- * VideoContent — Window content adapter for video files.
+ * VideoViewer — Window content adapter for video files.
  */
 
 import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildFileUrl } from "@/apps/files/components/types";
+import { buildFileUrl } from "@/apps/finder/components/types";
+import { VideoPlayer } from "@/shell/player/VideoPlayer";
 import type { WindowState } from "@/system";
 import { useWindowActions } from "@/system";
-import { VideoPlayer } from "../../player/VideoPlayer";
 import { buildSshFileUrl } from "../file-url";
+import { SiblingFileList } from "../SiblingFileList";
 import { FileProbePanel } from "./FileProbePanel";
-import { SiblingFileList } from "./SiblingFileList";
 
-export default function VideoContent({ win }: { win: WindowState }) {
+export default function VideoViewer({ win }: { win: WindowState }) {
   const filePath = win.metadata.filePath ?? "";
   const fileSystemId = win.metadata.fileSystemId ?? "";
 

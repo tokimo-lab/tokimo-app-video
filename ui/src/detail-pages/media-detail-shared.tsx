@@ -4,7 +4,7 @@ import { Info, Play } from "lucide-react";
 import { useState } from "react";
 import FileDetailsModal, {
   getMediaFileLocator,
-} from "@/apps/files/components/FileDetailsModal";
+} from "@/apps/finder/components/FileDetailsModal";
 import PersonDetailModal from "@/apps/media/components/PersonDetailModal";
 import { resolveStoragePath } from "@/lib/storage-url";
 import { useLang, usePlayer } from "@/system";
