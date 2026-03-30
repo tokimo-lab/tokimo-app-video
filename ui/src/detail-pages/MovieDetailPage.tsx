@@ -5,9 +5,9 @@ import { api } from "@/generated/rust-api";
 import { resolveStoragePath } from "@/lib/storage-url";
 import { WatchHistoryTable } from "@/shell/player/WatchHistoryTable";
 import {
+  useAppEvent,
   useBackgroundArt,
   usePlayer,
-  useSseEvent,
   useWindowNav,
 } from "@/system";
 import type { MediaFileOutput } from "@/types";
@@ -142,8 +142,8 @@ export default function MovieDetailPage() {
     };
   }, [movie?.backdropPath, setBackgroundArt]);
 
-  // ── SSE: refresh movie detail after each person is scraped ──
-  useSseEvent((event) => {
+  // ── WS: refresh movie detail after each person is scraped ──
+  useAppEvent((event) => {
     if (
       event.type === "person_scraped" &&
       event.movieId === movieId &&

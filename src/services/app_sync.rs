@@ -11,12 +11,8 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use rust_client_api::media_servers::{
-    emby::EmbyClient, jellyfin::JellyfinClient, plex::PlexClient, traits::MediaItem,
-};
-
 use crate::db::entities::{
-    episodes, file_systems, app_file_systems, media_credits, media_files, apps, media_servers,
+    episodes, file_systems, app_file_systems, media_credits, media_files, apps,
     movies, music_albums, music_tracks, persons, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
@@ -93,7 +89,6 @@ fn to_vfs_path(root_path: &str, source: &file_systems::Model) -> String {
     root_path.to_string()
 }
 
-const SERVER_SYNC_PAGE_SIZE: u32 = 100;
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -184,9 +179,8 @@ impl AppSyncService {
 
     /// Execute full app sync.
     ///
-    /// Walks file-system sources, queries media servers, and writes pending
-    /// `file_scrape` / `media_server_item_sync` job records.  A separate TS
-    /// worker polls the `jobs` table and dispatches into BullMQ.
+    /// Walks file-system sources and writes pending `file_scrape` job records.
+    /// A separate TS worker polls the `jobs` table and dispatches into BullMQ.
     pub async fn execute_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -322,7 +316,7 @@ impl AppSyncService {
         is_tv: bool,
         is_music: bool,
         clear_data: bool,
-        http_client: reqwest::Client,
+        _http_client: reqwest::Client,
     ) -> Result<SyncResult, AppError> {
         let app_id = library.id;
 
@@ -331,11 +325,6 @@ impl AppSyncService {
             Self::clear_library_data(db, app_id, lib_type).await?;
         }
 
-        let last_sync_at = if !clear_data {
-            library.last_sync_at
-        } else {
-            None
-        };
         let mut total_jobs = 0u64;
 
         // 4. Process file system sources
@@ -358,31 +347,6 @@ impl AppSyncService {
                 is_music,
                 &source,
                 &link.root_path,
-            )
-            .await?;
-            total_jobs += jobs;
-        }
-
-        // 5. Process media server links
-        let server_links = AppRepo::get_server_links(db, app_id).await?;
-        for link in &server_links {
-            let server = media_servers::Entity::find_by_id(link.server_id)
-                .one(db)
-                .await?
-                .ok_or_else(|| {
-                    AppError::NotFound(format!("server {} not found", link.server_id))
-                })?;
-
-            let jobs = Self::sync_media_server(
-                db,
-                http_client.clone(),
-                &server,
-                &link.server_app_id,
-                app_id,
-                lib_type,
-                is_movie,
-                is_tv,
-                last_sync_at,
             )
             .await?;
             total_jobs += jobs;
@@ -1993,346 +1957,5 @@ impl AppSyncService {
         Ok(())
     }
 
-    // ── media server sync ───────────────────────────────────────────────
-
-    async fn sync_media_server(
-        db: &DatabaseConnection,
-        http_client: reqwest::Client,
-        server: &media_servers::Model,
-        server_app_id: &str,
-        app_id: Uuid,
-        lib_type: &str,
-        is_movie: bool,
-        is_tv: bool,
-        last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Result<u64, AppError> {
-        let server_type = &server.r#type;
-        info!(
-            "Syncing media server \"{}\" ({}, serverLibraryId={})",
-            server.name, server_type, server_app_id
-        );
-
-        match server_type.as_str() {
-            "plex" => {
-                Self::sync_plex_server(
-                    db,
-                    http_client,
-                    server,
-                    server_app_id,
-                    app_id,
-                    lib_type,
-                    is_movie,
-                    last_sync_at,
-                )
-                .await
-            }
-            "emby" => {
-                Self::sync_emby_server(
-                    db,
-                    http_client,
-                    server,
-                    server_app_id,
-                    app_id,
-                    lib_type,
-                    is_movie,
-                    is_tv,
-                    last_sync_at,
-                )
-                .await
-            }
-            "jellyfin" => {
-                Self::sync_jellyfin_server(
-                    db,
-                    http_client,
-                    server,
-                    server_app_id,
-                    app_id,
-                    lib_type,
-                    is_movie,
-                    is_tv,
-                    last_sync_at,
-                )
-                .await
-            }
-            other => {
-                warn!("Unsupported media server type \"{other}\", skipping");
-                Ok(0)
-            }
-        }
-    }
-
-    // ── Plex ────────────────────────────────────────────────────────────
-
-    async fn sync_plex_server(
-        db: &DatabaseConnection,
-        http_client: reqwest::Client,
-        server: &media_servers::Model,
-        server_app_id: &str,
-        app_id: Uuid,
-        lib_type: &str,
-        is_movie: bool,
-        last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Result<u64, AppError> {
-        let base_url = &server.url;
-        let token = server.token.as_deref().unwrap_or("");
-
-        let client = PlexClient::new(http_client, base_url.clone(), token.to_string());
-        let mut total_jobs = 0u64;
-        let mut start: u32 = 0;
-
-        loop {
-            let items = client
-                .get_library_items(server_app_id, start, SERVER_SYNC_PAGE_SIZE)
-                .await
-                .map_err(|e| {
-                    AppError::Internal(format!(
-                        "Plex get_library_items failed for server \"{}\": {}",
-                        server.name, e
-                    ))
-                })?;
-
-            if items.is_empty() {
-                break;
-            }
-
-            let count = items.len() as u32;
-            info!(
-                "  Plex batch: start={start}, fetched={count} items from \"{}\"",
-                server.name
-            );
-
-            let jobs_batch = Self::build_server_item_jobs(
-                &items,
-                server,
-                app_id,
-                lib_type,
-                "plex",
-                is_movie,
-                base_url,
-                token,
-                "",
-                last_sync_at,
-            );
-            if !jobs_batch.is_empty() {
-                total_jobs += JobRepo::create_jobs_batch(db, jobs_batch).await?;
-            }
-
-            if count < SERVER_SYNC_PAGE_SIZE {
-                break;
-            }
-            start += count;
-        }
-
-        info!(
-            "  Plex sync done for \"{}\": {} jobs",
-            server.name, total_jobs
-        );
-        Ok(total_jobs)
-    }
-
-    // ── Emby ────────────────────────────────────────────────────────────
-
-    async fn sync_emby_server(
-        db: &DatabaseConnection,
-        http_client: reqwest::Client,
-        server: &media_servers::Model,
-        server_app_id: &str,
-        app_id: Uuid,
-        lib_type: &str,
-        is_movie: bool,
-        _is_tv: bool,
-        last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Result<u64, AppError> {
-        let base_url = &server.url;
-        let api_key = server.api_key.as_deref().unwrap_or("");
-
-        let client = EmbyClient::new(http_client, base_url.clone(), api_key.to_string());
-        Self::sync_emby_jellyfin_inner(
-            db,
-            &client,
-            server,
-            server_app_id,
-            app_id,
-            lib_type,
-            "emby",
-            is_movie,
-            base_url,
-            api_key,
-            last_sync_at,
-        )
-        .await
-    }
-
-    // ── Jellyfin ────────────────────────────────────────────────────────
-
-    async fn sync_jellyfin_server(
-        db: &DatabaseConnection,
-        http_client: reqwest::Client,
-        server: &media_servers::Model,
-        server_app_id: &str,
-        app_id: Uuid,
-        lib_type: &str,
-        is_movie: bool,
-        _is_tv: bool,
-        last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Result<u64, AppError> {
-        let base_url = &server.url;
-        let api_key = server.api_key.as_deref().unwrap_or("");
-
-        let client = JellyfinClient::new(http_client, base_url.clone(), api_key.to_string());
-        Self::sync_emby_jellyfin_inner(
-            db,
-            &client,
-            server,
-            server_app_id,
-            app_id,
-            lib_type,
-            "jellyfin",
-            is_movie,
-            base_url,
-            api_key,
-            last_sync_at,
-        )
-        .await
-    }
-
-    // ── shared Emby / Jellyfin paginator ────────────────────────────────
-
-    /// Both Emby and Jellyfin wrappers delegate to `get_library_items` with
-    /// the same `(library_key, start, size)` signature, so we share the
-    /// pagination loop here.
-    async fn sync_emby_jellyfin_inner<C: EmbyJellyfinLike>(
-        db: &DatabaseConnection,
-        client: &C,
-        server: &media_servers::Model,
-        server_app_id: &str,
-        app_id: Uuid,
-        lib_type: &str,
-        source_type: &str,
-        is_movie: bool,
-        base_url: &str,
-        api_key: &str,
-        last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Result<u64, AppError> {
-        let mut total_jobs = 0u64;
-        let mut start: u32 = 0;
-
-        loop {
-            let items = client
-                .get_library_items(server_app_id, start, SERVER_SYNC_PAGE_SIZE)
-                .await
-                .map_err(|e| {
-                    AppError::Internal(format!(
-                        "{} get_library_items failed for server \"{}\": {}",
-                        source_type, server.name, e
-                    ))
-                })?;
-
-            if items.is_empty() {
-                break;
-            }
-
-            let count = items.len() as u32;
-            info!(
-                "  {source_type} batch: start={start}, fetched={count} items from \"{}\"",
-                server.name
-            );
-
-            let jobs_batch = Self::build_server_item_jobs(
-                &items,
-                server,
-                app_id,
-                lib_type,
-                source_type,
-                is_movie,
-                base_url,
-                "",
-                api_key,
-                last_sync_at,
-            );
-            if !jobs_batch.is_empty() {
-                total_jobs += JobRepo::create_jobs_batch(db, jobs_batch).await?;
-            }
-
-            if count < SERVER_SYNC_PAGE_SIZE {
-                break;
-            }
-            start += count;
-        }
-
-        info!(
-            "  {source_type} sync done for \"{}\": {} jobs",
-            server.name, total_jobs
-        );
-        Ok(total_jobs)
-    }
-
-    // ── build job records for server items ───────────────────────────────
-
-    fn build_server_item_jobs<'a>(
-        items: &[MediaItem],
-        server: &media_servers::Model,
-        app_id: Uuid,
-        lib_type: &'a str,
-        source_type: &'a str,
-        is_movie: bool,
-        base_url: &str,
-        token: &str,
-        api_key: &str,
-        _last_sync_at: Option<sea_orm::prelude::DateTimeWithTimeZone>,
-    ) -> Vec<(&'a str, serde_json::Value, Option<serde_json::Value>)> {
-        items
-            .iter()
-            .map(|item| {
-                let payload = json!({
-                    "item": item,
-                    "mediaServerId": server.id.to_string(),
-                    "appId": app_id.to_string(),
-                    "libType": lib_type,
-                    "sourceType": source_type,
-                    "baseUrl": base_url,
-                    "token": token,
-                    "apiKey": api_key,
-                    "isMovie": is_movie,
-                });
-                ("media_server_item_sync", payload, None)
-            })
-            .collect()
-    }
 }
 
-// ── helper trait for shared Emby/Jellyfin pagination ────────────────────
-
-/// Minimal trait so `sync_emby_jellyfin_inner` can accept both
-/// `EmbyClient` and `JellyfinClient` without boxing.
-#[allow(async_fn_in_trait)]
-trait EmbyJellyfinLike {
-    async fn get_library_items(
-        &self,
-        library_key: &str,
-        start: u32,
-        size: u32,
-    ) -> Result<Vec<MediaItem>, rust_client_api::ClientError>;
-}
-
-impl EmbyJellyfinLike for EmbyClient {
-    async fn get_library_items(
-        &self,
-        library_key: &str,
-        start: u32,
-        size: u32,
-    ) -> Result<Vec<MediaItem>, rust_client_api::ClientError> {
-        self.get_library_items(library_key, start, size).await
-    }
-}
-
-impl EmbyJellyfinLike for JellyfinClient {
-    async fn get_library_items(
-        &self,
-        library_key: &str,
-        start: u32,
-        size: u32,
-    ) -> Result<Vec<MediaItem>, rust_client_api::ClientError> {
-        self.get_library_items(library_key, start, size).await
-    }
-}

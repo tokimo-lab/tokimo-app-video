@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import type { AnalyzeOnlineMediaResponse } from "@/generated/rust-api";
 import { api } from "@/generated/rust-api";
 import { getMediaFolderOptionLabel } from "@/lib/media-folder";
+import { buildProxiedImageUrl } from "@/lib/poster";
 import { useMessage } from "@/system";
 import {
   type OnlineMediaAnalyzeResult,
@@ -298,7 +299,7 @@ export default function AddOnlineMediaModal({
         <div className="flex gap-4">
           {analysis.thumbnailUrl ? (
             <img
-              src={analysis.thumbnailUrl}
+              src={buildProxiedImageUrl(analysis.thumbnailUrl)}
               alt={analysis.title ?? analysis.sourceSite ?? "thumbnail"}
               className="h-24 w-40 rounded-lg object-cover"
             />

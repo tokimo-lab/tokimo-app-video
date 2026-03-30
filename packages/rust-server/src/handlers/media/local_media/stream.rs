@@ -84,14 +84,6 @@ pub async fn stream_media_file(
         }
     };
 
-    if target.media_server_id.is_some() {
-        return err_resp::<()>(
-            StatusCode::BAD_REQUEST,
-            "Media server-backed file must be streamed via its media server".into(),
-        )
-        .into_response();
-    }
-
     // Build subtitle tap for embedded subtitles (needed for SSE streaming).
     let tap_tx = if query.probe_only.unwrap_or(false) {
         None

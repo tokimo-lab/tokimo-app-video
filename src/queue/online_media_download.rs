@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::*;
 use serde_json::{json, Value as JsonValue};
@@ -8,7 +9,52 @@ use uuid::Uuid;
 
 use crate::db::entities::{download_records, file_systems, media_files};
 use crate::db::repos::job_repo::JobRepo;
+use crate::services::storage::{StorageProvider, UploadOptions};
 use crate::AppState;
+
+// ── Download log helpers ──────────────────────────────────────────────────────
+
+fn download_log_key(record_id: &Uuid) -> String {
+    format!("logs/download/{record_id}.jsonl")
+}
+
+async fn append_download_log(
+    storage: &Arc<dyn StorageProvider>,
+    record_id: &Uuid,
+    run_id: &str,
+    phase: &str,
+    message: &str,
+    details: Option<JsonValue>,
+) {
+    let key = download_log_key(record_id);
+    let entry = json!({
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "recordId": record_id.to_string(),
+        "runId": run_id,
+        "phase": phase,
+        "message": message,
+        "details": details,
+    });
+    let new_line = format!("{}\n", serde_json::to_string(&entry).unwrap_or_default());
+
+    // Download existing content, append new line, re-upload.
+    let existing = storage.download(&key).await.unwrap_or_default();
+    let mut content = existing.to_vec();
+    content.extend_from_slice(new_line.as_bytes());
+
+    if let Err(e) = storage
+        .upload(
+            &key,
+            Bytes::from(content),
+            Some(UploadOptions {
+                content_type: Some("application/x-ndjson".into()),
+            }),
+        )
+        .await
+    {
+        warn!(%record_id, "Failed to write download log: {e}");
+    }
+}
 
 type HandlerResult = Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -62,12 +108,9 @@ pub async fn handle(
         .all(db)
         .await?;
     if lib_sources.is_empty() {
-        update_record_failed(
-            db,
-            record_uuid,
-            "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径",
-        )
-        .await;
+        let err_msg = "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径";
+        update_record_failed(db, record_uuid, err_msg).await;
+        append_download_log(&state.storage, &record_uuid, &record_uuid.to_string(), "error", err_msg, None).await;
         return Err("该应用未配置文件系统源".into());
     }
     let default_source = lib_sources
@@ -80,22 +123,43 @@ pub async fn handle(
         .unwrap_or_default();
 
     // Fetch file system config (root_folder_path) for computing relative paths.
-    let fs_driver_root = if let Some(sid) = download_source_id {
-        file_systems::Entity::find_by_id(sid)
-            .one(db)
-            .await?
-            .and_then(|fs| {
-                fs.config.as_ref().and_then(|c| {
-                    c.get("root")
-                        .or_else(|| c.get("root_folder_path"))
-                        .or_else(|| c.get("path"))
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.trim_end_matches('/').to_string())
-                })
+    // Also detect whether the source is local (can be accessed via tokio::fs) or
+    // requires VFS (SMB, SFTP, S3, etc.).
+    let (fs_driver_root, fs_source_type) = if let Some(sid) = download_source_id {
+        let fs = file_systems::Entity::find_by_id(sid).one(db).await?;
+        let root = fs.as_ref().and_then(|f| {
+            f.config.as_ref().and_then(|c| {
+                c.get("root")
+                    .or_else(|| c.get("root_folder_path"))
+                    .or_else(|| c.get("path"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim_end_matches('/').to_string())
             })
+        });
+        let fs_type = fs.map(|f| f.r#type).unwrap_or_else(|| "local".into());
+        (root, fs_type)
+    } else {
+        (None, "local".into())
+    };
+
+    // For non-local sources (SMB, SFTP, S3…) yt-dlp cannot write to the VFS path
+    // directly. We use a temporary local staging directory as the download target,
+    // then push the organised files to the VFS after the task completes.
+    let is_local_source = fs_source_type == "local";
+    let vfs_stage_dir: Option<std::path::PathBuf> = if !is_local_source {
+        Some(
+            state
+                .online_media
+                .staging_root
+                .join(format!("{record_uuid}-vfs-target")),
+        )
     } else {
         None
     };
+    let effective_target_path = vfs_stage_dir
+        .as_ref()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| organize_target_path.clone());
 
     // Parse analysis from payload.
     let analysis = payload.get("analysis").cloned().unwrap_or(json!({}));
@@ -151,8 +215,8 @@ pub async fn handle(
             rust_online_media_ingest::models::TargetFolderConfigSnapshot {
                 id: target_app_id.into(),
                 content_type: app_type.clone(),
-                download_path: organize_target_path.clone(),
-                target_path: organize_target_path.clone(),
+                download_path: effective_target_path.clone(),
+                target_path: effective_target_path.clone(),
                 link_mode: link_mode.into(),
                 organize_lang: organize_lang.map(String::from),
             },
@@ -229,6 +293,15 @@ pub async fn handle(
     spawn_task((*state.online_media).clone(), task_id.clone(), task_request);
 
     info!(record_id, task_id, "Online media task created");
+    append_download_log(
+        &state.storage,
+        &record_uuid,
+        &task_id,
+        "download-started",
+        &format!("开始下载: {url}"),
+        Some(json!({ "taskId": task_id })),
+    )
+    .await;
 
     // Update download record with task ID.
     let now: DateTimeWithTimeZone = chrono::Utc::now().into();
@@ -264,6 +337,7 @@ pub async fn handle(
         .unwrap_or(DEFAULT_POLL_RETRY_LIMIT);
 
     let mut poll_failure_count: u32 = 0;
+    let mut last_logged_stage: Option<String> = None;
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval)).await;
@@ -279,6 +353,7 @@ pub async fn handle(
             if poll_failure_count > poll_retry_limit {
                 let err_msg =
                     format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
+                append_download_log(&state.storage, &record_uuid, &task_id, "error", &err_msg, None).await;
                 update_record_failed(db, record_uuid, &err_msg).await;
                 return Err(err_msg.into());
             }
@@ -287,6 +362,16 @@ pub async fn handle(
 
         poll_failure_count = 0;
         let resp = task.to_response();
+
+        // Write a log entry whenever the stage changes.
+        if resp.stage != last_logged_stage {
+            if let Some(ref stage) = resp.stage {
+                let phase = stage_to_log_phase(stage);
+                let msg = stage_to_log_message(stage, resp.progress);
+                append_download_log(&state.storage, &record_uuid, &task_id, phase, &msg, None).await;
+                last_logged_stage = resp.stage.clone();
+            }
+        }
 
         // Update download record with progress.
         let progress_str = to_record_progress(resp.progress);
@@ -346,7 +431,58 @@ pub async fn handle(
             rust_online_media_ingest::models::TaskState::Completed => {
                 info!(record_id, task_id, "Online media task completed");
 
-                let final_status = if resp.target_path.is_some() {
+                // For non-local sources, copy organised files from local staging to VFS.
+                let vfs_target_path: Option<String> =
+                    if let (Some(stage_dir), Some(sid)) =
+                        (&vfs_stage_dir, download_source_id)
+                    {
+                        match copy_staged_to_vfs(
+                            &state.sources,
+                            &state.storage,
+                            &sid.to_string(),
+                            stage_dir,
+                            &organize_target_path,
+                            &record_uuid,
+                            &task_id,
+                        )
+                        .await
+                        {
+                            Ok(vfs_path) => {
+                                // Clean up local staging dir after successful VFS copy.
+                                let _ = tokio::fs::remove_dir_all(stage_dir).await;
+                                Some(vfs_path)
+                            }
+                            Err(e) => {
+                                let msg = format!("上传到 VFS 失败: {e}");
+                                error!(record_id, task_id, %e, "Failed to copy to VFS");
+                                append_download_log(
+                                    &state.storage,
+                                    &record_uuid,
+                                    &task_id,
+                                    "error",
+                                    &msg,
+                                    None,
+                                )
+                                .await;
+                                update_record_failed(db, record_uuid, &msg).await;
+                                return Err(msg.into());
+                            }
+                        }
+                    } else {
+                        resp.target_path.clone()
+                    };
+
+                append_download_log(
+                    &state.storage,
+                    &record_uuid,
+                    &task_id,
+                    "completed",
+                    "下载完成",
+                    vfs_target_path.as_ref().map(|tp| json!({ "targetPath": tp })),
+                )
+                .await;
+
+                let final_status = if vfs_target_path.is_some() {
                     "organized"
                 } else {
                     "completed"
@@ -361,35 +497,39 @@ pub async fn handle(
                 done_update.progress = Set(Some("1".into()));
                 done_update.import_status = Set(Some("completed".into()));
                 done_update.manifest_path = Set(None);
-                if let Some(ref tp) = resp.target_path {
+                if let Some(ref tp) = vfs_target_path {
                     done_update.target_path = Set(Some(tp.clone()));
                 }
                 done_update.updated_at = Set(Some(done_now));
                 done_update.update(db).await?;
 
                 // Create media_file records and dispatch ffprobe jobs for each media file.
-                if let Some(source_id) = download_source_id {
-                    for output in &resp.output_files {
-                        if let Some(media_file_id) = create_media_file_for_output(
-                            db,
-                            output,
-                            source_id,
-                            fs_driver_root.as_deref(),
-                        )
-                        .await
-                        {
-                            if let Err(e) = JobRepo::create_job(
+                // For VFS-copied files, output paths point to the local staging dir which is
+                // now gone; we skip creating media_file rows (the library scan will pick them up).
+                if vfs_stage_dir.is_none() {
+                    if let Some(source_id) = download_source_id {
+                        for output in &resp.output_files {
+                            if let Some(media_file_id) = create_media_file_for_output(
                                 db,
-                                "media_file_ffprobe",
-                                json!({ "mediaFileId": media_file_id.to_string() }),
-                                None,
+                                output,
+                                source_id,
+                                fs_driver_root.as_deref(),
                             )
                             .await
                             {
-                                warn!(
-                                    %media_file_id,
-                                    "Failed to dispatch ffprobe job: {e}"
-                                );
+                                if let Err(e) = JobRepo::create_job(
+                                    db,
+                                    "media_file_ffprobe",
+                                    json!({ "mediaFileId": media_file_id.to_string() }),
+                                    None,
+                                )
+                                .await
+                                {
+                                    warn!(
+                                        %media_file_id,
+                                        "Failed to dispatch ffprobe job: {e}"
+                                    );
+                                }
                             }
                         }
                     }
@@ -397,7 +537,7 @@ pub async fn handle(
 
                 return Ok(Some(json!({
                     "taskId": task_id,
-                    "targetPath": resp.target_path,
+                    "targetPath": vfs_target_path,
                     "manifestPath": null,
                 })));
             }
@@ -405,6 +545,7 @@ pub async fn handle(
             | rust_online_media_ingest::models::TaskState::Cancelled => {
                 let message = resp.error.unwrap_or_else(|| "在线媒体下载失败".into());
                 error!(record_id, task_id, %message, "Online media task failed");
+                append_download_log(&state.storage, &record_uuid, &task_id, "error", &message, None).await;
                 update_record_failed(db, record_uuid, &message).await;
                 return Err(message.into());
             }
@@ -423,6 +564,179 @@ fn to_record_progress(progress: Option<f64>) -> String {
         }
         _ => "0".into(),
     }
+}
+
+fn stage_to_log_phase(stage: &str) -> &'static str {
+    match stage {
+        "preparing" | "queued" => "download-started",
+        "analyzing" => "analyze",
+        "downloading" => "download-progress",
+        "packaging" => "manifest-import",
+        "completed" => "completed",
+        "failed" => "error",
+        _ => "download-progress",
+    }
+}
+
+fn stage_to_log_message(stage: &str, progress: Option<f64>) -> String {
+    let pct = progress.map(|p| format!(" ({:.0}%)", p.clamp(0.0, 100.0))).unwrap_or_default();
+    match stage {
+        "preparing" => "准备下载环境".into(),
+        "queued" => "已加入下载队列".into(),
+        "analyzing" => format!("分析媒体信息{pct}"),
+        "downloading" => format!("正在下载{pct}"),
+        "packaging" => format!("处理文件{pct}"),
+        "completed" => "任务完成".into(),
+        "failed" => "任务失败".into(),
+        other => format!("{other}{pct}"),
+    }
+}
+
+/// Copies all files from a local staging directory tree to a VFS target directory.
+/// Returns the VFS path of the top-level target directory on success.
+async fn copy_staged_to_vfs(
+    sources: &crate::services::media::source::SourceRegistry,
+    storage: &Arc<dyn StorageProvider>,
+    source_id: &str,
+    local_stage_dir: &std::path::Path,
+    vfs_target_root: &str,
+    record_id: &Uuid,
+    task_id: &str,
+) -> Result<String, String> {
+    let vfs = sources
+        .ensure_vfs(source_id)
+        .await
+        .map_err(|e| format!("VFS 不可用: {e}"))?;
+
+    // Walk the local staging dir and collect all files.
+    let mut stack = vec![local_stage_dir.to_path_buf()];
+    let mut files: Vec<(std::path::PathBuf, String)> = Vec::new(); // (local_path, vfs_path)
+
+    // Determine the top-level subdirectory name inside staging (the organised dir).
+    // e.g.  staging/{record}-vfs-target/Video Title [xxxx]/file.mp4
+    //  → VFS: /网片/Video Title [xxxx]/file.mp4
+    let vfs_root = vfs_target_root.trim_end_matches('/');
+
+    while let Some(dir) = stack.pop() {
+        let mut entries = tokio::fs::read_dir(&dir)
+            .await
+            .map_err(|e| format!("读取目录失败 {}: {e}", dir.display()))?;
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| format!("遍历目录失败: {e}"))?
+        {
+            let ft = entry
+                .file_type()
+                .await
+                .map_err(|e| format!("获取文件类型失败: {e}"))?;
+            if ft.is_dir() {
+                stack.push(entry.path());
+            } else if ft.is_file() {
+                let local_path = entry.path();
+                // Build relative path from staging dir root.
+                let rel = local_path
+                    .strip_prefix(local_stage_dir)
+                    .map_err(|_| "路径计算失败".to_string())?;
+                let vfs_path = format!("{vfs_root}/{}", rel.to_string_lossy().replace('\\', "/"));
+                files.push((local_path, vfs_path));
+            }
+        }
+    }
+
+    if files.is_empty() {
+        return Err("暂存目录为空，没有文件可上传".into());
+    }
+
+    // Determine the top-level organised directory VFS path (first path component below vfs_root).
+    let first_vfs_path = &files[0].1;
+    let rel_from_root = first_vfs_path
+        .strip_prefix(&format!("{vfs_root}/"))
+        .unwrap_or(first_vfs_path.as_str());
+    let top_dir = rel_from_root
+        .split('/')
+        .next()
+        .map(|d| format!("{vfs_root}/{d}"))
+        .unwrap_or_else(|| vfs_root.to_string());
+
+    // Ensure directories exist and upload each file.
+    let mut created_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for (local_path, vfs_path) in &files {
+        // Recursively ensure all path components exist between vfs_root and the file.
+        // mkdir ignores "already exists" errors so existing dirs are safe to re-create.
+        if let Some(parent) = std::path::Path::new(vfs_path).parent() {
+            let parent_str = parent.to_string_lossy().into_owned();
+            if created_dirs.insert(parent_str.clone()) {
+                // Walk from vfs_root down to parent, creating each component.
+                let components: Vec<_> = parent.components().collect();
+                let mut curr = std::path::PathBuf::new();
+                for component in &components {
+                    curr.push(component);
+                    let curr_str = curr.to_string_lossy();
+                    if curr_str == "/" || curr_str.is_empty() {
+                        continue;
+                    }
+                    // Ignore errors — the directory may already exist.
+                    let _ = vfs.mkdir(std::path::Path::new(curr_str.as_ref())).await;
+                }
+            }
+        }
+
+        // Stream-upload the file.
+        let metadata = tokio::fs::metadata(local_path)
+            .await
+            .map_err(|e| format!("读取文件元数据失败: {e}"))?;
+        let size = metadata.len();
+
+        if vfs
+            .has_put_stream(std::path::Path::new(vfs_path))
+            .await
+        {
+            let (tx, rx) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
+            let local = local_path.clone();
+            tokio::spawn(async move {
+                use tokio::io::AsyncReadExt as _;
+                let mut file = match tokio::fs::File::open(&local).await {
+                    Ok(f) => f,
+                    Err(_) => return,
+                };
+                let mut buf = vec![0u8; 256 * 1024];
+                loop {
+                    match file.read(&mut buf).await {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            if tx.send(buf[..n].to_vec()).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+            vfs.put_stream(std::path::Path::new(vfs_path), size, rx)
+                .await
+                .map_err(|e| format!("上传文件失败 {vfs_path}: {e}"))?;
+        } else {
+            let data = tokio::fs::read(local_path)
+                .await
+                .map_err(|e| format!("读取文件失败: {e}"))?;
+            vfs.put(std::path::Path::new(vfs_path), data)
+                .await
+                .map_err(|e| format!("上传文件失败 {vfs_path}: {e}"))?;
+        }
+
+        append_download_log(
+            storage,
+            record_id,
+            task_id,
+            "manifest-import",
+            &format!("已上传: {vfs_path}"),
+            None,
+        )
+        .await;
+    }
+
+    Ok(top_dir)
 }
 
 async fn update_record_failed(db: &DatabaseConnection, record_id: Uuid, message: &str) {
@@ -556,7 +870,6 @@ async fn create_media_file_for_output(
         hdr_type: Set(None),
         video_streams: Set(None),
         audio_streams: Set(None),
-        stream_key: Set(None),
         is_available: Set(true),
         scanned_at: Set(None),
         created_at: Set(Some(now)),
@@ -566,7 +879,6 @@ async fn create_media_file_for_output(
         track_id: Set(None),
         novel_id: Set(None),
         edition_id: Set(None),
-        media_server_id: Set(None),
         ffprobe_raw: Set(None),
     };
 

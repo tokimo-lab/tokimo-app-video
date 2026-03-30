@@ -10,7 +10,7 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::db::entities::{file_systems, media_files, media_servers};
+use crate::db::entities::{file_systems, media_files};
 use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
@@ -129,17 +129,6 @@ pub async fn stream_url(
         }
     };
 
-    // Look up media server (if any)
-    let media_server = if let Some(ms_id) = file.media_server_id {
-        media_servers::Entity::find_by_id(ms_id)
-            .one(db)
-            .await
-            .ok()
-            .flatten()
-    } else {
-        None
-    };
-
     // Look up source (file_systems)
     let source = if let Some(src_id) = file.source_id {
         file_systems::Entity::find_by_id(src_id)
@@ -191,65 +180,6 @@ pub async fn stream_url(
             .filter(|s| !s.is_empty())
             .collect()
     };
-
-    // ── Media server (Plex / Emby / Jellyfin) ──────────────────────────────
-    if let Some(ms) = media_server {
-        let ms_type = ms.r#type.as_str();
-        let base_url = ms.url.trim_end_matches('/').to_string();
-
-        if ms_type == "plex" {
-            let Some(token) = &ms.token else {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Plex server not configured".into(),
-                )
-                .into_response();
-            };
-            let Some(stream_key) = &file.stream_key else {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::NOT_FOUND,
-                    "No stream key for this file".into(),
-                )
-                .into_response();
-            };
-            let key = if stream_key.starts_with('/') {
-                stream_key.clone()
-            } else {
-                format!("/{stream_key}")
-            };
-            let url = format!("{base_url}{key}?X-Plex-Token={token}&download=1");
-            return ok(StreamUrlDto { url }).into_response();
-        }
-
-        if ms_type == "emby" || ms_type == "jellyfin" {
-            let Some(api_key) = &ms.api_key else {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("{ms_type} server not configured"),
-                )
-                .into_response();
-            };
-            let Some(stream_key) = &file.stream_key else {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::NOT_FOUND,
-                    "No stream key for this file".into(),
-                )
-                .into_response();
-            };
-            let encoded_key = urlencoding::encode(stream_key);
-            let encoded_api_key = urlencoding::encode(api_key);
-            let url = format!(
-                "{base_url}/Videos/{encoded_key}/stream?api_key={encoded_api_key}&static=true"
-            );
-            return ok(StreamUrlDto { url }).into_response();
-        }
-
-        return err_resp::<StreamUrlDto>(
-            StatusCode::BAD_REQUEST,
-            format!("Unsupported media server type: {ms_type}"),
-        )
-        .into_response();
-    }
 
     // ── Filesystem source ───────────────────────────────────────────────────
     let Some(source) = source else {

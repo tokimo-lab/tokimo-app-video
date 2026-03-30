@@ -396,7 +396,7 @@ async fn download_thumbnail(
     entity_kind: &str,
     entity_id: &str,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let resp = reqwest::get(url).await?;
+    let resp = state.http_client.get(url).send().await?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()).into());
     }
