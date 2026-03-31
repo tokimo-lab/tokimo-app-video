@@ -226,7 +226,10 @@ pub async fn handle(
             thumbnail_url: analysis
                 .get("thumbnailUrl")
                 .and_then(|v| v.as_str())
-                .map(String::from),
+                .map(|url| {
+                    crate::handlers::image_proxy::unwrap_proxy_url(url)
+                        .unwrap_or_else(|| url.to_string())
+                }),
             duration_seconds: analysis.get("durationSeconds").and_then(|v| v.as_u64()),
             uploader: analysis
                 .get("uploader")
