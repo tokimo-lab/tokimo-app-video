@@ -36,11 +36,6 @@ const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
 pub(crate) struct StreamAccessQuery {
     access_token: Option<String>,
     probe_only: Option<bool>,
-    dp_user: Option<String>,
-    dp_movie: Option<String>,
-    dp_episode: Option<String>,
-    dp_dur: Option<f64>,
-    dp_size: Option<u64>,
 }
 
 pub async fn stream_media_file(
@@ -51,7 +46,7 @@ pub async fn stream_media_file(
     request: Request,
 ) -> Response {
     let db = state.sources.db_conn();
-    if let Err(err) = validate_stream_access(
+    let user_id = match validate_stream_access(
         &db,
         request.headers().get(header::COOKIE),
         query.access_token.as_deref(),
@@ -60,21 +55,11 @@ pub async fn stream_media_file(
     )
     .await
     {
-        return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
-    }
-
-    if let Some(ref user_id) = query.dp_user {
-        let byte_offset = parse_range_start(request.headers().get(header::RANGE));
-        state.direct_play_tracker.update(
-            user_id,
-            &file_id,
-            query.dp_movie.as_deref(),
-            query.dp_episode.as_deref(),
-            query.dp_dur.unwrap_or(0.0),
-            query.dp_size.unwrap_or(0),
-            byte_offset,
-        );
-    }
+        Ok(uid) => uid,
+        Err(err) => {
+            return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
+        }
+    };
 
     let target = match MediaFileRepo::load_stream_target(&db, &file_id).await {
         Ok(Some(target)) => target,
@@ -83,6 +68,20 @@ pub async fn stream_media_file(
             return err500::<()>(format!("media file lookup failed: {err}")).into_response();
         }
     };
+
+    // Update DirectPlay progress tracker (byte-offset → playback position).
+    if let Some(ref uid) = user_id {
+        let byte_offset = parse_range_start(request.headers().get(header::RANGE));
+        state.direct_play_tracker.update(
+            uid,
+            &file_id,
+            target.movie_id.as_deref(),
+            target.episode_id.as_deref(),
+            target.duration.unwrap_or(0.0),
+            target.size.unwrap_or(0) as u64,
+            byte_offset,
+        );
+    }
 
     // Build subtitle tap for embedded subtitles (needed for SSE streaming).
     let tap_tx = if query.probe_only.unwrap_or(false) {
@@ -161,15 +160,24 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
         .find_map(|cookie| cookie.strip_prefix("SESSION_ID=").map(ToOwned::to_owned))
 }
 
+/// Validate stream access and return the authenticated user_id (if available).
+/// For loopback connections, also attempts to extract user_id from cookie.
 async fn validate_stream_access(
     db: &DatabaseConnection,
     cookie_header: Option<&axum::http::HeaderValue>,
     access_token: Option<&str>,
     access_token_header: Option<&axum::http::HeaderValue>,
     client_ip: std::net::IpAddr,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
+    // Try to extract user_id from session cookie (best-effort, used for progress tracking).
+    let user_id = if let Some(sid) = session_id_from_cookie(cookie_header) {
+        AuthRepo::get_user_id_by_session(db, &sid).await.ok().flatten()
+    } else {
+        None
+    };
+
     if client_ip.is_loopback() {
-        return Ok(());
+        return Ok(user_id);
     }
 
     if let Some(token) = access_token {
@@ -177,7 +185,7 @@ async fn validate_stream_access(
             .await
             .unwrap_or(false)
         {
-            return Ok(());
+            return Ok(user_id);
         }
     }
 
@@ -186,20 +194,16 @@ async fn validate_stream_access(
             .await
             .unwrap_or(false)
         {
-            return Ok(());
+            return Ok(user_id);
         }
     }
 
-    let session_id =
-        session_id_from_cookie(cookie_header).ok_or_else(|| "Unauthorized".to_string())?;
-    if AuthRepo::validate_session(db, &session_id)
-        .await
-        .unwrap_or(false)
-    {
-        Ok(())
-    } else {
-        Err("Unauthorized".into())
+    if user_id.is_some() {
+        // Session was already validated above when extracting user_id
+        return Ok(user_id);
     }
+
+    Err("Unauthorized".into())
 }
 
 fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
@@ -225,16 +229,4 @@ pub(crate) fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Val
         Some(root) => format!("{}{}", root.trim_end_matches('/'), rel_path),
         None => rel_path.to_string(),
     }
-}
-
-/// Returns current stream speed (bytes/sec) for a media file.
-pub async fn stream_stats_handler(
-    Path(file_id): Path<String>,
-) -> axum::Json<serde_json::Value> {
-    let speed = crate::stream_stats::get_speed(&file_id);
-    let bytes_sent = crate::stream_stats::get_bytes_sent(&file_id);
-    axum::Json(serde_json::json!({
-        "speed": speed,
-        "bytesSent": bytes_sent
-    }))
 }

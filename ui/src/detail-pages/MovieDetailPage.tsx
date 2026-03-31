@@ -133,14 +133,15 @@ export default function MovieDetailPage() {
   } | null>(null);
 
   const { setBackgroundArt } = useBackgroundArt();
+  const artPath = movie?.backdropPath ?? movie?.posterPath;
   useEffect(() => {
-    if (movie?.backdropPath) {
-      setBackgroundArt(resolveStoragePath(movie.backdropPath));
+    if (artPath) {
+      setBackgroundArt(resolveStoragePath(artPath));
     }
     return () => {
       setBackgroundArt(null);
     };
-  }, [movie?.backdropPath, setBackgroundArt]);
+  }, [artPath, setBackgroundArt]);
 
   // ── WS: refresh movie detail after each person is scraped ──
   useAppEvent((event) => {
@@ -282,7 +283,8 @@ export default function MovieDetailPage() {
               )}
               {movie.runtime != null && (
                 <span className="text-gray-600 dark:text-zinc-300">
-                  · {formatRuntime(movie.runtime)}
+                  {movie.year ? "· " : ""}
+                  {formatRuntime(movie.runtime)}
                 </span>
               )}
               {movie.contentRating && (
@@ -326,6 +328,28 @@ export default function MovieDetailPage() {
               dateLabel="发行"
               countries={movie.countries}
             />
+            {/* Online media metadata (uploader / source) */}
+            {movie.metadata?.uploader && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-zinc-400">
+                {movie.metadata.uploader && (
+                  <span>👤 {movie.metadata.uploader}</span>
+                )}
+                {movie.metadata.sourceSite && (
+                  <span>📺 {movie.metadata.sourceSite}</span>
+                )}
+                {movie.metadata.sourceUrl && (
+                  <a
+                    href={movie.metadata.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-blue-500 hover:underline"
+                    style={{ maxWidth: 300 }}
+                  >
+                    🔗 源链接
+                  </a>
+                )}
+              </div>
+            )}
             {/* Play button row */}
             {firstFile && (
               <div className="mt-4 flex items-center gap-3">

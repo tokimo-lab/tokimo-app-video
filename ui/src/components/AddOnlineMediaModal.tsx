@@ -358,10 +358,49 @@ export default function AddOnlineMediaModal({
                   {analysis.artist}
                 </span>
               )}
+              {analysis.albumArtist &&
+                analysis.albumArtist !== analysis.artist && (
+                  <span>
+                    {t(`${ns}.onlineMedia.albumArtist`, {
+                      defaultValue: "专辑艺术家",
+                    })}
+                    : {analysis.albumArtist}
+                  </span>
+                )}
               {analysis.album && (
                 <span>
                   {t(`${ns}.onlineMedia.album`, { defaultValue: "专辑" })}:{" "}
                   {analysis.album}
+                </span>
+              )}
+              {analysis.trackTitle && (
+                <span>
+                  {t(`${ns}.onlineMedia.trackTitle`, { defaultValue: "曲目" })}:{" "}
+                  {analysis.trackTitle}
+                </span>
+              )}
+              {analysis.trackNumber != null && (
+                <span>
+                  {t(`${ns}.onlineMedia.trackNumber`, {
+                    defaultValue: "曲目编号",
+                  })}
+                  :{" "}
+                  {analysis.discNumber != null ? `${analysis.discNumber}-` : ""}
+                  {analysis.trackNumber}
+                </span>
+              )}
+              {analysis.genre && (
+                <span>
+                  {t(`${ns}.onlineMedia.genre`, { defaultValue: "流派" })}:{" "}
+                  {analysis.genre}
+                </span>
+              )}
+              {analysis.releaseDate && (
+                <span>
+                  {t(`${ns}.onlineMedia.releaseDate`, {
+                    defaultValue: "发行日期",
+                  })}
+                  : {analysis.releaseDate}
                 </span>
               )}
               <span className="truncate sm:col-span-2">
@@ -371,6 +410,15 @@ export default function AddOnlineMediaModal({
                 : {analysis.normalizedUrl ?? "-"}
               </span>
             </div>
+
+            {analysis.description && (
+              <p
+                className="line-clamp-3 text-xs text-slate-500 dark:text-slate-400"
+                title={analysis.description}
+              >
+                {analysis.description}
+              </p>
+            )}
 
             {analysis.warnings.length > 0 && (
               <Alert

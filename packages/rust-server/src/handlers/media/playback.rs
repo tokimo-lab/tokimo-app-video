@@ -196,7 +196,7 @@ pub async fn stream_url(
             file.video_codec.as_deref(),
             file.mime_type.as_deref(),
         ) {
-            let url = build_direct_stream_url(&file, &auth.user_id);
+            let url = build_direct_stream_url(&file);
             return ok(StreamUrlDto { url }).into_response();
         }
 
@@ -329,7 +329,7 @@ pub async fn stream_url(
             file.hdr_type.as_deref().unwrap_or("SDR"),
             selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
         );
-        let url = build_direct_stream_url(&file, &auth.user_id);
+        let url = build_direct_stream_url(&file);
         return ok(StreamUrlDto { url }).into_response();
     }
 
@@ -341,22 +341,8 @@ pub async fn stream_url(
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
-fn build_direct_stream_url(file: &media_files::Model, user_id: &str) -> String {
-    let base = format!("/api/media-files/{}/stream", file.id);
-    let mut params = vec![format!("dpUser={}", urlencoding::encode(user_id))];
-    if let Some(mid) = &file.movie_id {
-        params.push(format!("dpMovie={mid}"));
-    }
-    if let Some(eid) = &file.episode_id {
-        params.push(format!("dpEpisode={eid}"));
-    }
-    if let Some(dur) = file.duration {
-        params.push(format!("dpDur={dur}"));
-    }
-    if let Some(size) = file.size {
-        params.push(format!("dpSize={size}"));
-    }
-    format!("{base}?{}", params.join("&"))
+fn build_direct_stream_url(file: &media_files::Model) -> String {
+    format!("/api/media-files/{}/stream", file.id)
 }
 
 /// Create an HLS transcoding session and return the playlist URL.

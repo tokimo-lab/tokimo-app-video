@@ -11,15 +11,61 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, movies};
+use crate::db::entities::movies;
 use crate::AppState;
 
 use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
+use crate::queue::handlers::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
+use super::lib_type::LibType;
 use super::nfo_parser::NfoInfo;
+use super::tmdb;
 
 pub struct MovieResult {
     pub movie_id: Uuid,
+    pub scraped: bool,
+}
+
+/// Single entry point called from mod.rs.
+/// Fetches TMDB detail if needed, then finds or creates the movie record.
+#[allow(clippy::too_many_arguments)]
+pub async fn scrape(
+    db: &DatabaseConnection,
+    state: &Arc<AppState>,
+    app_id: Uuid,
+    lib_type: LibType,
+    nfo: &Option<NfoInfo>,
+    title: &str,
+    year: Option<i32>,
+    artwork: &DiscoveredArtwork,
+    nfo_poster_tmdb: &Option<String>,
+    nfo_backdrop_tmdb: &Option<String>,
+    parsed_title: &str,
+    parsed_year: Option<i32>,
+) -> Result<MovieResult, Box<dyn std::error::Error + Send + Sync>> {
+    let mut tmdb_detail: Option<TmdbMediaDetail> = None;
+
+    if lib_type.uses_tmdb() {
+        if let Some(api_key) = tmdb::get_api_key(db).await? {
+            let client = tmdb::build_client(state, &api_key);
+            tmdb_detail = tmdb::scrape_movie(
+                &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
+            )
+            .await;
+        }
+    }
+
+    let scraped =
+        tmdb_detail.is_some() || nfo.as_ref().map_or(false, |n| n.is_sufficient());
+
+    let result = find_or_create_movie(
+        db, state, app_id, lib_type,
+        tmdb_detail.as_ref(), nfo.as_ref(),
+        parsed_title, parsed_year,
+        artwork, nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
+    )
+    .await?;
+
+    Ok(MovieResult { movie_id: result.movie_id, scraped })
 }
 
 /// Compute a stable i64 advisory lock key from (app_id, title, year).
@@ -39,18 +85,17 @@ pub async fn find_or_create_movie(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     app_id: Uuid,
-    lib_type: &str,
+    lib_type: LibType,
     tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
-    online_record: Option<&download_records::Model>,
     parsed_title: &str,
     parsed_year: Option<i32>,
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
 ) -> Result<MovieResult, Box<dyn std::error::Error + Send + Sync>> {
-    let should_use_tmdb = !matches!(lib_type, "custom" | "online_video");
-    let is_adult = lib_type == "adult";
+    let should_use_tmdb = lib_type.uses_tmdb();
+    let is_adult = lib_type.is_adult();
 
     let tmdb_id_str = tmdb_detail
         .map(|d| d.base.id.to_string())
@@ -83,7 +128,7 @@ pub async fn find_or_create_movie(
         existing_id
     } else {
         let id = create_movie_record(
-            &txn, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo, online_record,
+            &txn, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo,
             parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
         )
         .await?;
@@ -92,25 +137,13 @@ pub async fn find_or_create_movie(
     };
 
     // Upload artwork
-    let (mut poster_path, backdrop_path) = upload_poster_and_backdrop(
+    let (poster_path, backdrop_path) = upload_poster_and_backdrop(
         db, state, "movie", movie_id, artwork,
         nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
         tmdb_detail.and_then(|d| d.base.poster_path.as_deref()),
         tmdb_detail.and_then(|d| d.base.backdrop_path.as_deref()),
     )
     .await?;
-
-    // Online video thumbnail fallback: download remote thumbnail as poster
-    if poster_path.is_none() {
-        if let Some(thumb_url) = online_record.and_then(|r| r.thumbnail_url.as_deref()) {
-            if !thumb_url.is_empty() {
-                match download_thumbnail(state, thumb_url, "movies", &movie_id.to_string()).await {
-                    Ok(sp) => { poster_path = Some(sp); }
-                    Err(e) => { tracing::warn!("[file_scrape] thumbnail download failed: {e}"); }
-                }
-            }
-        }
-    }
 
     if poster_path.is_some() || backdrop_path.is_some() {
         let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(movie_id));
@@ -156,7 +189,7 @@ pub async fn find_or_create_movie(
     // Upload extra art
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
 
-    Ok(MovieResult { movie_id })
+    Ok(MovieResult { movie_id, scraped: false })
 }
 
 async fn find_existing_movie(
@@ -255,19 +288,17 @@ async fn create_movie_record(
     should_use_tmdb: bool,
     tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
-    online_record: Option<&download_records::Model>,
     parsed_title: &str,
     parsed_year: Option<i32>,
     tmdb_id_str: Option<&str>,
     imdb_id_str: Option<&str>,
-    lib_type: &str,
+    lib_type: LibType,
 ) -> Result<Uuid, Box<dyn std::error::Error + Send + Sync>> {
     let movie_id = Uuid::new_v4();
     let now = chrono::Utc::now().fixed_offset();
 
     let title = tmdb_detail.map(|d| d.base.title.clone())
         .or_else(|| nfo.and_then(|n| n.title.clone()))
-        .or_else(|| online_record.and_then(|r| r.media_title.clone()))
         .unwrap_or_else(|| parsed_title.to_string());
 
     let original_title = tmdb_detail.and_then(|d| d.base.original_title.clone())
@@ -283,9 +314,7 @@ async fn create_movie_record(
             .and_then(|r| chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d").ok())));
 
     let runtime = tmdb_detail.and_then(|d| d.runtime)
-        .or_else(|| nfo.and_then(|n| n.runtime))
-        .or_else(|| online_record.and_then(|r| r.duration_seconds)
-            .map(|s| (s as f64 / 60.0).round() as i32));
+        .or_else(|| nfo.and_then(|n| n.runtime));
 
     let overview = tmdb_detail.and_then(|d| d.base.overview.clone())
         .or_else(|| nfo.and_then(|n| n.plot.clone()));
@@ -300,18 +329,13 @@ async fn create_movie_record(
     let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
     let scraped_at = if tmdb_detail.is_some()
         || nfo.is_some_and(|n| n.is_sufficient())
-        || matches!(lib_type, "custom" | "online_video")
+        || lib_type == LibType::Custom
     { Some(now) } else { None };
 
     let mut metadata = serde_json::Map::new();
     if let Some(nfo) = nfo {
         if let Some(ref s) = nfo.studio { metadata.insert("studio".into(), json!(s)); }
         if let Some(ref c) = nfo.country { metadata.insert("country".into(), json!(c)); }
-    }
-    if let Some(or) = online_record {
-        if let Some(ref u) = or.uploader { metadata.insert("uploader".into(), json!(u)); }
-        if let Some(ref s) = or.source_site { metadata.insert("sourceSite".into(), json!(s)); }
-        if let Some(ref e) = or.external_id { metadata.insert("externalId".into(), json!(e)); }
     }
     let metadata_json = if metadata.is_empty() { None } else { Some(serde_json::Value::Object(metadata)) };
 
@@ -371,44 +395,4 @@ async fn create_movie_record(
     }
 }
 
-/// Fetch online_video metadata from download_records.
-pub async fn fetch_online_record(
-    db: &DatabaseConnection,
-    app_id: Uuid,
-    dir_path: &str,
-) -> Result<Option<download_records::Model>, Box<dyn std::error::Error + Send + Sync>> {
-    let dir_basename = dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");
-    if dir_basename.is_empty() { return Ok(None); }
-    let record = download_records::Entity::find()
-        .filter(download_records::Column::TargetAppId.eq(app_id))
-        .filter(download_records::Column::SourceOrigin.eq("online_media"))
-        .filter(download_records::Column::TargetPath.contains(dir_basename))
-        .order_by_desc(download_records::Column::CreatedAt)
-        .one(db)
-        .await?;
-    Ok(record)
-}
 
-/// Download a remote thumbnail URL and upload to S3 as poster.
-async fn download_thumbnail(
-    state: &Arc<AppState>,
-    url: &str,
-    entity_kind: &str,
-    entity_id: &str,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    let resp = state.http_client.get(url).send().await?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()).into());
-    }
-    let bytes = resp.bytes().await?;
-    let ext = url
-        .rsplit('.')
-        .next()
-        .and_then(|e| {
-            let lower = e.split('?').next().unwrap_or(e).to_ascii_lowercase();
-            if matches!(lower.as_str(), "jpg" | "jpeg" | "png" | "webp") { Some(lower) } else { None }
-        })
-        .unwrap_or_else(|| "jpg".to_string());
-    let key = format!("library-images/{entity_kind}/{entity_id}/poster.{ext}");
-    super::artwork::upload_image_buffer(state, &bytes, &key).await
-}

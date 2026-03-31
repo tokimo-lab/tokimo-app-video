@@ -1,8 +1,9 @@
-import { HorizontalScroll, Image, Tag } from "@tokiomo/components";
+import { HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
-import { Info, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { useState } from "react";
-import FileDetailsModal, {
+import {
+  FileDetailsTooltipContent,
   getMediaFileLocator,
 } from "@/apps/finder/components/FileDetailsModal";
 import PersonDetailModal from "@/apps/media/components/PersonDetailModal";
@@ -339,33 +340,17 @@ export function MediaFileCard({
   };
 }) {
   const { play } = usePlayer();
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const fullPath = getMediaFileLocator(file);
   return (
-    <>
-      <div
-        className={`group relative rounded-lg border p-3 backdrop-blur-sm transition-all ${
-          detailsOpen
-            ? "shadow-sm"
-            : "border-[var(--glass-border)] bg-white/40 hover:border-black/10 hover:bg-white/70 hover:shadow-sm dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08]"
-        }`}
-        style={
-          detailsOpen
-            ? {
-                borderColor: "var(--accent-subtle-hover)",
-                background: "var(--accent-subtle)",
-              }
-            : undefined
-        }
-      >
-        <button
-          type="button"
-          aria-label={`查看 ${file.filename} 的文件详情`}
-          tabIndex={-1}
-          className="absolute inset-0 z-0 cursor-pointer rounded-lg focus:outline-none"
-          onClick={() => setDetailsOpen(true)}
-        />
-        <div className="relative z-10 mb-3 flex items-start justify-between gap-3 pointer-events-none">
+    <Popover
+      trigger="click"
+      placement="bottomLeft"
+      fitViewport
+      popupClassName="z-[9999] overflow-hidden border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[720px] p-3 bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
+      content={<FileDetailsTooltipContent file={file} />}
+    >
+      <div className="group relative cursor-pointer rounded-lg border border-[var(--glass-border)] bg-white/40 p-3 backdrop-blur-sm transition-all hover:border-black/10 hover:bg-white/70 hover:shadow-sm dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08]">
+        <div className="mb-3 flex items-start justify-between gap-3 pointer-events-none">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-baseline gap-1.5">
               {file.sourceName && (
@@ -387,21 +372,8 @@ export function MediaFileCard({
               {fullPath}
             </p>
           </div>
-          <div className="pointer-events-auto relative z-10 flex flex-shrink-0 items-center gap-2">
-            <button
-              type="button"
-              title="文件详情"
-              aria-label="文件详情"
-              className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--glass-border)] px-2.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:text-zinc-300 dark:hover:bg-gray-800/60 dark:hover:text-white"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDetailsOpen(true);
-              }}
-            >
-              <Info className="h-3.5 w-3.5" />
-              详情
-            </button>
-            {playMeta && (
+          {playMeta && (
+            <div className="pointer-events-auto relative z-10 flex flex-shrink-0 items-center gap-2">
               <button
                 type="button"
                 title="播放"
@@ -414,10 +386,10 @@ export function MediaFileCard({
                 <Play className="h-3.5 w-3.5 fill-current" />
                 播放
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <div className="pointer-events-none relative z-10 flex flex-wrap gap-1.5">
+        <div className="pointer-events-none flex flex-wrap gap-1.5">
           {file.size != null && (
             <Tag size="small" color="default">
               {formatFileSize(file.size)}
@@ -473,13 +445,7 @@ export function MediaFileCard({
           ))}
         </div>
       </div>
-      <FileDetailsModal
-        file={file}
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        posterPath={playMeta?.posterPath}
-      />
-    </>
+    </Popover>
   );
 }
 

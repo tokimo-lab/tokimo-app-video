@@ -13,12 +13,52 @@ use crate::db::repos::job_repo::JobRepo;
 use crate::AppState;
 
 use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use super::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
+use crate::queue::handlers::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
+use super::lib_type::LibType;
 use super::nfo_parser::NfoInfo;
+use super::tmdb;
 
 pub struct TvResult {
     pub tv_show_id: Uuid,
     pub episode_id: Option<Uuid>,
+}
+
+/// Single entry point called from mod.rs.
+#[allow(clippy::too_many_arguments)]
+pub async fn scrape(
+    db: &DatabaseConnection,
+    state: &std::sync::Arc<AppState>,
+    app_id: Uuid,
+    lib_type: LibType,
+    nfo: &Option<NfoInfo>,
+    title: &str,
+    year: Option<i32>,
+    season: Option<i32>,
+    episode: Option<i32>,
+    artwork: &DiscoveredArtwork,
+    nfo_poster_tmdb: &Option<String>,
+    nfo_backdrop_tmdb: &Option<String>,
+) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
+    let _ = lib_type; // currently all TV uses TMDB
+    let mut tmdb_detail: Option<TmdbMediaDetail> = None;
+    let mut tmdb_client: Option<TmdbClient> = None;
+
+    if let Some(api_key) = tmdb::get_api_key(db).await? {
+        let client = tmdb::build_client(state, &api_key);
+        tmdb_detail = tmdb::scrape_tv(
+            &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
+        )
+        .await;
+        tmdb_client = Some(client);
+    }
+
+    find_or_create_tv(
+        db, state, tmdb_client.as_ref(),
+        app_id, tmdb_detail.as_ref(), nfo.as_ref(),
+        title, year, season, episode,
+        artwork, nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
+    )
+    .await
 }
 
 /// Find or create a TV show, then create season/episode if we have numbers.
