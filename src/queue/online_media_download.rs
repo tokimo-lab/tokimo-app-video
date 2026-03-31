@@ -172,12 +172,8 @@ pub async fn handle(
     let media_year = payload.get("mediaYear").and_then(|v| v.as_str());
 
     let app_type = &target_app.r#type;
-    let content_type = analysis
-        .get("contentType")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
     let is_audio_only = download_format == "audio_only"
-        || (download_format != "video" && (app_type == "music" || content_type == "music"));
+        || (download_format != "video" && app_type == "music");
 
     let settings = target_app.settings.as_ref().cloned().unwrap_or(json!({}));
     let link_mode = settings
@@ -432,7 +428,7 @@ pub async fn handle(
                 info!(record_id, task_id, "Online media task completed");
 
                 // For non-local sources, copy organised files from local staging to VFS.
-                let vfs_target_path: Option<String> =
+                let vfs_copy_result: Option<VfsCopyResult> =
                     if let (Some(stage_dir), Some(sid)) =
                         (&vfs_stage_dir, download_source_id)
                     {
@@ -447,10 +443,10 @@ pub async fn handle(
                         )
                         .await
                         {
-                            Ok(vfs_path) => {
+                            Ok(result) => {
                                 // Clean up local staging dir after successful VFS copy.
                                 let _ = tokio::fs::remove_dir_all(stage_dir).await;
-                                Some(vfs_path)
+                                Some(result)
                             }
                             Err(e) => {
                                 let msg = format!("上传到 VFS 失败: {e}");
@@ -469,8 +465,13 @@ pub async fn handle(
                             }
                         }
                     } else {
-                        resp.target_path.clone()
+                        None
                     };
+
+                let vfs_target_path = vfs_copy_result
+                    .as_ref()
+                    .map(|r| r.target_path.clone())
+                    .or_else(|| resp.target_path.clone());
 
                 append_download_log(
                     &state.storage,
@@ -482,7 +483,7 @@ pub async fn handle(
                 )
                 .await;
 
-                let final_status = if vfs_target_path.is_some() {
+                let final_status = if vfs_copy_result.is_some() {
                     "organized"
                 } else {
                     "completed"
@@ -503,12 +504,50 @@ pub async fn handle(
                 done_update.updated_at = Set(Some(done_now));
                 done_update.update(db).await?;
 
-                // Create media_file records and dispatch ffprobe jobs for each media file.
-                // For VFS-copied files, output paths point to the local staging dir which is
-                // now gone; we skip creating media_file rows (the library scan will pick them up).
-                if vfs_stage_dir.is_none() {
-                    if let Some(source_id) = download_source_id {
+                // Dispatch file_scrape jobs so downloaded files get indexed into the
+                // library (creates Movie/Episode records + media_file + ffprobe).
+                if let Some(source_id) = download_source_id {
+                    let lib_type = &target_app.r#type;
+
+                    if let Some(ref copy_result) = vfs_copy_result {
+                        // VFS source: use uploaded VFS paths.
+                        for file in &copy_result.files {
+                            if !is_media_file(&file.vfs_path) {
+                                continue;
+                            }
+                            let dir_path = file
+                                .vfs_path
+                                .rsplit_once('/')
+                                .map(|(d, _)| d.to_string())
+                                .unwrap_or_default();
+                            if let Err(e) = JobRepo::create_job(
+                                db,
+                                "file_scrape",
+                                json!({
+                                    "filePath": file.vfs_path,
+                                    "dirPath": dir_path,
+                                    "fileSize": file.size,
+                                    "appId": lib_uuid.to_string(),
+                                    "sourceId": source_id.to_string(),
+                                    "libType": lib_type,
+                                }),
+                                None,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    "Failed to dispatch file_scrape for {}: {e}",
+                                    file.vfs_path
+                                );
+                            }
+                        }
+                    } else {
+                        // Local source: create media_file + ffprobe for immediate
+                        // visibility, then dispatch file_scrape for metadata extraction.
                         for output in &resp.output_files {
+                            if !is_media_file(&output.path) {
+                                continue;
+                            }
                             if let Some(media_file_id) = create_media_file_for_output(
                                 db,
                                 output,
@@ -530,6 +569,33 @@ pub async fn handle(
                                         "Failed to dispatch ffprobe job: {e}"
                                     );
                                 }
+                            }
+
+                            let rel_path =
+                                to_relative_path(&output.path, fs_driver_root.as_deref());
+                            let dir_path = rel_path
+                                .rsplit_once('/')
+                                .map(|(d, _)| d.to_string())
+                                .unwrap_or_default();
+                            if let Err(e) = JobRepo::create_job(
+                                db,
+                                "file_scrape",
+                                json!({
+                                    "filePath": rel_path,
+                                    "dirPath": dir_path,
+                                    "fileSize": output.size_bytes.unwrap_or(0),
+                                    "appId": lib_uuid.to_string(),
+                                    "sourceId": source_id.to_string(),
+                                    "libType": lib_type,
+                                }),
+                                None,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    "Failed to dispatch file_scrape for {}: {e}",
+                                    output.path
+                                );
                             }
                         }
                     }
@@ -592,8 +658,22 @@ fn stage_to_log_message(stage: &str, progress: Option<f64>) -> String {
     }
 }
 
+/// Info about a single file uploaded to VFS.
+struct VfsCopiedFile {
+    vfs_path: String,
+    size: i64,
+}
+
+/// Result from copying staged files to VFS.
+struct VfsCopyResult {
+    /// Top-level VFS directory path (e.g. "/网片/Bilibili").
+    target_path: String,
+    /// Individual files uploaded, with their VFS paths and sizes.
+    files: Vec<VfsCopiedFile>,
+}
+
 /// Copies all files from a local staging directory tree to a VFS target directory.
-/// Returns the VFS path of the top-level target directory on success.
+/// Returns the top-level VFS directory path and the list of uploaded files.
 async fn copy_staged_to_vfs(
     sources: &crate::services::media::source::SourceRegistry,
     storage: &Arc<dyn StorageProvider>,
@@ -602,7 +682,7 @@ async fn copy_staged_to_vfs(
     vfs_target_root: &str,
     record_id: &Uuid,
     task_id: &str,
-) -> Result<String, String> {
+) -> Result<VfsCopyResult, String> {
     let vfs = sources
         .ensure_vfs(source_id)
         .await
@@ -611,6 +691,7 @@ async fn copy_staged_to_vfs(
     // Walk the local staging dir and collect all files.
     let mut stack = vec![local_stage_dir.to_path_buf()];
     let mut files: Vec<(std::path::PathBuf, String)> = Vec::new(); // (local_path, vfs_path)
+    let mut uploaded_files: Vec<VfsCopiedFile> = Vec::new();
 
     // Determine the top-level subdirectory name inside staging (the organised dir).
     // e.g.  staging/{record}-vfs-target/Video Title [xxxx]/file.mp4
@@ -734,9 +815,17 @@ async fn copy_staged_to_vfs(
             None,
         )
         .await;
+
+        uploaded_files.push(VfsCopiedFile {
+            vfs_path: vfs_path.clone(),
+            size: size as i64,
+        });
     }
 
-    Ok(top_dir)
+    Ok(VfsCopyResult {
+        target_path: top_dir,
+        files: uploaded_files,
+    })
 }
 
 async fn update_record_failed(db: &DatabaseConnection, record_id: Uuid, message: &str) {
