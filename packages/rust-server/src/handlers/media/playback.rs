@@ -363,7 +363,7 @@ async fn create_hls_session_internal(
     let base_url = format!("http://127.0.0.1:{port}");
 
     // No accessToken needed — the stream endpoint allows loopback requests without auth
-    let input_url = format!("{base_url}/api/media-files/{}/stream", file.id);
+    let input_url = format!("{base_url}/api/media-files/{}/stream/full", file.id);
 
     let local_path = if is_local {
         Some(resolve_local_path(&file.path, source_config))
