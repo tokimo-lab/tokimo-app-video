@@ -138,7 +138,7 @@ function EpisodeRow({
 
 export default function TvShowDetailPage() {
   const { params, goBack } = useWindowNav();
-  const tvId = params.tvShowId as string | undefined;
+  const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
   const { lang } = useLang();
 

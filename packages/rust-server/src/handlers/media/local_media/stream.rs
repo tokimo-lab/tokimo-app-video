@@ -92,20 +92,6 @@ async fn stream_media_file_inner(
         }
     };
 
-    // Update DirectPlay progress tracker (byte-offset → playback position).
-    if let Some(ref uid) = user_id {
-        let byte_offset = parse_range_start(request.headers().get(header::RANGE));
-        state.direct_play_tracker.update(
-            uid,
-            &file_id,
-            target.movie_id.as_deref(),
-            target.episode_id.as_deref(),
-            target.duration.unwrap_or(0.0),
-            target.size.unwrap_or(0) as u64,
-            byte_offset,
-        );
-    }
-
     // Build subtitle tap for embedded subtitles (needed for SSE streaming).
     let tap_tx = if query.probe_only.unwrap_or(false) {
         None
@@ -227,15 +213,6 @@ async fn validate_stream_access(
     }
 
     Err("Unauthorized".into())
-}
-
-fn parse_range_start(range: Option<&header::HeaderValue>) -> u64 {
-    range
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("bytes="))
-        .and_then(|value| value.split('-').next())
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(0)
 }
 
 /// Resolve the absolute local filesystem path by prepending the source's

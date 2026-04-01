@@ -53,7 +53,7 @@ export default function PersonDetailModal({
   character,
   onClose,
 }: PersonDetailModalProps) {
-  const { navigate: navInWindow } = useWindowNav();
+  const { navigate } = useWindowNav();
   const toast = useToast();
   const qc = useQueryClient();
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -320,16 +320,16 @@ export default function PersonDetailModal({
                         className="group w-[100px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-gray-50 text-left transition-shadow hover:shadow-md dark:bg-gray-800/50"
                         onClick={() => {
                           onClose();
-                          if (c?.movieId && c?.appId)
-                            navInWindow(c?.mediaTitle ?? "Movie", {
-                              movieId: c.movieId,
-                              appId: c.appId,
-                            });
-                          else if (c?.tvShowId && c?.appId)
-                            navInWindow(c?.mediaTitle ?? "TV Show", {
-                              tvShowId: c.tvShowId,
-                              appId: c.appId,
-                            });
+                          if (c?.movieId)
+                            navigate(
+                              `/movies/${c.movieId}`,
+                              c?.mediaTitle ?? "Movie",
+                            );
+                          else if (c?.tvShowId)
+                            navigate(
+                              `/tv/${c.tvShowId}`,
+                              c?.mediaTitle ?? "TV Show",
+                            );
                         }}
                       >
                         <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">

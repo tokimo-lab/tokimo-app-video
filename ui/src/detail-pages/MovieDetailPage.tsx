@@ -112,7 +112,7 @@ function ResumePromptModal({
 
 export default function MovieDetailPage() {
   const { params, goBack } = useWindowNav();
-  const movieId = params.movieId as string | undefined;
+  const movieId = params.movieId;
   const qc = useQueryClient();
 
   const { data: movie, isLoading } = api.app.getMovieDetail.useQuery(

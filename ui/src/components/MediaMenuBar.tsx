@@ -8,8 +8,8 @@ import { useLang, useMenuBar, useMessage, useWindowNav } from "@/system";
 import AddOnlineMediaModal from "./AddOnlineMediaModal";
 
 export default function MediaMenuBar({ children }: { children: ReactNode }) {
-  const { params, navigate: navInWindow } = useWindowNav();
-  const id = params.appId as string | undefined;
+  const { metadata, navigate } = useWindowNav();
+  const id = metadata.appId as string | undefined;
   const message = useMessage();
   const qc = useQueryClient();
   const { lang: _lang } = useLang();
@@ -94,9 +94,9 @@ export default function MediaMenuBar({ children }: { children: ReactNode }) {
         searchType: isTv ? ("tv" as const) : ("movie" as const),
         onSelect: (item: MediaItem) => {
           if (isTv) {
-            navInWindow(item.title ?? "TV Show", { tvShowId: item.id });
+            navigate(`/tv/${item.id}`, item.title ?? "TV Show");
           } else {
-            navInWindow(item.title ?? "Movie", { movieId: item.id });
+            navigate(`/movies/${item.id}`, item.title ?? "Movie");
           }
         },
       },
@@ -106,7 +106,7 @@ export default function MediaMenuBar({ children }: { children: ReactNode }) {
     qc,
     isTv,
     isOnlineVideo,
-    navInWindow,
+    navigate,
     syncMutation.isPending,
     scrapePersonsMutation.isPending,
     scrapePersonsMutation.mutate,
