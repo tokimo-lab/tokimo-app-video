@@ -174,6 +174,9 @@ export default function MovieDetailPage() {
   const directors = movie.credits?.filter((c) => c.role === "director") ?? [];
   const writers = movie.credits?.filter((c) => c.role === "writer") ?? [];
   const isFavorite = movie.isFavorite ?? false;
+  const isOnlineVideo = !!(
+    movie.metadata?.sourceUrl || movie.metadata?.sourceSite
+  );
 
   // First available video file for the big "play" button on the poster
   const firstFile = movie.files?.find((f) => f.videoCodec);
@@ -228,12 +231,13 @@ export default function MovieDetailPage() {
           {/* Poster with play overlay */}
           <div
             className="relative hidden flex-shrink-0 md:block"
-            style={{ width: 160 }}
+            style={{ width: isOnlineVideo ? 320 : 160 }}
           >
             <MediaPoster
               posterPath={movie.posterPath}
               title={movie.title}
               fallbackEmoji="🎬"
+              landscape={isOnlineVideo}
             />
             {firstFile && (
               <button
@@ -276,14 +280,16 @@ export default function MovieDetailPage() {
               </p>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              {movie.year && (
+              {(movie.releaseDate || movie.year) && (
                 <span className="text-gray-600 dark:text-zinc-300">
-                  {movie.year}
+                  {isOnlineVideo && movie.releaseDate
+                    ? movie.releaseDate
+                    : movie.year}
                 </span>
               )}
               {movie.runtime != null && (
                 <span className="text-gray-600 dark:text-zinc-300">
-                  {movie.year ? "· " : ""}
+                  {movie.releaseDate || movie.year ? "· " : ""}
                   {formatRuntime(movie.runtime)}
                 </span>
               )}
@@ -324,7 +330,7 @@ export default function MovieDetailPage() {
             <MediaInfoBlock
               directors={directors.map((d) => d.person.name)}
               writers={writers.map((w) => w.person.name)}
-              date={movie.releaseDate}
+              date={isOnlineVideo ? undefined : movie.releaseDate}
               dateLabel="发行"
               countries={movie.countries}
             />
