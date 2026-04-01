@@ -38,35 +38,12 @@ pub(crate) struct StreamAccessQuery {
     probe_only: Option<bool>,
 }
 
-/// Browser-facing: open-ended Range requests are capped to 8 MB.
 pub async fn stream_media_file(
-    state: State<Arc<AppState>>,
-    path: Path<String>,
-    query: Query<StreamAccessQuery>,
-    addr: ConnectInfo<SocketAddr>,
-    request: Request,
-) -> Response {
-    stream_media_file_inner(state, path, query, addr, request, false).await
-}
-
-/// Internal (FFmpeg): open-ended Range requests return the full remainder.
-pub async fn stream_media_file_full(
-    state: State<Arc<AppState>>,
-    path: Path<String>,
-    query: Query<StreamAccessQuery>,
-    addr: ConnectInfo<SocketAddr>,
-    request: Request,
-) -> Response {
-    stream_media_file_inner(state, path, query, addr, request, true).await
-}
-
-async fn stream_media_file_inner(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
     Query(query): Query<StreamAccessQuery>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
-    nocap: bool,
 ) -> Response {
     let db = state.sources.db_conn();
     let user_id = match validate_stream_access(
@@ -120,7 +97,7 @@ async fn stream_media_file_inner(
         if tap_tx.is_some() {
             if let Some(source_id) = target.source_id.as_deref() {
                 if let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
-                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id.clone()), nocap)
+                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id.clone()))
                         .await;
                 }
             }
@@ -158,7 +135,7 @@ async fn stream_media_file_inner(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id), nocap).await
+    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id)).await
 }
 
 fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Option<String> {
