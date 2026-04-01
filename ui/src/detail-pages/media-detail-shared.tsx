@@ -1,4 +1,4 @@
-import { HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
+import { cn, HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
 import { useState } from "react";
@@ -40,13 +40,20 @@ export function MediaPoster({
   posterPath,
   title,
   fallbackEmoji,
+  landscape,
 }: {
   posterPath?: string | null;
   title: string;
   fallbackEmoji: string;
+  landscape?: boolean;
 }) {
   return (
-    <div className="hidden w-[160px] flex-shrink-0 overflow-hidden rounded-xl shadow-2xl md:block">
+    <div
+      className={cn(
+        "hidden flex-shrink-0 overflow-hidden rounded-xl shadow-2xl md:block",
+        landscape ? "w-[320px]" : "w-[160px]",
+      )}
+    >
       {posterPath ? (
         <Image
           src={resolveStoragePath(posterPath)}
@@ -54,7 +61,12 @@ export function MediaPoster({
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex aspect-[2/3] items-center justify-center bg-[var(--bg-skeleton)] text-5xl">
+        <div
+          className={cn(
+            "flex items-center justify-center bg-[var(--bg-skeleton)] text-5xl",
+            landscape ? "aspect-video" : "aspect-[2/3]",
+          )}
+        >
           {fallbackEmoji}
         </div>
       )}
