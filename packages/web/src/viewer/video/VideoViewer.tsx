@@ -9,6 +9,7 @@
 import { Info, Minus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildFileUrl } from "@/apps/finder/components/types";
+import { getWindowIcon } from "@/shared/components/icons/WindowIcon";
 import { VideoPlayer } from "@/shell/player/VideoPlayer";
 import {
   usePlayer,
@@ -127,14 +128,20 @@ function PlayerWindowShell() {
                 </svg>
               </button>
             </div>
-            <span className="flex-1 min-w-0 text-xs font-medium truncate text-center px-2">
+            <span className="flex-1 min-w-0 text-xs font-medium truncate text-center px-2 flex items-center justify-center gap-1.5">
+              <span className="shrink-0">
+                {getWindowIcon(frame.win.type, 16, frame.win.metadata.fileName)}
+              </span>
               {frame.win.title}
             </span>
             <div className="w-[60px] shrink-0" />
           </>
         ) : (
           <>
-            <span className="flex-1 min-w-0 text-xs font-medium truncate pl-3">
+            <span className="flex-1 min-w-0 text-xs font-medium truncate pl-3 flex items-center gap-1.5">
+              <span className="shrink-0">
+                {getWindowIcon(frame.win.type, 16, frame.win.metadata.fileName)}
+              </span>
               {frame.win.title}
             </span>
             <div className="flex items-center shrink-0 h-full">
