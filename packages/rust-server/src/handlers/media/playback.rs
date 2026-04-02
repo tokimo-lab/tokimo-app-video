@@ -448,7 +448,7 @@ async fn build_direct_input(
     source_id: Option<&str>,
     file_path: &str,
     file_size: Option<i64>,
-    subtitle_tap: Option<tokio::sync::mpsc::Sender<(Vec<u8>, u64)>>,
+    subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
 ) -> Option<Arc<ffmpeg_tool::DirectInput>> {
     let source_id = source_id?;
     let file_size = file_size.filter(|&s| s > 0)? as u64;
@@ -467,13 +467,15 @@ async fn build_direct_input(
         read_at: Arc::new(move |offset: u64, size: usize| {
             let read_path = std::path::Path::new(&path);
             match handle.block_on(vfs.read_bytes(read_path, offset, Some(size as u64))) {
-                Ok(bytes) => {
-                    // Feed VFS bytes to subtitle extractor when a tap is active.
-                    // Clone only when needed — the no-tap path (common case) is zero-copy.
+                Ok(buf) => {
                     if let Some(ref tx) = subtitle_tap {
-                        let _ = tx.try_send((bytes.clone(), offset));
+                        // Convert to Bytes so the clone into the tap is O(1) (Arc increment).
+                        let shared = bytes::Bytes::from(buf);
+                        let _ = tx.try_send((shared.clone(), offset));
+                        Ok(shared.to_vec())
+                    } else {
+                        Ok(buf)
                     }
-                    Ok(bytes)
                 }
                 Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
             }
@@ -499,7 +501,7 @@ async fn build_direct_input(
 async fn build_subtitle_tap_for_hls(
     state: &AppState,
     file: &media_files::Model,
-) -> Option<tokio::sync::mpsc::Sender<(Vec<u8>, u64)>> {
+) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     let file_id = file.id.to_string();
     let rows = SubtitleRepo::load_file_subtitles(&state.db, &file_id)
         .await
