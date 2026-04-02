@@ -30,9 +30,7 @@ export function formatFileSize(bytes: number): string {
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mb-3 text-base font-semibold text-gray-900 dark:text-gray-100">
-      {children}
-    </h3>
+    <h3 className="mb-3 text-base font-semibold text-fg-primary">{children}</h3>
   );
 }
 
@@ -145,33 +143,25 @@ export function MediaInfoBlock({
     <div className="mt-3 space-y-1 text-sm">
       {directors.length > 0 && (
         <div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            导演:{" "}
-          </span>
+          <span className="font-semibold text-fg-primary">导演: </span>
           <span className="text-fg-muted">{directors.join(", ")}</span>
         </div>
       )}
       {writers.length > 0 && (
         <div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            编剧:{" "}
-          </span>
+          <span className="font-semibold text-fg-primary">编剧: </span>
           <span className="text-fg-muted">{writers.join(", ")}</span>
         </div>
       )}
       {date && (
         <div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            {dateLabel}:{" "}
-          </span>
+          <span className="font-semibold text-fg-primary">{dateLabel}: </span>
           <span className="text-fg-muted">{date}</span>
         </div>
       )}
       {countries && countries.length > 0 && (
         <div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            地区:{" "}
-          </span>
+          <span className="font-semibold text-fg-primary">地区: </span>
           <span className="text-fg-muted">{countries.join(", ")}</span>
         </div>
       )}
@@ -204,7 +194,7 @@ export function PersonCard({
     <>
       <button
         type="button"
-        className={`w-[110px] flex-shrink-0 overflow-hidden rounded-lg bg-gray-50 text-left dark:bg-gray-800/60 ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60" : "cursor-default"}`}
+        className={`w-[110px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-base text-left dark:bg-gray-800/60 ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60" : "cursor-default"}`}
         onClick={() => personId && setModalOpen(true)}
         disabled={!clickable}
       >
@@ -221,9 +211,7 @@ export function PersonCard({
           )}
         </div>
         <div className="p-1.5">
-          <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
-            {name}
-          </p>
+          <p className="truncate text-xs font-medium text-fg-primary">{name}</p>
           {sub && <p className="truncate text-[11px] text-fg-muted">{sub}</p>}
         </div>
       </button>
@@ -361,7 +349,7 @@ export function MediaFileCard({
                 </span>
               )}
               <p
-                className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100"
+                className="min-w-0 truncate text-sm font-medium text-fg-primary"
                 title={file.filename}
               >
                 {file.filename}
@@ -496,7 +484,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
         {extras.map((e) => (
           <div
             key={e.id}
-            className="w-[200px] flex-shrink-0 overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800/60"
+            className="w-[200px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-base"
           >
             <div className="relative aspect-video overflow-hidden bg-[var(--bg-skeleton)]">
               {e.thumbPath ? (
@@ -515,7 +503,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
               </span>
             </div>
             <div className="p-1.5">
-              <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+              <p className="truncate text-xs font-medium text-fg-primary">
                 {e.title}
               </p>
               {e.runtime != null && (

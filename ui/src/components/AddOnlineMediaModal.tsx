@@ -267,7 +267,7 @@ export default function AddOnlineMediaModal({
   const renderAnalysis = () => {
     if (analyzeMutation.isPending) {
       return (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 py-8 text-fg-muted dark:border-slate-700 dark:text-slate-400">
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-border-base px-4 py-8 text-fg-muted dark:text-slate-400">
           <Spin size="small" />
           <span className="ml-2">
             {t(`${ns}.onlineMedia.analyzing`, { defaultValue: "正在分析链接" })}
@@ -304,7 +304,7 @@ export default function AddOnlineMediaModal({
               className="h-24 w-40 rounded-lg object-cover"
             />
           ) : (
-            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-slate-100 text-fg-muted dark:bg-slate-800">
+            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-slate-800">
               <PlusOutlined />
             </div>
           )}
@@ -336,7 +336,7 @@ export default function AddOnlineMediaModal({
               )}
             </div>
 
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <div className="text-sm font-semibold text-fg-primary">
               {analysis.title ??
                 t(`${ns}.onlineMedia.noTitle`, { defaultValue: "未返回标题" })}
             </div>
@@ -551,7 +551,7 @@ export default function AddOnlineMediaModal({
           {defaultLibraryId && selectedFolder && (
             <div className="text-xs text-fg-muted">
               目标应用：
-              <span className="font-medium text-gray-800 dark:text-gray-200">
+              <span className="font-medium text-fg-primary">
                 {selectedFolder.name}
               </span>
             </div>

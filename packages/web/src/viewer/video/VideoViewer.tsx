@@ -303,7 +303,7 @@ function VfsVideoViewer({
         </div>
 
         {/* ── Bottom bar with info toggle ─────────────────────── */}
-        <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-t border-neutral-200 bg-white px-3 dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-t border-border-base bg-surface-elevated px-3 ">
           {fileSystemId && (
             <SiblingFileList
               windowId={win.id}
@@ -319,7 +319,7 @@ function VfsVideoViewer({
             className={`rounded p-1 transition-colors ${
               showInfo
                 ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
-                : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                : "text-fg-muted hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
             }`}
           >
             <Info className="h-4 w-4" />
@@ -329,7 +329,7 @@ function VfsVideoViewer({
 
       {/* ── Detail panel (right) ──────────────────────────────── */}
       {showInfo && fileSystemId && (
-        <div className="w-[280px] shrink-0 border-l border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="w-[280px] shrink-0 border-l border-border-base bg-surface-elevated ">
           <FileProbePanel
             fileSystemId={fileSystemId}
             filePath={filePath}

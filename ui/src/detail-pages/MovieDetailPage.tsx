@@ -384,7 +384,7 @@ export default function MovieDetailPage() {
         {movie.overview && (
           <div className="mb-8">
             <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-zinc-300">
+            <p className="text-sm leading-relaxed text-fg-secondary">
               {movie.overview}
             </p>
           </div>
@@ -407,7 +407,7 @@ export default function MovieDetailPage() {
                       className="h-12 w-8 flex-shrink-0 rounded object-cover"
                     />
                   )}
-                  <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                  <p className="truncate text-xs font-medium text-fg-primary">
                     {col.name}
                   </p>
                 </div>
