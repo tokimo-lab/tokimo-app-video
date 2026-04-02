@@ -64,7 +64,7 @@ function EpisodeRow({
         onClick={() => setOpen((v) => !v)}
       >
         {/* Thumbnail 16:9 */}
-        <div className="h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
+        <div className="h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded bg-fill-tertiary">
           {episode.stillPath ? (
             <img
               src={resolveStoragePath(episode.stillPath)}
@@ -94,7 +94,7 @@ function EpisodeRow({
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <p className="mt-0.5 text-sm font-semibold text-fg-primary">
             {episode.title ?? `第 ${episode.episodeNumber} 集`}
           </p>
           {episode.airDate && (
@@ -254,7 +254,7 @@ export default function TvShowDetailPage() {
             />
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-sm text-gray-900 dark:text-gray-100">
+            <p className="truncate font-semibold text-sm text-fg-primary">
               {show.title}
             </p>
             <div className="flex items-center gap-2 text-xs text-fg-muted">
@@ -269,7 +269,7 @@ export default function TvShowDetailPage() {
                   {show.genres.slice(0, 3).map((g) => (
                     <span
                       key={g.id}
-                      className="rounded-full bg-gray-100 dark:bg-white/10 px-2 py-px text-[11px] text-gray-700 dark:text-zinc-300"
+                      className="rounded-full bg-fill-tertiary dark:bg-white/10 px-2 py-px text-[11px] text-fg-secondary"
                     >
                       {getGenreName(g.tmdbGenreId, lang) || g.name}
                     </span>
@@ -289,8 +289,8 @@ export default function TvShowDetailPage() {
                 onClick={() => handleSeasonClick(sn.seasonNumber)}
                 className={`flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
                   selectedSeason?.id === sn.id
-                    ? "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white"
-                    : "hover:bg-gray-100 dark:hover:bg-white/8 text-gray-700 dark:text-zinc-300"
+                    ? "bg-fill-tertiary dark:bg-white/10 text-fg-primary dark:text-white"
+                    : "hover:bg-gray-100 dark:hover:bg-white/8 text-fg-secondary"
                 }`}
               >
                 {sn.posterPath ? (
@@ -371,7 +371,7 @@ export default function TvShowDetailPage() {
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                     show.status === "ended"
-                      ? "bg-gray-200/60 dark:bg-gray-600/60 text-gray-700 dark:text-zinc-300"
+                      ? "bg-gray-200/60 dark:bg-gray-600/60 text-fg-secondary"
                       : "bg-green-100/60 dark:bg-green-600/60 text-green-700 dark:text-green-200"
                   }`}
                 >
@@ -417,7 +417,7 @@ export default function TvShowDetailPage() {
         {show.overview && (
           <div className="mb-6">
             <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-zinc-300">
+            <p className="text-sm leading-relaxed text-fg-secondary">
               {show.overview}
             </p>
           </div>
@@ -518,7 +518,7 @@ export default function TvShowDetailPage() {
                       className="h-12 w-8 flex-shrink-0 rounded object-cover"
                     />
                   )}
-                  <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                  <p className="truncate text-xs font-medium text-fg-primary">
                     {col.name}
                   </p>
                 </div>

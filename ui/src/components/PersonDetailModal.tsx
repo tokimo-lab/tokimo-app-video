@@ -235,7 +235,7 @@ export default function PersonDetailModal({
                   {person.aliases.map((alias) => (
                     <span
                       key={alias}
-                      className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-zinc-300"
+                      className="rounded bg-fill-tertiary px-1.5 py-0.5 text-xs text-fg-secondary dark:bg-gray-800"
                     >
                       {alias}
                     </span>
@@ -278,7 +278,7 @@ export default function PersonDetailModal({
                 className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
                 style={{ maxHeight: bioExpanded ? "2000px" : "200px" }}
               >
-                <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700 dark:text-zinc-300">
+                <p className="whitespace-pre-line text-sm leading-relaxed text-fg-secondary">
                   {person.biography}
                 </p>
               </div>
@@ -317,7 +317,7 @@ export default function PersonDetailModal({
                       <button
                         key={c?.id}
                         type="button"
-                        className="group w-[100px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-gray-50 text-left transition-shadow hover:shadow-md dark:bg-gray-800/50"
+                        className="group w-[100px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-surface-base text-left transition-shadow hover:shadow-md dark:bg-gray-800/50"
                         onClick={() => {
                           onClose();
                           if (c?.movieId)
@@ -347,7 +347,7 @@ export default function PersonDetailModal({
                           )}
                         </div>
                         <div className="p-1.5">
-                          <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                          <p className="truncate text-xs font-medium text-fg-primary">
                             {c?.mediaTitle}
                           </p>
                           {c?.character && (
@@ -393,7 +393,7 @@ function InfoRow({
       <span className="mt-0.5 w-14 flex-shrink-0 text-xs font-medium text-fg-muted">
         {label}
       </span>
-      <span className="text-xs text-gray-800 dark:text-gray-200">{value}</span>
+      <span className="text-xs text-fg-primary">{value}</span>
     </div>
   );
 }

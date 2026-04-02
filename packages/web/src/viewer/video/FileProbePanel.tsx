@@ -82,9 +82,7 @@ function langName(code: string): string {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2 text-[13px]">
-      <span className="shrink-0 text-neutral-500 dark:text-neutral-400">
-        {label}
-      </span>
+      <span className="shrink-0 text-fg-muted">{label}</span>
       <span className="min-w-0 break-all text-neutral-800 dark:text-neutral-200">
         {value}
       </span>
@@ -108,10 +106,10 @@ function Section({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-t border-neutral-200 pt-3 dark:border-neutral-700">
+    <div className="border-t border-border-base pt-3">
       <button
         type="button"
-        className="mb-2 flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400"
+        className="mb-2 flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-muted"
         onClick={() => collapsible && setOpen((o) => !o)}
         disabled={!collapsible}
       >
@@ -140,7 +138,7 @@ function StreamCard({
   const title = tags.title ?? tags.handler_name;
 
   return (
-    <div className="rounded-md bg-neutral-100 px-3 py-2 text-[13px] dark:bg-neutral-800">
+    <div className="rounded-md bg-fill-tertiary px-3 py-2 text-[13px] dark:bg-neutral-800">
       <div className="mb-1 flex items-center gap-1.5 font-medium text-neutral-800 dark:text-neutral-200">
         {label}
         {lang && lang !== "und" && (
@@ -149,10 +147,8 @@ function StreamCard({
           </span>
         )}
       </div>
-      {title && (
-        <p className="mb-1 text-neutral-600 dark:text-neutral-400">{title}</p>
-      )}
-      <div className="space-y-0.5 text-neutral-600 dark:text-neutral-400">
+      {title && <p className="mb-1 text-fg-muted">{title}</p>}
+      <div className="space-y-0.5 text-fg-muted">
         <p>
           {stream.codecName}
           {stream.profile ? ` (${stream.profile})` : ""}
@@ -214,7 +210,7 @@ export function FileProbePanel({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-400">
+      <div className="flex h-full items-center justify-center text-sm text-fg-muted">
         探测中…
       </div>
     );
@@ -222,7 +218,7 @@ export function FileProbePanel({
 
   if (error || !data) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-400">
+      <div className="flex h-full items-center justify-center text-sm text-fg-muted">
         <Info className="mr-1.5 h-4 w-4" />
         无法获取文件信息
       </div>
@@ -314,7 +310,7 @@ export function FileProbePanel({
               return (
                 <div
                   key={s.index}
-                  className="rounded-md bg-neutral-100 px-3 py-1.5 text-[13px] dark:bg-neutral-800"
+                  className="rounded-md bg-fill-tertiary px-3 py-1.5 text-[13px] dark:bg-neutral-800"
                 >
                   <span className="font-medium text-neutral-800 dark:text-neutral-200">
                     #{i + 1} {s.codecName}
@@ -325,9 +321,7 @@ export function FileProbePanel({
                     </span>
                   )}
                   {title && (
-                    <span className="ml-1.5 text-neutral-500 dark:text-neutral-400">
-                      {title}
-                    </span>
+                    <span className="ml-1.5 text-fg-muted">{title}</span>
                   )}
                 </div>
               );
@@ -348,7 +342,7 @@ export function FileProbePanel({
                 key={ch.id}
                 className="flex items-baseline gap-2 text-[13px]"
               >
-                <span className="shrink-0 font-mono text-neutral-500 dark:text-neutral-400">
+                <span className="shrink-0 font-mono text-fg-muted">
                   {formatDuration(Number(ch.startTime))}
                 </span>
                 <span className="text-neutral-800 dark:text-neutral-200">
@@ -375,9 +369,7 @@ export function FileProbePanel({
 
         {/* ── Path info ──────────────────────────────────────────── */}
         <Section icon={<HardDrive className="h-3 w-3" />} title="路径">
-          <p className="break-all text-[13px] text-neutral-600 dark:text-neutral-400">
-            {filePath}
-          </p>
+          <p className="break-all text-[13px] text-fg-muted">{filePath}</p>
         </Section>
       </div>
     </div>
