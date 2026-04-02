@@ -60,7 +60,7 @@ function EpisodeRow({
     <div className="overflow-hidden rounded-lg border border-[var(--glass-border)]">
       <button
         type="button"
-        className="flex w-full items-start gap-4 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
+        className="flex w-full items-start gap-4 p-3 text-left hover:bg-fill-tertiary/50"
         onClick={() => setOpen((v) => !v)}
       >
         {/* Thumbnail 16:9 */}
@@ -239,13 +239,13 @@ export default function TvShowDetailPage() {
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             type="button"
-            className="flex cursor-pointer items-center gap-1.5 text-sm text-fg-muted hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            className="flex cursor-pointer items-center gap-1.5 text-sm text-fg-muted hover:text-fg-primary transition-colors"
             onClick={() => goBack()}
           >
             <ArrowLeftOutlined />
             <span>返回</span>
           </button>
-          <div className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-600" />
+          <div className="mx-1 h-5 w-px bg-border-base" />
           {show.posterPath && (
             <img
               src={resolveStoragePath(show.posterPath)}
@@ -371,7 +371,7 @@ export default function TvShowDetailPage() {
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                     show.status === "ended"
-                      ? "bg-gray-200/60 dark:bg-gray-600/60 text-fg-secondary"
+                      ? "bg-fill-tertiary text-fg-secondary"
                       : "bg-green-100/60 dark:bg-green-600/60 text-green-700 dark:text-green-200"
                   }`}
                 >
@@ -439,7 +439,7 @@ export default function TvShowDetailPage() {
                   className={`flex cursor-pointer flex-shrink-0 items-center gap-2.5 rounded-lg p-2 text-left transition-colors ${
                     selectedSeason?.id === sn.id
                       ? "dark:bg-white/10"
-                      : "hover:bg-gray-100 dark:hover:bg-white/5"
+                      : "hover:bg-fill-tertiary"
                   }`}
                   style={
                     selectedSeason?.id === sn.id
@@ -458,7 +458,7 @@ export default function TvShowDetailPage() {
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-10 w-7 flex-shrink-0 items-center justify-center rounded bg-gray-200 text-xs dark:bg-gray-700">
+                    <div className="flex h-10 w-7 flex-shrink-0 items-center justify-center rounded bg-fill-tertiary text-xs">
                       S
                     </div>
                   )}

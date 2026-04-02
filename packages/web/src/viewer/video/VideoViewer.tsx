@@ -319,7 +319,7 @@ function VfsVideoViewer({
             className={`rounded p-1 transition-colors ${
               showInfo
                 ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
-                : "text-fg-muted hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                : "text-fg-muted hover:bg-fill-tertiary hover:text-fg-secondary"
             }`}
           >
             <Info className="h-4 w-4" />

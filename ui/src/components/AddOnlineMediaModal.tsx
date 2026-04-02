@@ -267,7 +267,7 @@ export default function AddOnlineMediaModal({
   const renderAnalysis = () => {
     if (analyzeMutation.isPending) {
       return (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-border-base px-4 py-8 text-fg-muted dark:text-slate-400">
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-border-base px-4 py-8 text-fg-muted">
           <Spin size="small" />
           <span className="ml-2">
             {t(`${ns}.onlineMedia.analyzing`, { defaultValue: "正在分析链接" })}
@@ -295,7 +295,7 @@ export default function AddOnlineMediaModal({
       analysis.contentType === "music" || selectedFolder?.type === "music";
 
     return (
-      <div className="rounded-xl border border-[var(--glass-border)] bg-white/70 p-4 shadow-sm dark:bg-slate-900/40">
+      <div className="rounded-xl border border-[var(--glass-border)] bg-surface-glass p-4 shadow-sm">
         <div className="flex gap-4">
           {analysis.thumbnailUrl ? (
             <img
@@ -304,7 +304,7 @@ export default function AddOnlineMediaModal({
               className="h-24 w-40 rounded-lg object-cover"
             />
           ) : (
-            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-slate-800">
+            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-fill-tertiary dark:bg-white/[0.10] text-fg-muted">
               <PlusOutlined />
             </div>
           )}
