@@ -148,9 +148,7 @@ export function MediaInfoBlock({
           <span className="font-semibold text-gray-900 dark:text-gray-100">
             导演:{" "}
           </span>
-          <span className="text-gray-600 dark:text-zinc-400">
-            {directors.join(", ")}
-          </span>
+          <span className="text-fg-muted">{directors.join(", ")}</span>
         </div>
       )}
       {writers.length > 0 && (
@@ -158,9 +156,7 @@ export function MediaInfoBlock({
           <span className="font-semibold text-gray-900 dark:text-gray-100">
             编剧:{" "}
           </span>
-          <span className="text-gray-600 dark:text-zinc-400">
-            {writers.join(", ")}
-          </span>
+          <span className="text-fg-muted">{writers.join(", ")}</span>
         </div>
       )}
       {date && (
@@ -168,7 +164,7 @@ export function MediaInfoBlock({
           <span className="font-semibold text-gray-900 dark:text-gray-100">
             {dateLabel}:{" "}
           </span>
-          <span className="text-gray-600 dark:text-zinc-400">{date}</span>
+          <span className="text-fg-muted">{date}</span>
         </div>
       )}
       {countries && countries.length > 0 && (
@@ -176,9 +172,7 @@ export function MediaInfoBlock({
           <span className="font-semibold text-gray-900 dark:text-gray-100">
             地区:{" "}
           </span>
-          <span className="text-gray-600 dark:text-zinc-400">
-            {countries.join(", ")}
-          </span>
+          <span className="text-fg-muted">{countries.join(", ")}</span>
         </div>
       )}
     </div>
@@ -186,7 +180,7 @@ export function MediaInfoBlock({
 }
 
 export const PersonPlaceholder = () => (
-  <div className="flex h-full items-center justify-center text-zinc-600 dark:text-gray-500">
+  <div className="flex h-full items-center justify-center text-fg-muted">
     <svg className="h-10 w-10" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
     </svg>
@@ -230,11 +224,7 @@ export function PersonCard({
           <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
             {name}
           </p>
-          {sub && (
-            <p className="truncate text-[11px] text-gray-500 dark:text-zinc-400">
-              {sub}
-            </p>
-          )}
+          {sub && <p className="truncate text-[11px] text-fg-muted">{sub}</p>}
         </div>
       </button>
       {personId && modalOpen && (
@@ -378,7 +368,7 @@ export function MediaFileCard({
               </p>
             </div>
             <p
-              className="mt-1 break-all font-mono text-[11px] text-gray-500 dark:text-zinc-400"
+              className="mt-1 break-all font-mono text-[11px] text-fg-muted"
               title={fullPath}
             >
               {fullPath}
@@ -516,7 +506,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-3xl text-zinc-600 dark:text-zinc-400">
+                <div className="flex h-full items-center justify-center text-3xl text-fg-muted">
                   ▶
                 </div>
               )}
@@ -529,7 +519,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
                 {e.title}
               </p>
               {e.runtime != null && (
-                <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                <p className="text-[11px] text-fg-muted">
                   {formatRuntime(e.runtime)}
                 </p>
               )}

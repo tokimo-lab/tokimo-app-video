@@ -34,7 +34,7 @@ function FavoriteButton({
     <button
       type="button"
       title={isFavorite ? "取消收藏" : "收藏"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-zinc-600 dark:text-zinc-400 hover:text-red-400"}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "tvshow", id: tvShowId })}
     >
       {isFavorite ? "♥" : "♡"}
@@ -73,18 +73,18 @@ function EpisodeRow({
               loading="lazy"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <div className="flex h-full items-center justify-center text-xs font-medium text-fg-muted">
               E{episode.episodeNumber}
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-fg-muted">
               第 {episode.episodeNumber} 集
             </span>
             {episode.runtime != null && (
-              <span className="text-xs text-zinc-600 dark:text-zinc-400">
+              <span className="text-xs text-fg-muted">
                 {formatRuntime(episode.runtime)}
               </span>
             )}
@@ -98,12 +98,10 @@ function EpisodeRow({
             {episode.title ?? `第 ${episode.episodeNumber} 集`}
           </p>
           {episode.airDate && (
-            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-              {episode.airDate}
-            </p>
+            <p className="mt-0.5 text-xs text-fg-muted">{episode.airDate}</p>
           )}
         </div>
-        <span className="mt-1 flex-shrink-0 text-xs text-zinc-600 dark:text-zinc-400">
+        <span className="mt-1 flex-shrink-0 text-xs text-fg-muted">
           {open ? "▲" : "▼"}
         </span>
       </button>
@@ -111,9 +109,7 @@ function EpisodeRow({
       {open && (
         <div className="border-t border-[var(--glass-border)] p-3">
           {episode.overview && (
-            <p className="mb-3 text-sm text-gray-600 dark:text-zinc-400">
-              {episode.overview}
-            </p>
+            <p className="mb-3 text-sm text-fg-muted">{episode.overview}</p>
           )}
           {episode.files && episode.files.length > 0 && (
             <div className="space-y-2">
@@ -219,7 +215,7 @@ export default function TvShowDetailPage() {
   if (!show) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <p className="text-gray-500">未找到该剂集</p>
+        <p className="text-fg-muted">未找到该剂集</p>
         <Button onClick={() => goBack()}>返回</Button>
       </div>
     );
@@ -243,7 +239,7 @@ export default function TvShowDetailPage() {
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             type="button"
-            className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            className="flex cursor-pointer items-center gap-1.5 text-sm text-fg-muted hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             onClick={() => goBack()}
           >
             <ArrowLeftOutlined />
@@ -261,7 +257,7 @@ export default function TvShowDetailPage() {
             <p className="truncate font-semibold text-sm text-gray-900 dark:text-gray-100">
               {show.title}
             </p>
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-zinc-400">
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
               {show.originalTitle && show.originalTitle !== show.title && (
                 <span className="truncate max-w-[120px]">
                   {show.originalTitle}
@@ -318,7 +314,7 @@ export default function TvShowDetailPage() {
                       className={`text-[11px] leading-tight ${
                         selectedSeason?.id === sn.id
                           ? "text-white/70"
-                          : "text-zinc-600 dark:text-zinc-400"
+                          : "text-fg-muted"
                       }`}
                     >
                       {sn.episodeCount} 集
@@ -355,23 +351,19 @@ export default function TvShowDetailPage() {
               <FavoriteButton isFavorite={isFavorite} tvShowId={show.id} />
             </div>
             {show.originalTitle && show.originalTitle !== show.title && (
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-zinc-400">
+              <p className="mt-0.5 text-sm text-fg-muted">
                 {show.originalTitle}
               </p>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               {show.year && (
-                <span className="text-gray-600 dark:text-zinc-300">
-                  {show.year}
-                </span>
+                <span className="text-fg-secondary">{show.year}</span>
               )}
               {seasons.length > 0 && (
-                <span className="text-gray-600 dark:text-zinc-300">
-                  · {seasons.length} 季
-                </span>
+                <span className="text-fg-secondary">· {seasons.length} 季</span>
               )}
               {show.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-zinc-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-fg-secondary">
                   {show.contentRating}
                 </span>
               )}
@@ -475,7 +467,7 @@ export default function TvShowDetailPage() {
                       {sn.title ?? `第 ${sn.seasonNumber} 季`}
                     </p>
                     {sn.episodeCount != null && (
-                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <p className="text-[11px] text-fg-muted">
                         {sn.episodeCount} 集
                       </p>
                     )}
@@ -500,7 +492,7 @@ export default function TvShowDetailPage() {
                   />
                 ))}
                 {(selectedSeason.episodes ?? []).length === 0 && (
-                  <p className="py-8 text-center text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="py-8 text-center text-sm text-fg-muted">
                     暂无剧集数据
                   </p>
                 )}

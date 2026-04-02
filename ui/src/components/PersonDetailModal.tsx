@@ -185,7 +185,7 @@ export default function PersonDetailModal({
           <Spin />
         </div>
       ) : !person ? (
-        <div className="flex h-48 items-center justify-center text-gray-500">
+        <div className="flex h-48 items-center justify-center text-fg-muted">
           未找到该人物
         </div>
       ) : (
@@ -228,7 +228,7 @@ export default function PersonDetailModal({
             {/* 别名 */}
             {person.aliases && person.aliases.length > 0 && (
               <div className="flex items-start gap-2">
-                <span className="mt-0.5 w-14 flex-shrink-0 text-xs font-medium text-gray-500 dark:text-zinc-400">
+                <span className="mt-0.5 w-14 flex-shrink-0 text-xs font-medium text-fg-muted">
                   别名
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -303,7 +303,7 @@ export default function PersonDetailModal({
               <section key={role} className="mb-6">
                 <SectionTitle>
                   {ROLE_LABELS[role] ?? role} 作品
-                  <span className="ml-2 text-sm font-normal text-zinc-600 dark:text-zinc-400">
+                  <span className="ml-2 text-sm font-normal text-fg-muted">
                     ({withMedia.length})
                   </span>
                 </SectionTitle>
@@ -341,7 +341,7 @@ export default function PersonDetailModal({
                               loading="lazy"
                             />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-zinc-700 dark:text-gray-600">
+                            <div className="flex h-full items-center justify-center text-fg-muted">
                               <Film size={32} />
                             </div>
                           )}
@@ -351,12 +351,12 @@ export default function PersonDetailModal({
                             {c?.mediaTitle}
                           </p>
                           {c?.character && (
-                            <p className="truncate text-[11px] text-gray-500 dark:text-zinc-400">
+                            <p className="truncate text-[11px] text-fg-muted">
                               饰 {c.character}
                             </p>
                           )}
                           {c?.mediaYear && (
-                            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                            <p className="text-[11px] text-fg-muted">
                               {c.mediaYear}
                             </p>
                           )}
@@ -370,7 +370,7 @@ export default function PersonDetailModal({
           })}
 
           {!hasCreditsInLibrary && (
-            <p className="py-4 text-center text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="py-4 text-center text-sm text-fg-muted">
               暂无库内作品数据
             </p>
           )}
@@ -390,7 +390,7 @@ function InfoRow({
   if (!value) return null;
   return (
     <div className="flex items-start gap-2">
-      <span className="mt-0.5 w-14 flex-shrink-0 text-xs font-medium text-gray-500 dark:text-zinc-400">
+      <span className="mt-0.5 w-14 flex-shrink-0 text-xs font-medium text-fg-muted">
         {label}
       </span>
       <span className="text-xs text-gray-800 dark:text-gray-200">{value}</span>

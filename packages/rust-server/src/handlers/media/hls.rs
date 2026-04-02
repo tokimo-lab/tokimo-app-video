@@ -7,6 +7,7 @@ use axum::{
 };
 use rust_hls::{CreateSessionRequest, HlsSessionInfo};
 use std::sync::Arc;
+use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};
 
 use crate::handlers::{err_resp, ok, ApiResponse};
@@ -135,10 +136,12 @@ pub async fn get_segment(
         }
     };
 
-    match tokio::fs::read(&segment_path).await {
-        Ok(data) => {
+    match tokio::fs::File::open(&segment_path).await {
+        Ok(file) => {
+            let meta = file.metadata().await.ok();
+            let size = meta.as_ref().map(|m| m.len());
             let total_ms = req_start.elapsed().as_millis();
-            let size_kb = data.len() / 1024;
+            let size_kb = size.unwrap_or(0) / 1024;
             debug!(
                 "[HLS:{}] segment {} served: {}KB prepare={}ms wait={}ms total={}ms",
                 session_id, segment, size_kb, prepare_ms, wait_ms, total_ms
@@ -153,12 +156,17 @@ pub async fn get_segment(
             } else {
                 "video/mp2t"
             };
-            Response::builder()
+            let stream = ReaderStream::new(file);
+            let mut builder = Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, content_type)
                 .header(header::CACHE_CONTROL, "no-cache")
-                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .body(Body::from(data))
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+            if let Some(len) = size {
+                builder = builder.header(header::CONTENT_LENGTH, len);
+            }
+            builder
+                .body(Body::from_stream(stream))
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
         }
         Err(e) => {

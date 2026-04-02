@@ -48,7 +48,7 @@ function FavoriteButton({
     <button
       type="button"
       title={isFavorite ? "取消收藏" : "收藏"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-zinc-600 dark:text-zinc-400 hover:text-red-400"}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "movie", id: movieId })}
     >
       {isFavorite ? "♥" : "♡"}
@@ -165,7 +165,7 @@ export default function MovieDetailPage() {
   if (!movie) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <p className="text-gray-500">未找到该电影</p>
+        <p className="text-fg-muted">未找到该电影</p>
         <Button onClick={() => goBack()}>返回</Button>
       </div>
     );
@@ -267,7 +267,7 @@ export default function MovieDetailPage() {
             </div>
             {(movie.originalTitle && movie.originalTitle !== movie.title) ||
             movie.tagline ? (
-              <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-zinc-400">
+              <p className="mt-0.5 truncate text-sm text-fg-muted">
                 {movie.originalTitle && movie.originalTitle !== movie.title
                   ? movie.originalTitle
                   : null}
@@ -281,20 +281,20 @@ export default function MovieDetailPage() {
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
               {(movie.releaseDate || movie.year) && (
-                <span className="text-gray-600 dark:text-zinc-300">
+                <span className="text-fg-secondary">
                   {isOnlineVideo && movie.releaseDate
                     ? movie.releaseDate
                     : movie.year}
                 </span>
               )}
               {movie.runtime != null && (
-                <span className="text-gray-600 dark:text-zinc-300">
+                <span className="text-fg-secondary">
                   {movie.releaseDate || movie.year ? "· " : ""}
                   {formatRuntime(movie.runtime)}
                 </span>
               )}
               {movie.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-gray-600 dark:text-zinc-300">
+                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-fg-secondary">
                   {movie.contentRating}
                 </span>
               )}
@@ -336,7 +336,7 @@ export default function MovieDetailPage() {
             />
             {/* Online media metadata (uploader / source) */}
             {movie.metadata?.uploader && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-zinc-400">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
                 {movie.metadata.uploader && (
                   <span>👤 {movie.metadata.uploader}</span>
                 )}
