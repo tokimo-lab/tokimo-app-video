@@ -4,6 +4,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
+use rust_subtitle::{
+    resolve::{extract_start_time_ms, resolve_subtitle_tracks},
+    tap_builder::build_stream_tap,
+};
 use serde::Deserialize;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
@@ -15,6 +19,7 @@ use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
 use crate::db::repos::media::PlaybackRepo;
+use crate::db::repos::subtitle_repo::SubtitleRepo;
 use crate::handlers::media::local_media::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
@@ -389,8 +394,16 @@ async fn create_hls_session_internal(
 
     // Build DirectInput for remote sources — bypasses HTTP for FFmpeg reads.
     // For local sources, FFmpeg reads the file directly (no AVIO needed).
+    // When AVIO is used, the HTTP stream endpoint (and its subtitle stream tap)
+    // is bypassed, so we pass the tap sender into the read_at closure to feed
+    // VFS bytes directly to the subtitle extractor — zero extra copy.
+    let subtitle_tap = if !is_local && local_path.is_none() {
+        build_subtitle_tap_for_hls(state, file).await
+    } else {
+        None
+    };
     let direct_input = if !is_local && local_path.is_none() {
-        build_direct_input(state, source_id, &file.path, file.size).await
+        build_direct_input(state, source_id, &file.path, file.size, subtitle_tap).await
     } else {
         None
     };
@@ -433,6 +446,7 @@ async fn build_direct_input(
     source_id: Option<&str>,
     file_path: &str,
     file_size: Option<i64>,
+    subtitle_tap: Option<tokio::sync::mpsc::Sender<(Vec<u8>, u64)>>,
 ) -> Option<Arc<ffmpeg_tool::DirectInput>> {
     let source_id = source_id?;
     let file_size = file_size.filter(|&s| s > 0)? as u64;
@@ -455,6 +469,11 @@ async fn build_direct_input(
                 Ok(bytes) => {
                     let n = bytes.len().min(buf.len());
                     buf[..n].copy_from_slice(&bytes[..n]);
+                    // Feed VFS bytes to subtitle extractor — move the Vec directly,
+                    // no extra allocation vs. the original (tap-less) path.
+                    if let Some(ref tx) = subtitle_tap {
+                        let _ = tx.try_send((bytes, offset));
+                    }
                     Ok(n)
                 }
                 Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
@@ -472,6 +491,37 @@ async fn build_direct_input(
     );
 
     Some(Arc::new(input))
+}
+
+/// Build a subtitle stream tap for HLS sessions using AVIO direct input.
+///
+/// When FFmpeg reads via AVIO (bypassing the HTTP stream endpoint), the
+/// normal subtitle extraction tap in the stream handler is never triggered.
+/// This function builds an equivalent tap that can be fed from the AVIO reads.
+async fn build_subtitle_tap_for_hls(
+    state: &AppState,
+    file: &media_files::Model,
+) -> Option<tokio::sync::mpsc::Sender<(Vec<u8>, u64)>> {
+    let file_id = file.id.to_string();
+    let rows = SubtitleRepo::load_file_subtitles(&state.db, &file_id)
+        .await
+        .ok()?;
+    if rows.is_empty() {
+        return None;
+    }
+
+    let ffprobe_raw = rows[0].ffprobe_raw.clone();
+    let start_time_ms = extract_start_time_ms(&ffprobe_raw);
+    let subs: Vec<_> = rows.iter().map(|row| row.to_embedded_record()).collect();
+    let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
+
+    build_stream_tap(
+        &state.subtitle_cache,
+        &state.tap_registry,
+        tracks,
+        &file.path,
+        start_time_ms,
+    )
 }
 
 // ── DELETE /api/playback/stop-session/{file_id} (authenticated) ──────────────
