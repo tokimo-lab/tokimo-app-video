@@ -305,6 +305,7 @@ pub async fn stream_url(
                 source_type == "local",
                 source.config.as_ref(),
                 &auth.user_id,
+                file.source_id.as_ref().map(|u| u.to_string()).as_deref(),
             )
             .await
             {
@@ -358,6 +359,7 @@ async fn create_hls_session_internal(
     is_local: bool,
     source_config: Option<&serde_json::Value>,
     user_id: &str,
+    source_id: Option<&str>,
 ) -> Result<String, String> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
     let base_url = format!("http://127.0.0.1:{port}");
@@ -385,6 +387,14 @@ async fn create_hls_session_internal(
         })
         .collect();
 
+    // Build DirectInput for remote sources — bypasses HTTP for FFmpeg reads.
+    // For local sources, FFmpeg reads the file directly (no AVIO needed).
+    let direct_input = if !is_local && local_path.is_none() {
+        build_direct_input(state, source_id, &file.path, file.size).await
+    } else {
+        None
+    };
+
     let req = CreateSessionRequest {
         file_id: file.id.to_string(),
         input_url,
@@ -402,6 +412,7 @@ async fn create_hls_session_internal(
         user_id: Some(user_id.to_string()),
         movie_id: file.movie_id.map(|u| u.to_string()),
         episode_id: file.episode_id.map(|u| u.to_string()),
+        direct_input,
     };
 
     let info = state
@@ -411,6 +422,56 @@ async fn create_hls_session_internal(
         .map_err(|e| e.to_string())?;
 
     Ok(format!("/api/hls/{}/playlist.m3u8", info.session_id))
+}
+
+/// Build a `DirectInput` for remote VFS-backed files.
+///
+/// This allows FFmpeg to read directly from VFS via a custom AVIO context,
+/// bypassing the HTTP→VFS→SMB round-trip that adds ~500ms per seek.
+async fn build_direct_input(
+    state: &AppState,
+    source_id: Option<&str>,
+    file_path: &str,
+    file_size: Option<i64>,
+) -> Option<Arc<ffmpeg_tool::DirectInput>> {
+    let source_id = source_id?;
+    let file_size = file_size.filter(|&s| s > 0)? as u64;
+
+    let vfs = state.sources.ensure_vfs(source_id).await.ok()?;
+    let path = file_path.to_string();
+    let handle = tokio::runtime::Handle::current();
+
+    // Extract filename for format detection hint
+    let filename_hint = std::path::Path::new(file_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(String::from);
+
+    let input = ffmpeg_tool::DirectInput {
+        read_at: Arc::new(move |offset: u64, buf: &mut [u8]| {
+            let read_path = std::path::Path::new(&path);
+            let limit = Some(buf.len() as u64);
+            match handle.block_on(vfs.read_bytes(read_path, offset, limit)) {
+                Ok(bytes) => {
+                    let n = bytes.len().min(buf.len());
+                    buf[..n].copy_from_slice(&bytes[..n]);
+                    Ok(n)
+                }
+                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            }
+        }),
+        size: file_size,
+        filename_hint,
+    };
+
+    info!(
+        "[HLS] DirectInput created: source={}, path={}, size={}MB",
+        source_id,
+        file_path,
+        file_size / 1024 / 1024,
+    );
+
+    Some(Arc::new(input))
 }
 
 // ── DELETE /api/playback/stop-session/{file_id} (authenticated) ──────────────
