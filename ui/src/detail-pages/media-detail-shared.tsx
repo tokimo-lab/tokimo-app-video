@@ -1,6 +1,16 @@
+import {
+  autoUpdate,
+  FloatingPortal,
+  flip,
+  offset,
+  shift,
+  size,
+  useFloating,
+} from "@floating-ui/react";
 import { cn, HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
@@ -176,24 +186,153 @@ export const PersonPlaceholder = () => (
   </div>
 );
 
+interface HoveredPerson {
+  personId: string;
+  character?: string | null;
+}
+
+function usePersonPanel() {
+  const [hovered, setHovered] = useState<HoveredPerson | null>(null);
+  // mounted: keeps DOM alive during fade-out; visible: controls opacity
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  // Suppress transform transition on first position to avoid fly-from-corner
+  const [sliding, setSliding] = useState(false);
+  const leaveTimer = useRef<number>(0);
+  const fadeOutTimer = useRef<number>(0);
+
+  const { refs, floatingStyles } = useFloating({
+    open: mounted,
+    placement: "bottom-start",
+    middleware: [
+      offset(8),
+      flip(),
+      shift({ padding: 8 }),
+      size({
+        padding: 16,
+        apply({ availableHeight, elements }) {
+          Object.assign(elements.floating.style, {
+            maxHeight: `${availableHeight}px`,
+            overflowY: "auto",
+          });
+        },
+      }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const cancelLeave = useCallback(() => {
+    clearTimeout(leaveTimer.current);
+    clearTimeout(fadeOutTimer.current);
+  }, []);
+
+  const enter = useCallback(
+    (el: HTMLElement, data: HoveredPerson) => {
+      clearTimeout(leaveTimer.current);
+      clearTimeout(fadeOutTimer.current);
+      const wasVisible = visible;
+      refs.setReference(el);
+      setHovered(data);
+      setMounted(true);
+      // Enable slide transition only when switching between cards
+      if (wasVisible) {
+        setSliding(true);
+      } else {
+        setSliding(false);
+      }
+      requestAnimationFrame(() => setVisible(true));
+    },
+    [refs, visible],
+  );
+
+  const leave = useCallback(() => {
+    leaveTimer.current = window.setTimeout(() => {
+      setVisible(false);
+      setSliding(false);
+      fadeOutTimer.current = window.setTimeout(() => {
+        setMounted(false);
+        setHovered(null);
+      }, 150);
+    }, 100);
+  }, []);
+
+  return {
+    hovered,
+    mounted,
+    visible,
+    sliding,
+    enter,
+    leave,
+    cancelLeave,
+    refs,
+    floatingStyles,
+  };
+}
+
+function PersonPanel({
+  hovered,
+  visible,
+  sliding,
+  refs,
+  floatingStyles,
+  cancelLeave,
+  leave,
+}: {
+  hovered: HoveredPerson;
+  visible: boolean;
+  sliding: boolean;
+  refs: ReturnType<typeof useFloating>["refs"];
+  floatingStyles: React.CSSProperties;
+  cancelLeave: () => void;
+  leave: () => void;
+}) {
+  return (
+    <FloatingPortal>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: panel hover keeps it open */}
+      <div
+        ref={refs.setFloating}
+        style={{
+          ...floatingStyles,
+          opacity: visible ? 1 : 0,
+          transition: [
+            "opacity 150ms ease",
+            sliding ? "transform 200ms ease" : undefined,
+          ]
+            .filter(Boolean)
+            .join(", "),
+          backdropFilter: "blur(var(--window-blur, 24px))",
+          WebkitBackdropFilter: "blur(var(--window-blur, 24px))",
+          borderRadius: "var(--window-radius, 10px)",
+        }}
+        className="z-[9999] w-[400px] overflow-hidden border border-black/[0.06] p-3 shadow-xl bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:border-white/[0.08] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
+        onMouseEnter={cancelLeave}
+        onMouseLeave={leave}
+      >
+        <PersonDetailPopoverContent
+          personId={hovered.personId}
+          character={hovered.character}
+        />
+      </div>
+    </FloatingPortal>
+  );
+}
+
 export function PersonCard({
-  personId,
   name,
   sub,
   profilePath,
+  onMouseEnter,
 }: {
-  personId?: string;
   name: string;
   sub?: string | null;
   profilePath?: string | null;
+  onMouseEnter?: (el: HTMLElement) => void;
 }) {
-  const clickable = !!personId;
-
-  const card = (
-    <button
-      type="button"
-      className={`w-[110px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-elevated text-left ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60" : "cursor-default"}`}
-      disabled={!clickable}
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover triggers shared panel
+    <div
+      className="w-[110px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-surface-elevated text-left hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60"
+      onMouseEnter={(e) => onMouseEnter?.(e.currentTarget)}
     >
       <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
         {profilePath ? (
@@ -211,70 +350,106 @@ export function PersonCard({
         <p className="truncate text-xs font-medium text-fg-primary">{name}</p>
         {sub && <p className="truncate text-[11px] text-fg-muted">{sub}</p>}
       </div>
-    </button>
-  );
-
-  if (!clickable) return card;
-
-  return (
-    <Popover
-      trigger="click"
-      placement="bottomLeft"
-      fitViewport
-      popupClassName="z-[9999] overflow-hidden border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[400px] p-3 bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
-      content={
-        <PersonDetailPopoverContent personId={personId} character={sub} />
-      }
-    >
-      {card}
-    </Popover>
+    </div>
   );
 }
 
 export function CastRow({ credits }: { credits: CreditOutput[] }) {
   const actors = credits.filter((c) => c.role === "actor");
+  const {
+    hovered,
+    mounted,
+    visible,
+    sliding,
+    enter,
+    leave,
+    cancelLeave,
+    refs,
+    floatingStyles,
+  } = usePersonPanel();
   if (!actors.length) return null;
   return (
-    <section className="mb-8">
+    // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
+    <section className="mb-8" onMouseLeave={leave}>
       <SectionTitle>演员</SectionTitle>
       <HorizontalScroll innerClassName="gap-3 px-0.5 pb-2 pt-0.5">
         {actors.map((c) => (
           <PersonCard
             key={c.id}
-            personId={c.person.id}
             name={c.person.name}
             sub={c.character}
             profilePath={c.person.profilePath}
+            onMouseEnter={(el) =>
+              enter(el, {
+                personId: c.person.id,
+                character: c.character,
+              })
+            }
           />
         ))}
       </HorizontalScroll>
+      {mounted && hovered && (
+        <PersonPanel
+          hovered={hovered}
+          visible={visible}
+          sliding={sliding}
+          refs={refs}
+          floatingStyles={floatingStyles}
+          cancelLeave={cancelLeave}
+          leave={leave}
+        />
+      )}
     </section>
   );
 }
 
 export function CrewRow({ credits }: { credits: CreditOutput[] }) {
   const crew = credits.filter((c) => c.role !== "actor");
+  const {
+    hovered,
+    mounted,
+    visible,
+    sliding,
+    enter,
+    leave,
+    cancelLeave,
+    refs,
+    floatingStyles,
+  } = usePersonPanel();
   if (!crew.length) return null;
+  const roleName = (role: string) =>
+    role === "director" ? "导演" : role === "writer" ? "编剧" : role;
   return (
-    <section className="mb-8">
+    // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
+    <section className="mb-8" onMouseLeave={leave}>
       <SectionTitle>幕后</SectionTitle>
       <HorizontalScroll innerClassName="gap-3 px-0.5 pb-2 pt-0.5">
         {crew.map((c) => (
           <PersonCard
             key={c.id}
-            personId={c.person.id}
             name={c.person.name}
-            sub={
-              c.role === "director"
-                ? "导演"
-                : c.role === "writer"
-                  ? "编剧"
-                  : c.role
-            }
+            sub={roleName(c.role)}
             profilePath={c.person.profilePath}
+            onMouseEnter={(el) =>
+              enter(el, {
+                personId: c.person.id,
+                character: c.role === "actor" ? c.character : roleName(c.role),
+              })
+            }
           />
         ))}
       </HorizontalScroll>
+      {mounted && hovered && (
+        <PersonPanel
+          hovered={hovered}
+          visible={visible}
+          sliding={sliding}
+          refs={refs}
+          floatingStyles={floatingStyles}
+          cancelLeave={cancelLeave}
+          leave={leave}
+        />
+      )}
     </section>
   );
 }
