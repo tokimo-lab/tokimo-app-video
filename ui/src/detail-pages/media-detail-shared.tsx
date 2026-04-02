@@ -1,12 +1,11 @@
 import { cn, HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
-import { useState } from "react";
 import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
 } from "@/apps/finder/components/FileDetailsModal";
-import PersonDetailModal from "@/apps/media/components/PersonDetailModal";
+import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailModal";
 import { resolveStoragePath } from "@/lib/storage-url";
 import { useLang, usePlayer } from "@/system";
 import type {
@@ -188,41 +187,47 @@ export function PersonCard({
   sub?: string | null;
   profilePath?: string | null;
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
   const clickable = !!personId;
+
+  const card = (
+    <button
+      type="button"
+      className={`w-[110px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-elevated text-left ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60" : "cursor-default"}`}
+      disabled={!clickable}
+    >
+      <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
+        {profilePath ? (
+          <img
+            src={resolveStoragePath(profilePath)}
+            alt={name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <PersonPlaceholder />
+        )}
+      </div>
+      <div className="p-1.5">
+        <p className="truncate text-xs font-medium text-fg-primary">{name}</p>
+        {sub && <p className="truncate text-[11px] text-fg-muted">{sub}</p>}
+      </div>
+    </button>
+  );
+
+  if (!clickable) return card;
+
   return (
-    <>
-      <button
-        type="button"
-        className={`w-[110px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-base text-left dark:bg-gray-800/60 ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60" : "cursor-default"}`}
-        onClick={() => personId && setModalOpen(true)}
-        disabled={!clickable}
-      >
-        <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
-          {profilePath ? (
-            <img
-              src={resolveStoragePath(profilePath)}
-              alt={name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <PersonPlaceholder />
-          )}
-        </div>
-        <div className="p-1.5">
-          <p className="truncate text-xs font-medium text-fg-primary">{name}</p>
-          {sub && <p className="truncate text-[11px] text-fg-muted">{sub}</p>}
-        </div>
-      </button>
-      {personId && modalOpen && (
-        <PersonDetailModal
-          personId={personId}
-          character={sub}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
-    </>
+    <Popover
+      trigger="click"
+      placement="bottomLeft"
+      fitViewport
+      popupClassName="z-[9999] overflow-hidden border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[400px] p-3 bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
+      content={
+        <PersonDetailPopoverContent personId={personId} character={sub} />
+      }
+    >
+      {card}
+    </Popover>
   );
 }
 

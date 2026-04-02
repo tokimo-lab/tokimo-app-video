@@ -83,9 +83,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2 text-[13px]">
       <span className="shrink-0 text-fg-muted">{label}</span>
-      <span className="min-w-0 break-all text-neutral-800 dark:text-neutral-200">
-        {value}
-      </span>
+      <span className="min-w-0 break-all text-fg-primary">{value}</span>
     </div>
   );
 }
@@ -138,11 +136,11 @@ function StreamCard({
   const title = tags.title ?? tags.handler_name;
 
   return (
-    <div className="rounded-md bg-fill-tertiary px-3 py-2 text-[13px] dark:bg-neutral-800">
-      <div className="mb-1 flex items-center gap-1.5 font-medium text-neutral-800 dark:text-neutral-200">
+    <div className="rounded-md bg-fill-tertiary px-3 py-2 text-[13px]">
+      <div className="mb-1 flex items-center gap-1.5 font-medium text-fg-primary">
         {label}
         {lang && lang !== "und" && (
-          <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] font-normal dark:bg-neutral-700">
+          <span className="rounded bg-fill-tertiary px-1.5 py-0.5 text-[11px] font-normal">
             {langName(lang)}
           </span>
         )}
@@ -237,7 +235,7 @@ export function FileProbePanel({
   return (
     <div className="custom-scrollbar h-full overflow-y-auto px-4 py-3">
       {/* File name */}
-      <h3 className="mb-3 break-all text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+      <h3 className="mb-3 break-all text-sm font-semibold text-fg-primary">
         {fileName}
       </h3>
 
@@ -269,7 +267,7 @@ export function FileProbePanel({
             {primaryVideo &&
               primaryVideo.width != null &&
               primaryVideo.height != null && (
-                <div className="mb-2 text-center text-lg font-bold text-neutral-800 dark:text-neutral-200">
+                <div className="mb-2 text-center text-lg font-bold text-fg-primary">
                   {primaryVideo.width}×{primaryVideo.height}
                 </div>
               )}
@@ -310,13 +308,13 @@ export function FileProbePanel({
               return (
                 <div
                   key={s.index}
-                  className="rounded-md bg-fill-tertiary px-3 py-1.5 text-[13px] dark:bg-neutral-800"
+                  className="rounded-md bg-fill-tertiary px-3 py-1.5 text-[13px]"
                 >
-                  <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                  <span className="font-medium text-fg-primary">
                     #{i + 1} {s.codecName}
                   </span>
                   {lang && lang !== "und" && (
-                    <span className="ml-1.5 rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] dark:bg-neutral-700">
+                    <span className="ml-1.5 rounded bg-fill-tertiary px-1.5 py-0.5 text-[11px]">
                       {langName(lang)}
                     </span>
                   )}
@@ -345,7 +343,7 @@ export function FileProbePanel({
                 <span className="shrink-0 font-mono text-fg-muted">
                   {formatDuration(Number(ch.startTime))}
                 </span>
-                <span className="text-neutral-800 dark:text-neutral-200">
+                <span className="text-fg-primary">
                   {ch.title ?? `Chapter ${ch.id + 1}`}
                 </span>
               </div>
