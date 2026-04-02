@@ -283,17 +283,22 @@ pub async fn stream_url(
             let play_method = if should_transcode_video {
                 "Transcode"
             } else {
-                // DirectStream: container/audio/codec-tag issues only, video can be copied
-                "DirectStream (remux)"
+                "DirectStream"
             };
+            let video_desc = if should_transcode_video {
+                format!("video=transcode({})", file.video_codec.as_deref().unwrap_or("?"))
+            } else {
+                format!("video=copy({})", file.video_codec.as_deref().unwrap_or("?"))
+            };
+            let audio_desc = if transcode_audio {
+                format!("audio=transcode({}→aac)", selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"))
+            } else {
+                format!("audio=copy({})", selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"))
+            };
+            let hdr = file.hdr_type.as_deref().unwrap_or("SDR");
             info!(
-                "[Playback] {} → {play_method} | file={} | video={} profile={} hdr={} | audio={} | reasons=[{}]",
-                file.path,
-                file.id,
-                file.video_codec.as_deref().unwrap_or("?"),
-                file.video_profile.as_deref().unwrap_or("?"),
-                file.hdr_type.as_deref().unwrap_or("SDR"),
-                selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
+                "[Playback] {} → {} | {} {} | hdr={} | reasons=[{}]",
+                file.path, play_method, video_desc, audio_desc, hdr,
                 reasons.join(", "),
             );
 
@@ -327,13 +332,11 @@ pub async fn stream_url(
 
         // Direct play
         info!(
-            "[Playback] {} → DirectPlay | file={} | video={} profile={} hdr={} | audio={}",
+            "[Playback] {} → DirectPlay | video={} audio={} hdr={}",
             file.path,
-            file.id,
             file.video_codec.as_deref().unwrap_or("?"),
-            file.video_profile.as_deref().unwrap_or("?"),
-            file.hdr_type.as_deref().unwrap_or("SDR"),
             selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
+            file.hdr_type.as_deref().unwrap_or("SDR"),
         );
         let url = build_direct_stream_url(&file);
         return ok(StreamUrlDto { url }).into_response();
@@ -480,8 +483,7 @@ async fn build_direct_input(
     };
 
     info!(
-        "[HLS] DirectInput created: source={}, path={}, size={}MB",
-        source_id,
+        "[HLS] DirectInput: {} ({}MB)",
         file_path,
         file_size / 1024 / 1024,
     );
