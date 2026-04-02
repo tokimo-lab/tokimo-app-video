@@ -369,9 +369,6 @@ async fn create_hls_session_internal(
     let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
     let base_url = format!("http://127.0.0.1:{port}");
 
-    // No accessToken needed — the stream endpoint allows loopback requests without auth
-    let input_url = format!("{base_url}/api/media-files/{}/stream", file.id);
-
     let local_path = if is_local {
         Some(resolve_local_path(&file.path, source_config))
     } else {
@@ -392,25 +389,27 @@ async fn create_hls_session_internal(
         })
         .collect();
 
-    // Build DirectInput for remote sources — bypasses HTTP for FFmpeg reads.
+    // Build DirectInput for remote sources — reads directly through VFS AVIO.
     // For local sources, FFmpeg reads the file directly (no AVIO needed).
-    // When AVIO is used, the HTTP stream endpoint (and its subtitle stream tap)
-    // is bypassed, so we pass the tap sender into the read_at closure to feed
-    // VFS bytes directly to the subtitle extractor — zero extra copy.
-    let subtitle_tap = if !is_local && local_path.is_none() {
-        build_subtitle_tap_for_hls(state, file).await
-    } else {
-        None
-    };
+    // The tap sender is passed into the read_at closure to feed VFS bytes
+    // directly to the subtitle extractor — zero extra copy.
     let direct_input = if !is_local && local_path.is_none() {
-        build_direct_input(state, source_id, &file.path, file.size, subtitle_tap).await
+        let tap = build_subtitle_tap_for_hls(state, file).await;
+        let input = build_direct_input(state, source_id, &file.path, file.size, tap)
+            .await
+            .ok_or_else(|| {
+                format!(
+                    "Failed to build DirectInput for remote file {} (source={:?}, size={:?})",
+                    file.id, source_id, file.size,
+                )
+            })?;
+        Some(input)
     } else {
         None
     };
 
     let req = CreateSessionRequest {
         file_id: file.id.to_string(),
-        input_url,
         local_path,
         duration_secs: file.duration.unwrap_or(0) as f64,
         audio_stream_index: audio_index as u32,
@@ -462,19 +461,16 @@ async fn build_direct_input(
         .map(String::from);
 
     let input = ffmpeg_tool::DirectInput {
-        read_at: Arc::new(move |offset: u64, buf: &mut [u8]| {
+        read_at: Arc::new(move |offset: u64, size: usize| {
             let read_path = std::path::Path::new(&path);
-            let limit = Some(buf.len() as u64);
-            match handle.block_on(vfs.read_bytes(read_path, offset, limit)) {
+            match handle.block_on(vfs.read_bytes(read_path, offset, Some(size as u64))) {
                 Ok(bytes) => {
-                    let n = bytes.len().min(buf.len());
-                    buf[..n].copy_from_slice(&bytes[..n]);
-                    // Feed VFS bytes to subtitle extractor — move the Vec directly,
-                    // no extra allocation vs. the original (tap-less) path.
+                    // Feed VFS bytes to subtitle extractor when a tap is active.
+                    // Clone only when needed — the no-tap path (common case) is zero-copy.
                     if let Some(ref tx) = subtitle_tap {
-                        let _ = tx.try_send((bytes, offset));
+                        let _ = tx.try_send((bytes.clone(), offset));
                     }
-                    Ok(n)
+                    Ok(bytes)
                 }
                 Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
             }

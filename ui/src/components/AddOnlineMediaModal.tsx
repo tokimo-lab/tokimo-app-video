@@ -267,7 +267,7 @@ export default function AddOnlineMediaModal({
   const renderAnalysis = () => {
     if (analyzeMutation.isPending) {
       return (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 py-8 text-slate-500 dark:border-slate-700 dark:text-slate-400">
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-300 px-4 py-8 text-fg-muted dark:border-slate-700 dark:text-slate-400">
           <Spin size="small" />
           <span className="ml-2">
             {t(`${ns}.onlineMedia.analyzing`, { defaultValue: "正在分析链接" })}
@@ -304,7 +304,7 @@ export default function AddOnlineMediaModal({
               className="h-24 w-40 rounded-lg object-cover"
             />
           ) : (
-            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800">
+            <div className="flex h-24 w-40 items-center justify-center rounded-lg bg-slate-100 text-fg-muted dark:bg-slate-800">
               <PlusOutlined />
             </div>
           )}
@@ -341,7 +341,7 @@ export default function AddOnlineMediaModal({
                 t(`${ns}.onlineMedia.noTitle`, { defaultValue: "未返回标题" })}
             </div>
 
-            <div className="grid grid-cols-1 gap-2 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 text-xs text-fg-muted sm:grid-cols-2">
               <span>
                 {t(`${ns}.onlineMedia.uploader`, { defaultValue: "上传者" })}:{" "}
                 {analysis.uploader ?? "-"}
@@ -413,7 +413,7 @@ export default function AddOnlineMediaModal({
 
             {analysis.description && (
               <p
-                className="line-clamp-3 text-xs text-slate-500 dark:text-slate-400"
+                className="line-clamp-3 text-xs text-fg-muted"
                 title={analysis.description}
               >
                 {analysis.description}
@@ -549,7 +549,7 @@ export default function AddOnlineMediaModal({
 
           {/* When library is pre-set, show a readOnly badge instead */}
           {defaultLibraryId && selectedFolder && (
-            <div className="text-xs text-gray-500 dark:text-zinc-400">
+            <div className="text-xs text-fg-muted">
               目标应用：
               <span className="font-medium text-gray-800 dark:text-gray-200">
                 {selectedFolder.name}
