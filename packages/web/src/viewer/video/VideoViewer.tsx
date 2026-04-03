@@ -53,8 +53,8 @@ function PlayerWindowShell() {
     // biome-ignore lint/a11y/noStaticElementInteractions: player window shell
     <div
       className="relative h-full bg-black/90 backdrop-blur-2xl border border-white/[0.08] rounded-[inherit]"
-      onMouseMove={player.showControls}
-      onMouseLeave={player.hideControlsNow}
+      onMouseMove={() => player.showControls()}
+      onMouseLeave={() => player.hideControlsNow()}
     >
       {/* ── Title bar overlay with drag + window controls ── */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: title bar drag surface */}
@@ -69,8 +69,8 @@ function PlayerWindowShell() {
         onPointerMove={frame.onDragPointerMove}
         onPointerUp={frame.onDragPointerUp}
         onDoubleClick={frame.onDragDoubleClick}
-        onMouseEnter={player.pinControls}
-        onMouseLeave={player.unpinControls}
+        onMouseEnter={() => player.pinControls()}
+        onMouseLeave={() => player.unpinControls()}
       >
         {isMacStyle ? (
           <>
@@ -79,7 +79,7 @@ function PlayerWindowShell() {
               <button
                 type="button"
                 className="group/dot relative w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-90 transition-all cursor-pointer flex items-center justify-center"
-                onClick={frame.close}
+                onClick={player.closePlayer}
               >
                 <svg
                   className="w-[7px] h-[7px] opacity-0 group-hover/dot:opacity-100 transition-opacity"
@@ -185,7 +185,7 @@ function PlayerWindowShell() {
               <button
                 type="button"
                 className="flex items-center justify-center w-[46px] h-full hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
-                onClick={frame.close}
+                onClick={player.closePlayer}
               >
                 <X size={12} />
               </button>
