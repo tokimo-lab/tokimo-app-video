@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
 import { useEffect, useState } from "react";
 import { api } from "@/generated/rust-api";
-import { resolveStoragePath } from "@/lib/storage-url";
+import { posterThumbUrl } from "@/lib/thumb";
 import {
   useAppEvent,
   useBackgroundArt,
@@ -136,7 +136,7 @@ export default function MovieDetailPage() {
   const artPath = movie?.backdropPath ?? movie?.posterPath;
   useEffect(() => {
     if (artPath) {
-      setBackgroundArt(resolveStoragePath(artPath));
+      setBackgroundArt(posterThumbUrl(artPath, 1280) ?? null);
     }
     return () => {
       setBackgroundArt(null);
@@ -402,7 +402,7 @@ export default function MovieDetailPage() {
                 >
                   {col.posterPath && (
                     <img
-                      src={resolveStoragePath(col.posterPath)}
+                      src={posterThumbUrl(col.posterPath, 300)}
                       alt={col.name}
                       className="h-12 w-8 flex-shrink-0 rounded object-cover"
                     />

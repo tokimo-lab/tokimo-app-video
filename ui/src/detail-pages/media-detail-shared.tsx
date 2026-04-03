@@ -10,13 +10,13 @@ import {
 import { cn, HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
 } from "@/apps/finder/components/FileDetailsModal";
 import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailModal";
-import { resolveStoragePath } from "@/lib/storage-url";
+import { posterThumbUrl, thumbUrl } from "@/lib/thumb";
 import { useLang, usePlayer } from "@/system";
 import type {
   CreditOutput,
@@ -63,7 +63,7 @@ export function MediaPoster({
     >
       {posterPath ? (
         <Image
-          src={resolveStoragePath(posterPath)}
+          src={posterThumbUrl(posterPath, 300)}
           alt={title}
           className="h-full w-full object-cover"
         />
@@ -337,7 +337,7 @@ export function PersonCard({
       <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
         {profilePath ? (
           <img
-            src={resolveStoragePath(profilePath)}
+            src={posterThumbUrl(profilePath, 340)}
             alt={name}
             className="h-full w-full object-cover"
             loading="lazy"
@@ -669,7 +669,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
             <div className="relative aspect-video overflow-hidden bg-[var(--bg-skeleton)]">
               {e.thumbPath ? (
                 <Image
-                  src={resolveStoragePath(e.thumbPath)}
+                  src={thumbUrl("episode", e.id, 400)}
                   alt={e.title}
                   className="h-full w-full object-cover"
                 />
