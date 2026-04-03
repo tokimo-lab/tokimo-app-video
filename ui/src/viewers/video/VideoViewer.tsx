@@ -48,26 +48,24 @@ function VfsVideoViewer({
   // Saved position from metadata (read once per file)
   const savedPosition = useRef(win.metadata.playbackPosition ?? 0);
 
-  // When src changes (sibling switch), pause old → save → load new
-  const prevSrc = useRef(videoSrc);
+  // On sibling switch: save old position, reset for new file, reload
+  const prevFilePath = useRef(filePath);
   useEffect(() => {
+    if (prevFilePath.current === filePath) return;
+
     const el = videoRef.current;
-    if (!el || !videoSrc) return;
-    if (prevSrc.current !== videoSrc) {
-      // Save position for old file before switching
-      if (el.duration) {
-        updateMetadata(win.id, {
-          playbackPosition: Math.floor(el.currentTime),
-        });
-      }
-      // Reset saved position for new file (no saved position yet)
-      savedPosition.current = 0;
-      prevSrc.current = videoSrc;
-      el.pause();
-      el.src = videoSrc;
-      el.load();
+    // Save position for old file before switching
+    if (el?.duration) {
+      updateMetadata(win.id, {
+        playbackPosition: Math.floor(el.currentTime),
+      });
     }
-  }, [videoSrc, win.id, updateMetadata]);
+    savedPosition.current = 0;
+    prevFilePath.current = filePath;
+
+    // React already updated the src prop; force reload for browser compat
+    if (el) el.load();
+  }, [filePath, win.id, updateMetadata]);
 
   // Restore position once video metadata is loaded
   const handleLoadedMetadata = useCallback(() => {
