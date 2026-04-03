@@ -3,7 +3,6 @@ import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
 import { useEffect, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { resolveStoragePath } from "@/lib/storage-url";
-import { WatchHistoryTable } from "@/shell/player/video/WatchHistoryTable";
 import {
   useAppEvent,
   useBackgroundArt,
@@ -11,6 +10,7 @@ import {
   useWindowNav,
 } from "@/system";
 import type { MediaFileOutput } from "@/types";
+import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import {
   CastRow,
   CrewRow,
