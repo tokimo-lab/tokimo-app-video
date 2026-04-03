@@ -243,7 +243,12 @@ pub async fn stream_url(
         let transcode_codec_tag = codec_tag_reason.is_some();
 
         let is_hdr_content = transcode_decision::is_hdr(file.hdr_type.as_deref());
-        let should_transcode_video = transcode_video || (force_sdr && is_hdr_content);
+        let open_gop_reason = transcode_decision::open_gop_transcode_reason(
+            &file.path,
+            file.video_codec.as_deref(),
+        );
+        let should_transcode_video =
+            transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
         let tonemap_opts = if should_transcode_video && is_hdr_content {
             Some(TonemapOptions {
                 algorithm: "bt2390".to_string(),
@@ -275,6 +280,9 @@ pub async fn stream_url(
                 reasons.push(r.clone());
             } else if force_sdr && is_hdr_content {
                 reasons.push("ForceSDR (HDR→SDR tone mapping requested)".to_string());
+            }
+            if let Some(ref r) = open_gop_reason {
+                reasons.push(r.clone());
             }
             if let Some(ref r) = audio_reason {
                 reasons.push(r.clone());
