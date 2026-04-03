@@ -10,7 +10,6 @@ import { Info, Minus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildFileUrl } from "@/apps/finder/components/types";
 import { getWindowIcon } from "@/shared/components/icons/WindowIcon";
-import { VideoPlayer } from "@/shell/player/video/VideoPlayer";
 import {
   usePlayer,
   useThemeCore,
@@ -21,6 +20,7 @@ import {
 import { buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";
 import { FileProbePanel } from "./FileProbePanel";
+import { VideoPlayer } from "./player/VideoPlayer";
 
 export default function VideoViewer({ win }: { win: WindowState }) {
   const filePath = win.metadata.filePath ?? "";
