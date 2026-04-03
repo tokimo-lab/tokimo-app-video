@@ -10,7 +10,7 @@ import { Info, Minus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildFileUrl } from "@/apps/finder/components/types";
 import { getWindowIcon } from "@/shared/components/icons/WindowIcon";
-import { VideoPlayer } from "@/shell/player/VideoPlayer";
+import { VideoPlayer } from "@/shell/player/video/VideoPlayer";
 import {
   usePlayer,
   useThemeCore,
