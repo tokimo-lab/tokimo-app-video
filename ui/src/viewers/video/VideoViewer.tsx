@@ -116,6 +116,7 @@ function VfsVideoViewer({
             // biome-ignore lint/a11y/useMediaCaption: file preview
             <video
               ref={videoRef}
+              src={videoSrc}
               controls
               autoPlay
               onLoadedMetadata={handleLoadedMetadata}
