@@ -116,7 +116,6 @@ function VfsVideoViewer({
               ref={videoRef}
               src={videoSrc}
               controls
-              autoPlay
               onLoadedMetadata={handleLoadedMetadata}
               onPause={savePosition}
               className="max-h-full max-w-full rounded"
