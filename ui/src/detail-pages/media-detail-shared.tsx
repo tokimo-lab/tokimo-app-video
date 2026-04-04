@@ -16,7 +16,7 @@ import {
   getMediaFileLocator,
 } from "@/apps/finder/components/FileDetailsModal";
 import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailModal";
-import { posterThumbUrl, thumbUrl } from "@/lib/thumb";
+import { posterThumbUrl } from "@/lib/thumb";
 import { useLang, usePlayer } from "@/system";
 import type {
   CreditOutput,
@@ -669,7 +669,7 @@ export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
             <div className="relative aspect-video overflow-hidden bg-[var(--bg-skeleton)]">
               {e.thumbPath ? (
                 <Image
-                  src={thumbUrl("episode", e.id, 400)}
+                  src={posterThumbUrl(e.thumbPath, 400)}
                   alt={e.title}
                   className="h-full w-full object-cover"
                 />
