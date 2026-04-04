@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
-import { posterThumbUrl, thumbUrl } from "@/lib/thumb";
+import { posterThumbUrl } from "@/lib/thumb";
 import { useBackgroundArt, useLang, useWindowNav } from "@/system";
 import type { EpisodeOutput } from "@/types";
 import {
@@ -67,7 +67,7 @@ function EpisodeRow({
         <div className="h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded bg-fill-tertiary">
           {episode.stillPath ? (
             <img
-              src={thumbUrl("episode", episode.id, 400)}
+              src={posterThumbUrl(episode.stillPath, 400)}
               alt=""
               className="h-full w-full object-cover"
               loading="lazy"
@@ -248,7 +248,7 @@ export default function TvShowDetailPage() {
           <div className="mx-1 h-5 w-px bg-border-base" />
           {show.posterPath && (
             <img
-              src={thumbUrl("tvshow", show.id, 92)}
+              src={posterThumbUrl(show.posterPath, 92)}
               alt={show.title}
               className="h-8 w-[21px] flex-shrink-0 rounded object-cover shadow"
             />
@@ -295,7 +295,7 @@ export default function TvShowDetailPage() {
               >
                 {sn.posterPath ? (
                   <img
-                    src={thumbUrl("season", sn.id, 92)}
+                    src={posterThumbUrl(sn.posterPath, 92)}
                     alt=""
                     className="h-8 w-[22px] flex-shrink-0 rounded object-cover"
                     loading="lazy"
@@ -452,7 +452,7 @@ export default function TvShowDetailPage() {
                 >
                   {sn.posterPath ? (
                     <img
-                      src={thumbUrl("season", sn.id, 92)}
+                      src={posterThumbUrl(sn.posterPath, 92)}
                       alt=""
                       className="h-10 w-7 flex-shrink-0 rounded object-cover"
                       loading="lazy"
