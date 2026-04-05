@@ -953,7 +953,6 @@ async fn create_media_file_for_output(
         updated_at: Set(Some(now)),
         movie_id: Set(None),
         episode_id: Set(None),
-        edition_id: Set(None),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),
     };

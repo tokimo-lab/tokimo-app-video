@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use rust_subtitle::{
@@ -28,63 +29,56 @@ use crate::scheduler::tasks::persist_playback_progress;
 use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
 
-// ── Query parameters ─────────────────────────────────────────────────────────
+// ── Request body ──────────────────────────────────────────────────────────────
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_sdr() -> Vec<String> {
+    vec!["SDR".to_string()]
+}
 
 #[derive(Deserialize)]
-pub struct StreamUrlQuery {
+#[serde(rename_all = "camelCase")]
+pub struct StreamUrlBody {
     #[serde(default)]
-    pub vc: String,
+    pub video_codecs: Vec<String>,
+    #[serde(default = "default_sdr")]
+    pub video_range_types: Vec<String>,
     #[serde(default)]
-    pub vr: String,
+    pub audio_codecs: Vec<String>,
     #[serde(default)]
-    pub ac: String,
+    pub containers: Vec<String>,
+    pub h264_level: Option<f64>,
+    pub hevc_level: Option<i32>,
+    pub max_bitrate: Option<i64>,
+    pub max_width: Option<i32>,
+    pub max_height: Option<i32>,
+    pub max_ref_frames: Option<i32>,
+    pub max_framerate: Option<f64>,
+    #[serde(default = "default_true")]
+    pub supports_anamorphic: bool,
     #[serde(default)]
-    pub containers: String,
-    #[serde(rename = "h264Level")]
-    pub h264_level: Option<String>,
-    #[serde(rename = "hevcLevel")]
-    pub hevc_level: Option<String>,
-    #[serde(rename = "maxBitrate")]
-    pub max_bitrate: Option<String>,
-    #[serde(rename = "maxWidth")]
-    pub max_width: Option<String>,
-    #[serde(rename = "maxHeight")]
-    pub max_height: Option<String>,
-    #[serde(rename = "maxRefFrames")]
-    pub max_ref_frames: Option<String>,
-    #[serde(rename = "maxFramerate")]
-    pub max_framerate: Option<String>,
-    #[serde(rename = "forceSDR")]
-    pub force_sdr: Option<String>,
-    #[serde(rename = "audioIndex")]
-    pub audio_index: Option<String>,
-    // Jellyfin-parity additions
-    #[serde(rename = "supportsAnamorphic")]
-    pub supports_anamorphic: Option<String>,
-    #[serde(rename = "hevcCodecTags")]
-    pub hevc_codec_tags: Option<String>,
-    #[serde(rename = "maxVideoBitDepth")]
-    pub max_video_bit_depth: Option<String>,
-    #[serde(rename = "maxAudioChannels")]
-    pub max_audio_channels: Option<String>,
-    #[serde(rename = "maxAudioBitrate")]
-    pub max_audio_bitrate: Option<String>,
-    #[serde(rename = "maxAudioSampleRate")]
-    pub max_audio_sample_rate: Option<String>,
-    #[serde(rename = "maxAudioBitDepth")]
-    pub max_audio_bit_depth: Option<String>,
+    pub hevc_codec_tags: Vec<String>,
+    pub max_video_bit_depth: Option<i32>,
+    pub max_audio_channels: Option<i32>,
+    pub max_audio_bitrate: Option<i64>,
+    pub max_audio_sample_rate: Option<i32>,
+    pub max_audio_bit_depth: Option<i32>,
     /// Safari-specific: HEVC max framerate (60fps)
-    #[serde(rename = "hevcMaxFramerate")]
-    pub hevc_max_framerate: Option<String>,
-    /// AV1 max level (15-19, Jellyfin: browserDeviceProfile.js)
-    #[serde(rename = "av1Level")]
-    pub av1_level: Option<String>,
-    /// H.264 supported profiles ("high|main|baseline|constrained baseline|high 10")
-    #[serde(rename = "h264Profiles")]
-    pub h264_profiles: Option<String>,
-    /// HEVC supported profiles ("main|main 10")
-    #[serde(rename = "hevcProfiles")]
-    pub hevc_profiles: Option<String>,
+    pub hevc_max_framerate: Option<f64>,
+    /// AV1 max level (15-19)
+    pub av1_level: Option<i32>,
+    /// H.264 supported profiles ("high", "main", "baseline", ...)
+    #[serde(default)]
+    pub h264_profiles: Vec<String>,
+    /// HEVC supported profiles ("main", "main 10", ...)
+    #[serde(default)]
+    pub hevc_profiles: Vec<String>,
+    #[serde(rename = "forceSDR", default)]
+    pub force_sdr: bool,
+    pub audio_index: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -104,13 +98,13 @@ pub struct WatchHistoryQuery {
     pub limit: Option<u64>,
 }
 
-// ── GET /api/playback/stream-url/{file_id} ───────────────────────────────────
+// ── POST /api/playback/stream-url/{file_id} ──────────────────────────────────
 
 pub async fn stream_url(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
-    Query(q): Query<StreamUrlQuery>,
     AuthUser(auth): AuthUser,
+    Json(body): Json<StreamUrlBody>,
 ) -> Response {
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
@@ -139,46 +133,35 @@ pub async fn stream_url(
         }
     };
 
-    let client_profile = ClientProfile::parse(
-        &q.vc,
-        &q.vr,
-        q.h264_level.as_deref(),
-        q.hevc_level.as_deref(),
-        q.max_bitrate.as_deref(),
-        q.max_width.as_deref(),
-        q.max_height.as_deref(),
-        q.max_ref_frames.as_deref(),
-        q.max_framerate.as_deref(),
-        q.supports_anamorphic.as_deref(),
-        q.hevc_codec_tags.as_deref(),
-        q.max_video_bit_depth.as_deref(),
-        q.max_audio_channels.as_deref(),
-        q.max_audio_bitrate.as_deref(),
-        q.max_audio_sample_rate.as_deref(),
-        q.max_audio_bit_depth.as_deref(),
-        q.hevc_max_framerate.as_deref(),
-        q.av1_level.as_deref(),
-        q.h264_profiles.as_deref(),
-        q.hevc_profiles.as_deref(),
-    );
-    let force_sdr = q.force_sdr.as_deref() == Some("1");
-    let client_containers: Vec<String> = if q.containers.is_empty() {
-        vec![]
-    } else {
-        q.containers
-            .split(',')
-            .map(|s| s.trim().to_lowercase())
-            .filter(|s| !s.is_empty())
-            .collect()
+    let client_profile = ClientProfile {
+        supported_vc: body.video_codecs.iter().map(|s| s.trim().to_lowercase()).collect(),
+        supported_range_types: if body.video_range_types.is_empty() {
+            vec!["SDR".to_string()]
+        } else {
+            body.video_range_types.clone()
+        },
+        max_h264_level: body.h264_level,
+        max_hevc_level: body.hevc_level,
+        max_bitrate: body.max_bitrate,
+        max_width: body.max_width,
+        max_height: body.max_height,
+        max_ref_frames: body.max_ref_frames,
+        max_framerate: body.max_framerate,
+        supports_anamorphic: body.supports_anamorphic,
+        hevc_codec_tags: body.hevc_codec_tags.iter().map(|s| s.trim().to_lowercase()).collect(),
+        max_video_bit_depth: body.max_video_bit_depth,
+        max_audio_channels: body.max_audio_channels,
+        max_audio_bitrate: body.max_audio_bitrate,
+        max_audio_sample_rate: body.max_audio_sample_rate,
+        max_audio_bit_depth: body.max_audio_bit_depth,
+        hevc_max_framerate: body.hevc_max_framerate,
+        max_av1_level: body.av1_level,
+        h264_profiles: body.h264_profiles.iter().map(|s| s.trim().to_lowercase().replace(' ', "")).collect(),
+        hevc_profiles: body.hevc_profiles.iter().map(|s| s.trim().to_lowercase().replace(' ', "")).collect(),
     };
-    let client_audio_codecs: Vec<String> = if q.ac.is_empty() {
-        vec![]
-    } else {
-        q.ac.split(',')
-            .map(|s| s.trim().to_lowercase())
-            .filter(|s| !s.is_empty())
-            .collect()
-    };
+    let force_sdr = body.force_sdr;
+    let client_containers: Vec<String> = body.containers.iter().map(|s| s.trim().to_lowercase()).collect();
+    let client_audio_codecs: Vec<String> = body.audio_codecs.iter().map(|s| s.trim().to_lowercase()).collect();
 
     // ── Filesystem source ───────────────────────────────────────────────────
     let Some(source) = source else {
@@ -219,11 +202,7 @@ pub async fn stream_url(
 
         // Parse stream metadata
         let audio_streams = AudioStreamInfo::from_json_array(file.audio_streams.as_ref());
-        let audio_index = q
-            .audio_index
-            .as_deref()
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(0);
+        let audio_index = body.audio_index.unwrap_or(0);
         let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
         let selected_audio_info = selected_audio.map(|a| rust_hls::transcode_decision::AudioInfo {
             channels: a.channels,
@@ -287,54 +266,56 @@ pub async fn stream_url(
         //   DirectStream:  container/audio/codec-tag issues but video ok → remux (-c:v copy)
         //   Transcode:     video codec issues → re-encode
         // ISO images always require transcoding (libbluray / UDF reader path).
-        if is_iso
+        let needs_hls = is_iso
             || transcode_audio
             || should_transcode_video
             || transcode_container
-            || transcode_codec_tag
+            || transcode_codec_tag;
+
+        let play_method = if should_transcode_video {
+            "Transcode"
+        } else if needs_hls {
+            "DirectStream"
+        } else {
+            "DirectPlay"
+        };
+
         {
-            // Collect all reasons for logging
-            let mut reasons = Vec::new();
-            if let Some(ref r) = container_reason {
-                reasons.push(r.clone());
-            }
-            if let Some(ref r) = codec_tag_reason {
-                reasons.push(r.clone());
-            }
-            if let Some(ref r) = video_reason {
-                reasons.push(r.clone());
-            } else if force_sdr && is_hdr_content {
-                reasons.push("ForceSDR (HDR→SDR tone mapping requested)".to_string());
-            }
-            if let Some(ref r) = open_gop_reason {
-                reasons.push(r.clone());
-            }
-            if let Some(ref r) = audio_reason {
-                reasons.push(r.clone());
-            }
-
-            let play_method = if should_transcode_video {
-                "Transcode"
-            } else {
-                "DirectStream"
-            };
-            let video_desc = if should_transcode_video {
-                format!("video=transcode({})", file.video_codec.as_deref().unwrap_or("?"))
-            } else {
-                format!("video=copy({})", file.video_codec.as_deref().unwrap_or("?"))
-            };
-            let audio_desc = if transcode_audio {
-                format!("audio=transcode({}→aac)", selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"))
-            } else {
-                format!("audio=copy({})", selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"))
-            };
-            let hdr = file.hdr_type.as_deref().unwrap_or("SDR");
+            let filename = std::path::Path::new(&file.path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&file.path);
+            let eff_video_reason = video_reason.as_deref()
+                .or(if force_sdr && is_hdr_content { Some("ForceSDR (HDR→SDR tone mapping)") } else { None })
+                .or(if should_transcode_video { open_gop_reason.as_deref() } else { None });
+            let eff_remux_reason = if !should_transcode_video { open_gop_reason.as_deref() } else { None };
+            let audio_codec_str = selected_audio.map(|a| a.codec.as_str()).unwrap_or("");
+            let audio_ch_str = selected_audio
+                .and_then(|a| a.channels)
+                .map(|c| c.to_string())
+                .unwrap_or_default();
             info!(
-                "[Playback] {} → {} | {} {} | hdr={} | reasons=[{}]",
-                file.path, play_method, video_desc, audio_desc, hdr,
-                reasons.join(", "),
+                target: "playback::decision",
+                filename = %filename,
+                video_codec = %file.video_codec.as_deref().unwrap_or(""),
+                video_profile = %file.video_profile.as_deref().unwrap_or(""),
+                hdr = %file.hdr_type.as_deref().unwrap_or("SDR"),
+                audio_codec = %audio_codec_str,
+                audio_ch = %audio_ch_str,
+                audio_idx = %audio_index,
+                method = %play_method,
+                transcode_video = should_transcode_video,
+                transcode_audio = transcode_audio,
+                reason_video = %eff_video_reason.unwrap_or(""),
+                reason_audio = %audio_reason.as_deref().unwrap_or(""),
+                reason_container = %container_reason.as_deref().unwrap_or(""),
+                reason_codec_tag = %codec_tag_reason.as_deref().unwrap_or(""),
+                reason_remux = %eff_remux_reason.unwrap_or(""),
+                ""
             );
+        }
 
+        if needs_hls {
             // Create HLS session
             match create_hls_session_internal(
                 &state,
@@ -362,23 +343,15 @@ pub async fn stream_url(
                     .into_response();
                 }
             }
-    }
+        }
 
-    // Direct play
-    info!(
-        "[Playback] {} → DirectPlay | video={} audio={} hdr={}",
-        file.path,
-        file.video_codec.as_deref().unwrap_or("?"),
-        selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
-        file.hdr_type.as_deref().unwrap_or("SDR"),
-    );
     let url = build_direct_stream_url(&file);
     ok(StreamUrlDto { url }).into_response()
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
 fn build_direct_stream_url(file: &video_files::Model) -> String {
-    format!("/api/media-files/{}/stream", file.id)
+    format!("/api/video/files/{}/stream", file.id)
 }
 
 /// Detect whether an ISO file is a Blu-ray or DVD image from path heuristics.

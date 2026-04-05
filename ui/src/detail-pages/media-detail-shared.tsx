@@ -18,12 +18,7 @@ import {
 import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailModal";
 import { posterThumbUrl } from "@/lib/thumb";
 import { useLang, usePlayer } from "@/system";
-import type {
-  CreditOutput,
-  GenreOutput,
-  MediaExtraOutput,
-  MediaFileOutput,
-} from "@/types";
+import type { CreditOutput, GenreOutput, MediaFileOutput } from "@/types";
 
 export function formatRuntime(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -640,59 +635,6 @@ export function FilesSection({
       <div className="space-y-2">
         {files.map((f) => (
           <MediaFileCard key={f.id} file={f} playMeta={playMeta} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function ExtrasSection({ extras }: { extras: MediaExtraOutput[] }) {
-  if (!extras.length) return null;
-  const typeLabel: Record<string, string> = {
-    trailer: "预告片",
-    behind_the_scenes: "幕后花絮",
-    featurette: "花絮",
-    interview: "访谈",
-    scene: "片段",
-    short: "短片",
-    other: "其他",
-  };
-  return (
-    <section className="mb-8">
-      <SectionTitle>花絮 / 预告</SectionTitle>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {extras.map((e) => (
-          <div
-            key={e.id}
-            className="w-[200px] flex-shrink-0 overflow-hidden rounded-lg bg-surface-base"
-          >
-            <div className="relative aspect-video overflow-hidden bg-[var(--bg-skeleton)]">
-              {e.thumbPath ? (
-                <Image
-                  src={posterThumbUrl(e.thumbPath, 400)}
-                  alt={e.title}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-3xl text-fg-muted">
-                  ▶
-                </div>
-              )}
-              <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
-                {typeLabel[e.type] ?? e.type}
-              </span>
-            </div>
-            <div className="p-1.5">
-              <p className="truncate text-xs font-medium text-fg-primary">
-                {e.title}
-              </p>
-              {e.runtime != null && (
-                <p className="text-[11px] text-fg-muted">
-                  {formatRuntime(e.runtime)}
-                </p>
-              )}
-            </div>
-          </div>
         ))}
       </div>
     </section>

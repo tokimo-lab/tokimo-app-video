@@ -14,7 +14,6 @@ import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import {
   CastRow,
   CrewRow,
-  ExtrasSection,
   FilesSection,
   formatRuntime,
   MediaInfoBlock,
@@ -418,7 +417,6 @@ export default function MovieDetailPage() {
 
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
-        <ExtrasSection extras={movie.extras ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
         <WatchHistorySection movieId={movie.id} />
       </div>
