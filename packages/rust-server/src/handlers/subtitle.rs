@@ -54,7 +54,7 @@ fn storage_base_url() -> String {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-/// GET /api/subtitles/file/:file_id — list all subtitles attached to a file.
+/// GET /`api/subtitles/file/:file_id` — list all subtitles attached to a file.
 pub async fn get_file_subtitles(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
@@ -73,7 +73,7 @@ pub async fn get_file_subtitles(
 }
 
 /// POST /api/subtitles/search — SSE streaming multi-provider subtitle search.
-/// Each SSE event is a JSON array of SubtitleSearchResult from one provider.
+/// Each SSE event is a JSON array of `SubtitleSearchResult` from one provider.
 pub async fn search(
     State(state): State<Arc<AppState>>,
     Json(input): Json<SubtitleSearchRequest>,
@@ -197,7 +197,7 @@ pub async fn download(
     Ok(ok(record))
 }
 
-/// DELETE /api/subtitles/:subtitle_id — delete a subtitle record and its stored file.
+/// DELETE /`api/subtitles/:subtitle_id` — delete a subtitle record and its stored file.
 pub async fn delete_subtitle(
     State(state): State<Arc<AppState>>,
     Path(subtitle_id): Path<String>,

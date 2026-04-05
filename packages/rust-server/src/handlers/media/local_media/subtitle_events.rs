@@ -18,15 +18,12 @@ pub async fn get_subtitle_events(
     let start_ms = query.start_ms.unwrap_or(0.0) as i64;
     let end_ms = query.end_ms.unwrap_or(i64::MAX as f64) as i64;
 
-    match state.subtitle_cache.query(&subtitle_id, start_ms, end_ms) {
-        Some((events, complete)) => {
-            let body = serde_json::json!({ "events": events, "complete": complete });
-            axum::Json(body).into_response()
-        }
-        None => {
-            let body = serde_json::json!({ "events": [], "complete": false });
-            axum::Json(body).into_response()
-        }
+    if let Some((events, complete)) = state.subtitle_cache.query(&subtitle_id, start_ms, end_ms) {
+        let body = serde_json::json!({ "events": events, "complete": complete });
+        axum::Json(body).into_response()
+    } else {
+        let body = serde_json::json!({ "events": [], "complete": false });
+        axum::Json(body).into_response()
     }
 }
 

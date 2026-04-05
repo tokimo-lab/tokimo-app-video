@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 static RE_SEASON_EPISODE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)S(\d{1,2})E(\d{1,4})(?:[-–]?E(\d{1,4}))?").unwrap());
 
-/// NxNN format: 1x02, 2x05
+/// `NxNN` format: 1x02, 2x05
 static RE_NX_NN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:^|[.\s\-])(\d{1,2})x(\d{1,4})(?:[.\s\-]|$)").unwrap());
 
@@ -346,7 +346,7 @@ pub fn is_placeholder_disc_stem(filename: &str, parsed_title: &str) -> bool {
 
 /// Detect subtitle language from filename.
 pub fn detect_subtitle_language(filename: &str) -> String {
-    let without_ext = filename.rsplit_once('.').map(|(s, _)| s).unwrap_or(filename);
+    let without_ext = filename.rsplit_once('.').map_or(filename, |(s, _)| s);
     let parts: Vec<&str> = without_ext.split('.').collect();
     if let Some(&last) = parts.last()
         && last != without_ext && last.len() >= 2 && last.len() <= 16 {

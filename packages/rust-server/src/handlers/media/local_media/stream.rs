@@ -77,7 +77,7 @@ pub async fn stream_media_file(
             Ok(rows) if !rows.is_empty() => {
                 let ffprobe_raw = rows[0].ffprobe_raw.clone();
                 let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-                let subs: Vec<_> = rows.iter().map(|row| row.to_embedded_record()).collect();
+                let subs: Vec<_> = rows.iter().map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record).collect();
                 let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
                 build_stream_tap(
                     &state.subtitle_cache,
@@ -144,8 +144,8 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
         .find_map(|cookie| cookie.strip_prefix("SESSION_ID=").map(ToOwned::to_owned))
 }
 
-/// Validate stream access and return the authenticated user_id (if available).
-/// For loopback connections, also attempts to extract user_id from cookie.
+/// Validate stream access and return the authenticated `user_id` (if available).
+/// For loopback connections, also attempts to extract `user_id` from cookie.
 async fn validate_stream_access(
     db: &DatabaseConnection,
     cookie_header: Option<&axum::http::HeaderValue>,

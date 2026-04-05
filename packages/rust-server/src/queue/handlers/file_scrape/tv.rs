@@ -208,7 +208,7 @@ async fn create_tv_show_record(
         .or_else(|| nfo.and_then(|n| n.rating));
     let content_rating = nfo.and_then(|n| n.content_rating.clone());
     let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
-    let scraped_at = if tmdb_detail.is_some() || nfo.is_some_and(|n| n.is_sufficient()) { Some(now) } else { None };
+    let scraped_at = if tmdb_detail.is_some() || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient) { Some(now) } else { None };
 
     let mut metadata_map = serde_json::Map::new();
     if let Some(nfo) = nfo {
@@ -223,8 +223,8 @@ async fn create_tv_show_record(
         year: Set(year), first_air_date: Set(first_air_date), last_air_date: Set(None),
         status: Set(tmdb_detail.and_then(|d| d.status.clone())),
         tmdb_rating: Set(tmdb_rating), imdb_rating: Set(None), douban_rating: Set(None),
-        tmdb_id: Set(tmdb_id_str.map(|s| s.to_string())),
-        imdb_id: Set(imdb_id_str.map(|s| s.to_string())),
+        tmdb_id: Set(tmdb_id_str.map(std::string::ToString::to_string)),
+        imdb_id: Set(imdb_id_str.map(std::string::ToString::to_string)),
         tvdb_id: Set(None), douban_id: Set(None), bangumi_id: Set(None),
         poster_path: Set(None), backdrop_path: Set(None),
         overview: Set(overview), is_adult: Set(false), is_favorite: Set(false),

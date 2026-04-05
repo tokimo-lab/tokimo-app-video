@@ -97,8 +97,7 @@ pub async fn handle(
     let scraping_row = ConfigRepo::get::<ScrapingSettings>(db).await.ok();
     let generate_nfo = scraping_row
         .as_ref()
-        .map(|s| s.generate_nfo)
-        .unwrap_or(false);
+        .is_some_and(|s| s.generate_nfo);
 
     // Resolve default download source root path.
     use crate::db::entities::app_file_systems;
@@ -137,7 +136,7 @@ pub async fn handle(
                     .map(|s| s.trim_end_matches('/').to_string())
             })
         });
-        let fs_type = fs.map(|f| f.r#type).unwrap_or_else(|| "local".into());
+        let fs_type = fs.map_or_else(|| "local".into(), |f| f.r#type);
         (root, fs_type)
     } else {
         (None, "local".into())
@@ -147,20 +146,18 @@ pub async fn handle(
     // directly. We use a temporary local staging directory as the download target,
     // then push the organised files to the VFS after the task completes.
     let is_local_source = fs_source_type == "local";
-    let vfs_stage_dir: Option<std::path::PathBuf> = if !is_local_source {
+    let vfs_stage_dir: Option<std::path::PathBuf> = if is_local_source {
+        None
+    } else {
         Some(
             state
                 .online_media
                 .staging_root
                 .join(format!("{record_uuid}-vfs-target")),
         )
-    } else {
-        None
     };
     let effective_target_path = vfs_stage_dir
-        .as_ref()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| organize_target_path.clone());
+        .as_ref().map_or_else(|| organize_target_path.clone(), |p| p.to_string_lossy().into_owned());
 
     // Parse analysis from payload.
     let analysis = payload.get("analysis").cloned().unwrap_or(json!({}));
@@ -176,7 +173,7 @@ pub async fn handle(
     let is_audio_only = download_format == "audio_only"
         || (download_format != "video" && app_type == "music");
 
-    let settings = target_app.settings.as_ref().cloned().unwrap_or(json!({}));
+    let settings = target_app.settings.clone().unwrap_or(json!({}));
     let link_mode = settings
         .get("linkMode")
         .and_then(|v| v.as_str())
@@ -231,7 +228,7 @@ pub async fn handle(
                     crate::handlers::image_proxy::unwrap_proxy_url(url)
                         .unwrap_or_else(|| url.to_string())
                 }),
-            duration_seconds: analysis.get("durationSeconds").and_then(|v| v.as_u64()),
+            duration_seconds: analysis.get("durationSeconds").and_then(sea_orm::JsonValue::as_u64),
             uploader: analysis
                 .get("uploader")
                 .and_then(|v| v.as_str())
@@ -268,11 +265,11 @@ pub async fn handle(
                 .map(String::from),
             track_number: analysis
                 .get("trackNumber")
-                .and_then(|v| v.as_u64())
+                .and_then(sea_orm::JsonValue::as_u64)
                 .map(|v| v as u32),
             disc_number: analysis
                 .get("discNumber")
-                .and_then(|v| v.as_u64())
+                .and_then(sea_orm::JsonValue::as_u64)
                 .map(|v| v as u32),
             genre: analysis
                 .get("genre")
@@ -412,7 +409,7 @@ pub async fn handle(
         if let Ok(Some(model)) = crate::db::repos::job_repo::JobRepo::update_progress(
             db,
             _job_id,
-            resp.progress.map(|p| p.round() as i32).unwrap_or(0),
+            resp.progress.map_or(0, |p| p.round() as i32),
             Some(json!({
                 "recordId": record_id,
                 "taskId": task_id,
@@ -724,9 +721,7 @@ async fn copy_staged_to_vfs(
         .unwrap_or(first_vfs_path.as_str());
     let top_dir = rel_from_root
         .split('/')
-        .next()
-        .map(|d| format!("{vfs_root}/{d}"))
-        .unwrap_or_else(|| vfs_root.to_string());
+        .next().map_or_else(|| vfs_root.to_string(), |d| format!("{vfs_root}/{d}"));
 
     // Ensure directories exist and upload each file.
     let mut created_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -860,7 +855,7 @@ fn is_media_file(path: &str) -> bool {
     let ext = path
         .rsplit('.')
         .next()
-        .map(|e| e.to_ascii_lowercase())
+        .map(str::to_ascii_lowercase)
         .unwrap_or_default();
     MEDIA_EXTENSIONS.contains(&ext.as_str())
 }

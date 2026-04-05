@@ -147,11 +147,11 @@ pub async fn handle(
     let movie_id = payload
         .get("movieId")
         .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+        .map(std::string::ToString::to_string);
     let tv_show_id = payload
         .get("tvShowId")
         .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+        .map(std::string::ToString::to_string);
     let _ = state.event_tx.send(crate::queue::AppEvent::PersonScraped {
         person_id: person_id.to_string(),
         movie_id,

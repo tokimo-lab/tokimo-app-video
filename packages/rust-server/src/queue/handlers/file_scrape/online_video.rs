@@ -1,6 +1,6 @@
 //! Online video movie creation — dedicated branch for `online_video` libraries.
 //!
-//! Metadata priority: NFO (written by download pipeline) → download_records → dir name.
+//! Metadata priority: NFO (written by download pipeline) → `download_records` → dir name.
 //! No TMDB scraping.
 
 use chrono::Datelike;
@@ -23,9 +23,9 @@ pub struct OnlineVideoResult {
     pub movie_id: Uuid,
 }
 
-/// Fetch matching download_record for an online_video file by directory name.
+/// Fetch matching `download_record` for an `online_video` file by directory name.
 ///
-/// Matches by `external_id = dir_basename` (BV number, YouTube ID, etc.)
+/// Matches by `external_id = dir_basename` (BV number, `YouTube` ID, etc.)
 /// OR `target_path LIKE %dir_basename%` as fallback.
 pub async fn fetch_online_record(
     db: &DatabaseConnection,
@@ -54,9 +54,9 @@ pub async fn fetch_online_record(
     Ok(record)
 }
 
-/// Find or create a movie record for an online_video library.
+/// Find or create a movie record for an `online_video` library.
 ///
-/// Metadata priority: NFO → download_records → directory name.
+/// Metadata priority: NFO → `download_records` → directory name.
 /// No TMDB. Artwork from local files → remote thumbnail fallback.
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_online_video(
@@ -205,7 +205,7 @@ async fn find_existing(
         .map(|m| m.id))
 }
 
-/// Create a movie record from NFO + download_records metadata.
+/// Create a movie record from NFO + `download_records` metadata.
 async fn create_record(
     db: &impl ConnectionTrait,
     app_id: Uuid,
@@ -239,7 +239,7 @@ async fn create_record(
         .or_else(|| {
             online_record
                 .and_then(|r| r.duration_seconds)
-                .map(|s| (s as f64 / 60.0).round() as i32)
+                .map(|s| (f64::from(s) / 60.0).round() as i32)
         });
 
     // Year & release_date: NFO → download_records.analysis_snapshot.releaseDate / upload_date
@@ -332,7 +332,7 @@ async fn create_record(
     }
 }
 
-/// Parse date strings: "YYYYMMDD" (yt-dlp) or "YYYY-MM-DD" → NaiveDate
+/// Parse date strings: "YYYYMMDD" (yt-dlp) or "YYYY-MM-DD" → `NaiveDate`
 fn normalize_date_to_naive(s: &str) -> Option<chrono::NaiveDate> {
     let t = s.trim();
     if t.len() == 8 && t.chars().all(|c| c.is_ascii_digit()) {
@@ -342,7 +342,7 @@ fn normalize_date_to_naive(s: &str) -> Option<chrono::NaiveDate> {
     chrono::NaiveDate::parse_from_str(t, "%Y-%m-%d").ok()
 }
 
-/// Build metadata JSON from NFO and/or download_records.
+/// Build metadata JSON from NFO and/or `download_records`.
 fn build_metadata_json(
     nfo: Option<&NfoInfo>,
     online_record: Option<&download_records::Model>,
