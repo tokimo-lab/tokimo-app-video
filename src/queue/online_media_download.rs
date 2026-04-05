@@ -110,7 +110,8 @@ pub async fn handle(
     if lib_sources.is_empty() {
         let err_msg = "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径";
         update_record_failed(db, record_uuid, err_msg).await;
-        append_download_log(&state.storage, &record_uuid, &record_uuid.to_string(), "error", err_msg, None).await;
+        let run_id = record_uuid.to_string();
+        append_download_log(&state.storage, &record_uuid, &run_id, "error", err_msg, None).await;
         return Err("该应用未配置文件系统源".into());
     }
     let default_source = lib_sources
