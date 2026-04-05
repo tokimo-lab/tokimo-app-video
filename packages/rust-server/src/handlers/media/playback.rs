@@ -617,6 +617,7 @@ fn build_direct_input_from_m2ts(
         }),
         size: m2ts_size,
         filename_hint: Some(filename),
+        readahead_bytes: Some(ffmpeg_tool::READAHEAD_HLS),
     };
 
     Arc::new(input)
@@ -844,6 +845,7 @@ async fn build_direct_input(
         }),
         size: file_size,
         filename_hint,
+        readahead_bytes: Some(ffmpeg_tool::READAHEAD_HLS),
     };
 
     info!(
