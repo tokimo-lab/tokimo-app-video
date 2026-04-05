@@ -64,12 +64,9 @@ pub async fn get_playlist(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
 ) -> Response {
-    let session = match state.hls_manager.get_session(&session_id).await {
-        Some(s) => s,
-        None => {
-            return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
-                .into_response()
-        }
+    let Some(session) = state.hls_manager.get_session(&session_id).await else {
+        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
+            .into_response();
     };
 
     let playlist = {
@@ -93,12 +90,9 @@ pub async fn get_segment(
 ) -> Response {
     let req_start = std::time::Instant::now();
 
-    let session = match state.hls_manager.get_session(&session_id).await {
-        Some(s) => s,
-        None => {
-            return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
-                .into_response()
-        }
+    let Some(session) = state.hls_manager.get_session(&session_id).await else {
+        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
+            .into_response();
     };
 
     // Phase 1: briefly lock the session to set up (seek-restart if needed).
@@ -108,7 +102,7 @@ pub async fn get_segment(
         s.prepare_segment_wait(&segment).await
     };
 
-    let wait_handle = if let Some(h) = wait_handle { h } else {
+    let Some(wait_handle) = wait_handle else {
         warn!("[HLS:{}] segment {} not available", session_id, segment);
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -121,7 +115,7 @@ pub async fn get_segment(
 
     let wait_ms = req_start.elapsed().as_millis();
 
-    let segment_path = if let Some(path) = segment_path { path } else {
+    let Some(segment_path) = segment_path else {
         warn!(
             "[HLS:{}] segment {} wait timeout (prepare={}ms wait={}ms)",
             session_id, segment, prepare_ms, wait_ms
@@ -142,8 +136,12 @@ pub async fn get_segment(
             // fMP4 segments (.tokimo/.m4s) and init segments (.mp4) use video/mp4;
             // legacy MPEG-TS (.ts) uses video/mp2t.
             let content_type = if segment.ends_with(".tokimo")
-                || segment.ends_with(".m4s")
-                || segment.ends_with(".mp4")
+                || std::path::Path::new(&segment)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("m4s"))
+                || std::path::Path::new(&segment)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("mp4"))
             {
                 "video/mp4"
             } else {

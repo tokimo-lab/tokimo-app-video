@@ -100,6 +100,7 @@ pub struct WatchHistoryQuery {
 
 // ── POST /api/playback/stream-url/{file_id} ──────────────────────────────────
 
+#[allow(clippy::too_many_lines)]
 pub async fn stream_url(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
@@ -464,11 +465,12 @@ pub(crate) async fn build_iso_m2ts_input(
         );
     }
 
-    build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap)
+    Ok(build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap))
 }
 
 /// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
 /// not in DB yet) and from the ffprobe scan (to populate `iso_meta`).
+#[allow(clippy::unused_async)]
 pub(crate) async fn parse_iso_m2ts(
     vfs: &Arc<next_fs::Vfs>,
     iso_path: &str,
@@ -491,7 +493,6 @@ pub(crate) async fn parse_iso_m2ts(
     });
 
     let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
-        .await
         .map_err(|e| format!("UDF parse failed: {e}"))?;
 
     if m2ts_files.is_empty() {
@@ -508,7 +509,7 @@ fn build_direct_input_from_m2ts(
     iso_path: String,
     m2ts: iso_reader::M2tsFile,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
-) -> Result<Arc<ffmpeg_tool::DirectInput>, String> {
+) -> Arc<ffmpeg_tool::DirectInput> {
     let handle = tokio::runtime::Handle::current();
     let m2ts_size = m2ts.size;
     let filename = m2ts.filename.clone();
@@ -534,7 +535,7 @@ fn build_direct_input_from_m2ts(
         filename_hint: Some(filename),
     };
 
-    Ok(Arc::new(input))
+    Arc::new(input)
 }
 
 /// Map a logical read `(m2ts_offset, size)` through a list of `IsoExtent`s to
@@ -625,7 +626,10 @@ async fn create_hls_session_internal(
             let m2ts_hint = {
                 let p = &file.path;
                 let lower = p.to_ascii_lowercase();
-                if lower.ends_with(".iso") {
+                if std::path::Path::new(&lower)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("iso"))
+                {
                     format!("{}.m2ts", &p[..p.len() - 4])
                 } else {
                     format!("{p}.m2ts")

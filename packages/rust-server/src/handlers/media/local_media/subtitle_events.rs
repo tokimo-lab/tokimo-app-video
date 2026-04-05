@@ -63,7 +63,6 @@ pub async fn subtitle_events_sse(
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     info!("[SSE] subtitle {} lagged {} events", sub_id, n);
-                    continue;
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                     info!("[SSE] broadcast closed for sub={}", sub_id);
