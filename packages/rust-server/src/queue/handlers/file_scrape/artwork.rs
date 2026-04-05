@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::db::entities::media_arts;
 use crate::db::repos::job_repo::JobRepo;
-use crate::services::storage::UploadOptions;
+use crate::services::storage::{StorageProvider, UploadOptions};
 use crate::AppState;
 
 use super::constants::{image_mime, image_storage_ext, EXTRA_ART, FANART_NAMES, POSTER_NAMES};
@@ -18,14 +18,13 @@ use super::DirContext;
 
 /// Upload a local image buffer to S3 and return the storage path.
 pub async fn upload_image_buffer(
-    state: &Arc<AppState>,
+    storage: &Arc<dyn StorageProvider>,
     buf: &[u8],
     storage_key: &str,
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let ext = storage_key.rsplit('.').next().unwrap_or("jpg");
     let mime = image_mime(ext);
-    state
-        .storage
+    storage
         .upload(
             storage_key,
             Bytes::from(buf.to_vec()),
@@ -162,7 +161,7 @@ pub async fn upload_poster_and_backdrop(
     if let (Some(buf), Some(filename)) = (&artwork.poster_buf, &artwork.poster_filename) {
         let ext = image_storage_ext(filename);
         let key = format!("library-images/{folder}/{id_str}/poster.{ext}");
-        poster_storage_path = Some(upload_image_buffer(state, buf, &key).await?);
+        poster_storage_path = Some(upload_image_buffer(&state.storage, buf, &key).await?);
     } else {
         let tmdb_path = nfo_poster_tmdb_path.or(tmdb_poster_path);
         if let Some(path) = tmdb_path {
@@ -173,7 +172,7 @@ pub async fn upload_poster_and_backdrop(
     // Backdrop: local → NFO TMDB URL → TMDB API
     if let Some(buf) = &artwork.fanart_buf {
         let key = format!("library-images/{folder}/{id_str}/backdrop.jpg");
-        backdrop_storage_path = Some(upload_image_buffer(state, buf, &key).await?);
+        backdrop_storage_path = Some(upload_image_buffer(&state.storage, buf, &key).await?);
     } else {
         let tmdb_path = nfo_backdrop_tmdb_path.or(tmdb_backdrop_path);
         if let Some(path) = tmdb_path {
@@ -202,7 +201,7 @@ pub async fn upload_extra_art(
 
     for art in extra_art {
         let key = format!("library-images/{folder}/{id_str}/{}.{}", art.art_type, art.ext);
-        let storage_path = upload_image_buffer(state, &art.buf, &key).await?;
+        let storage_path = upload_image_buffer(&state.storage, &art.buf, &key).await?;
 
         let model = media_arts::ActiveModel {
             id: Set(Uuid::new_v4()),

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use next_fs::Vfs;
-use regex_lite::Regex;
+use regex::Regex;
 use sea_orm::*;
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -18,6 +18,7 @@ use crate::db::entities::{
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::error::AppError;
+use crate::error::OptionExt;
 use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
@@ -153,7 +154,7 @@ impl AppSyncService {
     ) -> Result<SyncStatusOutput, AppError> {
         let (status, last_sync_at) = AppRepo::get_sync_status(db, app_id)
             .await?
-            .ok_or_else(|| AppError::NotFound(format!("app {app_id} not found")))?;
+            .not_found(format!("app {app_id} not found"))?;
 
         Ok(SyncStatusOutput {
             app_id: app_id.to_string(),
@@ -191,7 +192,7 @@ impl AppSyncService {
         // 1. Fetch library
         let library = AppRepo::get_by_id(db, app_id)
             .await?
-            .ok_or_else(|| AppError::NotFound("app not found".into()))?;
+            .not_found("app not found")?;
 
         let lib_type = &library.r#type;
         let is_movie = is_movie_type(lib_type);
@@ -1363,7 +1364,7 @@ impl AppSyncService {
         let album = music_albums::Entity::find_by_id(album_id)
             .one(db)
             .await?
-            .ok_or_else(|| AppError::NotFound(format!("album {album_id} not found")))?;
+            .not_found(format!("album {album_id} not found"))?;
 
         let mut active: music_albums::ActiveModel = album.into();
         active.total_tracks = Set(Some(group.files.len() as i32));
@@ -1786,7 +1787,7 @@ impl AppSyncService {
         let model = media_files::Entity::find_by_id(file_id)
             .one(db)
             .await?
-            .ok_or_else(|| AppError::NotFound(format!("media file {file_id} not found")))?;
+            .not_found(format!("media file {file_id} not found"))?;
 
         let mut active: media_files::ActiveModel = model.into();
         active.checksum = Set(Some(new_checksum.to_string()));

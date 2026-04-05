@@ -25,7 +25,7 @@ use crate::handlers::media::local_media::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::scheduler::tasks::persist_playback_progress;
-use crate::services::transcode_decision::{self, ClientProfile, VideoStreamInfo};
+use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
 
 // ── Query parameters ─────────────────────────────────────────────────────────
@@ -229,10 +229,17 @@ pub async fn stream_url(
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(0);
         let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
+        let selected_audio_info = selected_audio.map(|a| rust_hls::transcode_decision::AudioInfo {
+            channels: a.channels,
+            bitrate: a.bitrate,
+            sample_rate: a.sample_rate,
+            bit_depth: a.bit_depth,
+            profile: a.profile.clone(),
+        });
 
         let audio_reason = transcode_decision::audio_transcode_reason(
             selected_audio.map(|a| a.codec.as_str()),
-            selected_audio,
+            selected_audio_info.as_ref(),
             &client_profile,
             &client_audio_codecs,
         );
@@ -446,7 +453,7 @@ async fn build_iso_m2ts_input(
     });
 
     // Parse the UDF ISO to find M2TS files in BDMV/STREAM/.
-    let m2ts_files = iso_reader::find_m2ts_files(parse_read_at)
+    let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
         .await
         .map_err(|e| format!("UDF parse failed: {e}"))?;
 

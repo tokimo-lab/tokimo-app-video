@@ -302,7 +302,7 @@ async fn patch_movie(
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
             let key = format!("library-images/movies/{mid}/poster.{ext}");
-            if let Ok(sp) = artwork::upload_image_buffer(state, buf, &key).await {
+            if let Ok(sp) = artwork::upload_image_buffer(&state.storage, buf, &key).await {
                 let _ = movies::Entity::update_many()
                     .col_expr(movies::Column::PosterPath, Expr::value(sp.as_str()))
                     .filter(movies::Column::Id.eq(mid))
@@ -353,7 +353,7 @@ async fn patch_tv_show(
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
             let key = format!("library-images/tvshows/{tid}/poster.{ext}");
-            if let Ok(sp) = artwork::upload_image_buffer(state, buf, &key).await {
+            if let Ok(sp) = artwork::upload_image_buffer(&state.storage, buf, &key).await {
                 let _ = tv_shows::Entity::update_many()
                     .col_expr(tv_shows::Column::PosterPath, Expr::value(sp.as_str()))
                     .filter(tv_shows::Column::Id.eq(tid))
