@@ -12,7 +12,7 @@ use tower_http::services::ServeFile;
 
 use crate::{
     db::repos::{
-        auth_repo::AuthRepo, media::file_repo::MediaFileRepo, subtitle_repo::SubtitleRepo,
+        auth_repo::AuthRepo, media::file_repo::VideoFileRepo, subtitle_repo::SubtitleRepo,
     },
     handlers::media::stream::stream_driver_file,
     handlers::{err404, err500, err_resp},
@@ -61,7 +61,7 @@ pub async fn stream_media_file(
         }
     };
 
-    let target = match MediaFileRepo::load_stream_target(&db, &file_id).await {
+    let target = match VideoFileRepo::load_stream_target(&db, &file_id).await {
         Ok(Some(target)) => target,
         Ok(None) => return err404::<()>("Media file not found".into()).into_response(),
         Err(err) => {
