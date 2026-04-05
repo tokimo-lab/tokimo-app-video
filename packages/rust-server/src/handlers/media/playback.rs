@@ -26,7 +26,7 @@ use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::scheduler::tasks::persist_playback_progress;
 use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
-use sea_orm::EntityTrait;
+use sea_orm::{EntityTrait, QuerySelect};
 
 // ── Query parameters ─────────────────────────────────────────────────────────
 
@@ -122,9 +122,13 @@ pub async fn stream_url(
 
     let db = &state.db;
 
-    // Look up media file
-    let file = match media_files::Entity::find_by_id(file_uuid).one(db).await {
-        Ok(Some(f)) => f,
+    // Single JOIN query: media_files + file_systems (no second round-trip).
+    let (file, source) = match media_files::Entity::find_by_id(file_uuid)
+        .find_also_related(file_systems::Entity)
+        .one(db)
+        .await
+    {
+        Ok(Some(pair)) => pair,
         Ok(None) => {
             return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into())
                 .into_response();
@@ -133,17 +137,6 @@ pub async fn stream_url(
             return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
                 .into_response();
         }
-    };
-
-    // Look up source (file_systems)
-    let source = if let Some(src_id) = file.source_id {
-        file_systems::Entity::find_by_id(src_id)
-            .one(db)
-            .await
-            .ok()
-            .flatten()
-    } else {
-        None
     };
 
     let client_profile = ClientProfile::parse(
@@ -194,17 +187,20 @@ pub async fn stream_url(
     };
 
     let source_type = source.r#type.as_str();
-    let is_network = transcode_decision::is_net_fs_source(source_type);
+    if source_type != "local" && !transcode_decision::is_net_fs_source(source_type) {
+        return err_resp::<StreamUrlDto>(
+            StatusCode::BAD_REQUEST,
+            format!("Unsupported source type: {source_type}"),
+        )
+        .into_response();
+    }
 
-    if is_network || source_type == "local" {
-        // ISO disc images must always go through HLS transcode — they cannot be
-        // direct-played. Detect disc type (Blu-ray vs DVD) for FFmpeg input routing.
-        // Must be checked BEFORE is_audio_only_file because ISO files have no
-        // video_codec in the database (ffprobe cannot probe them directly), which
-        // would otherwise cause is_audio_only_file to incorrectly return true.
-        let is_iso = file.mime_type.as_deref() == Some("video/iso-image")
-            || file.path.to_lowercase().ends_with(".iso");
-        let iso_type: Option<&'static str> = if is_iso {
+    // ISO disc images must always go through HLS — they can't be direct-played.
+    // Check BEFORE is_audio_only_file: un-scanned ISOs have video_codec=NULL which
+    // would otherwise be mis-classified as audio-only.
+    let is_iso = file.mime_type.as_deref() == Some("video/iso-image")
+        || file.path.to_lowercase().ends_with(".iso");
+    let iso_type: Option<&'static str> = if is_iso {
             Some(detect_iso_type(&file.path))
         } else {
             None
@@ -366,25 +362,18 @@ pub async fn stream_url(
                     .into_response();
                 }
             }
-        }
-
-        // Direct play
-        info!(
-            "[Playback] {} → DirectPlay | video={} audio={} hdr={}",
-            file.path,
-            file.video_codec.as_deref().unwrap_or("?"),
-            selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
-            file.hdr_type.as_deref().unwrap_or("SDR"),
-        );
-        let url = build_direct_stream_url(&file);
-        return ok(StreamUrlDto { url }).into_response();
     }
 
-    err_resp::<StreamUrlDto>(
-        StatusCode::BAD_REQUEST,
-        format!("Unsupported source type: {source_type}"),
-    )
-    .into_response()
+    // Direct play
+    info!(
+        "[Playback] {} → DirectPlay | video={} audio={} hdr={}",
+        file.path,
+        file.video_codec.as_deref().unwrap_or("?"),
+        selected_audio.map(|a| a.codec.as_str()).unwrap_or("?"),
+        file.hdr_type.as_deref().unwrap_or("SDR"),
+    );
+    let url = build_direct_stream_url(&file);
+    ok(StreamUrlDto { url }).into_response()
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
@@ -415,11 +404,54 @@ fn detect_iso_type(path: &str) -> &'static str {
 /// that maps M2TS-local byte offsets to the correct ranges within the ISO file.
 ///
 /// This allows FFmpeg to decode the M2TS without the ISO being mounted locally.
-async fn build_iso_m2ts_input(
+/// Serializable M2TS location info stored in `media_files.iso_meta`.
+/// Written during ffprobe scan; read during playback to skip UDF re-parsing.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct IsoMeta {
+    pub filename: String,
+    pub size: u64,
+    pub extents: Vec<IsoExtentJson>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct IsoExtentJson {
+    pub offset: u64,
+    pub length: u64,
+}
+
+impl IsoMeta {
+    pub fn from_m2ts(m: &iso_reader::M2tsFile) -> Self {
+        Self {
+            filename: m.filename.clone(),
+            size: m.size,
+            extents: m
+                .extents
+                .iter()
+                .map(|e| IsoExtentJson { offset: e.offset, length: e.length })
+                .collect(),
+        }
+    }
+
+    pub fn to_m2ts(&self) -> iso_reader::M2tsFile {
+        iso_reader::M2tsFile {
+            filename: self.filename.clone(),
+            size: self.size,
+            extents: self
+                .extents
+                .iter()
+                .map(|e| iso_reader::IsoExtent { offset: e.offset, length: e.length })
+                .collect(),
+        }
+    }
+}
+
+pub(crate) async fn build_iso_m2ts_input(
     state: &AppState,
     source_id: Option<&str>,
     file_path: &str,
     file_size: Option<i64>,
+    iso_meta: Option<&IsoMeta>,
+    subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
 ) -> Result<Arc<ffmpeg_tool::DirectInput>, String> {
     let source_id = source_id.ok_or("ISO file has no source ID")?;
     let file_size = file_size
@@ -433,13 +465,46 @@ async fn build_iso_m2ts_input(
         .map_err(|e| format!("Failed to get VFS for ISO source: {e}"))?;
 
     let iso_path = file_path.to_string();
+
+    // UDF parsing is expensive (~1s over SMB). The scan phase already parsed
+    // the UDF and stored the M2TS location in `media_files.iso_meta`. Use it
+    // when available; only fall back to live UDF parse for un-scanned files.
+    let m2ts = if let Some(meta) = iso_meta {
+        debug!("[ISO] Using pre-scanned M2TS info from iso_meta (no UDF re-parse)");
+        meta.to_m2ts()
+    } else {
+        warn!("[ISO] iso_meta not in DB, falling back to live UDF parse (re-scan to fix)");
+        parse_iso_m2ts(&vfs, &iso_path, file_size).await?
+    };
+
+    info!(
+        "[ISO] Main M2TS: {} ({:.1} GB, {} extent(s))",
+        m2ts.filename,
+        m2ts.size as f64 / 1_073_741_824.0,
+        m2ts.extents.len(),
+    );
+    for (i, ext) in m2ts.extents.iter().enumerate() {
+        debug!(
+            "[ISO]   extent {i}: ISO offset={} size={}MB",
+            ext.offset,
+            ext.length / 1_048_576,
+        );
+    }
+
+    build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap)
+}
+
+/// UDF parse + main M2TS selection. Called both from playback (when iso_meta is
+/// not in DB yet) and from the ffprobe scan (to populate iso_meta).
+pub(crate) async fn parse_iso_m2ts(
+    vfs: &Arc<next_fs::Vfs>,
+    iso_path: &str,
+    file_size: u64,
+) -> Result<iso_reader::M2tsFile, String> {
     let handle = tokio::runtime::Handle::current();
     let vfs_for_parse = vfs.clone();
-    let iso_path_for_parse = iso_path.clone();
+    let iso_path_for_parse = iso_path.to_string();
 
-    // Build a synchronous read_at closure for the UDF parser.
-    // `block_in_place` tells Tokio the current thread will block momentarily,
-    // so it can offload other tasks — prevents "cannot block_on within runtime" panic.
     let parse_read_at = Arc::new(move |offset: u64, size: usize| -> std::io::Result<Vec<u8>> {
         let vfs = vfs_for_parse.clone();
         let path = iso_path_for_parse.clone();
@@ -452,7 +517,6 @@ async fn build_iso_m2ts_input(
         })
     });
 
-    // Parse the UDF ISO to find M2TS files in BDMV/STREAM/.
     let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
         .await
         .map_err(|e| format!("UDF parse failed: {e}"))?;
@@ -461,43 +525,37 @@ async fn build_iso_m2ts_input(
         return Err("No M2TS files found in BDMV/STREAM/ — not a Blu-ray ISO?".to_string());
     }
 
-    let main_m2ts = iso_reader::select_main_m2ts(&m2ts_files)
-        .ok_or("Could not select main M2TS from ISO")?;
+    iso_reader::select_main_m2ts(&m2ts_files)
+        .ok_or_else(|| "Could not select main M2TS from ISO".to_string())
+        .cloned()
+}
 
-    info!(
-        "[ISO] Main M2TS: {} ({:.1} GB, {} extent(s))",
-        main_m2ts.filename,
-        main_m2ts.size as f64 / 1_073_741_824.0,
-        main_m2ts.extents.len(),
-    );
-    for (i, ext) in main_m2ts.extents.iter().enumerate() {
-        debug!(
-            "[ISO]   extent {i}: ISO offset={} size={}MB",
-            ext.offset,
-            ext.length / 1_048_576,
-        );
-    }
-
-    let m2ts_size = main_m2ts.size;
-    let filename = main_m2ts.filename.clone();
-    let extents = main_m2ts.extents.clone();
-
-    let handle2 = tokio::runtime::Handle::current();
-    let vfs2 = vfs.clone();
-    let iso_path2 = iso_path.clone();
+fn build_direct_input_from_m2ts(
+    vfs: Arc<next_fs::Vfs>,
+    iso_path: String,
+    m2ts: iso_reader::M2tsFile,
+    subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
+) -> Result<Arc<ffmpeg_tool::DirectInput>, String> {
+    let handle = tokio::runtime::Handle::current();
+    let m2ts_size = m2ts.size;
+    let filename = m2ts.filename.clone();
+    let extents = m2ts.extents;
 
     let input = ffmpeg_tool::DirectInput {
         read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
-            // Map the M2TS-local read offset to physical ISO byte ranges via extents.
-            read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| {
-                let vfs = vfs2.clone();
-                let path = iso_path2.clone();
-                handle2.block_on(async move {
+            let result = read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| {
+                let vfs = vfs.clone();
+                let path = iso_path.clone();
+                handle.block_on(async move {
                     vfs.read_bytes(std::path::Path::new(&path), iso_offset, Some(len as u64))
                         .await
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
                 })
-            })
+            })?;
+            if let Some(ref tx) = subtitle_tap {
+                let _ = tx.try_send((bytes::Bytes::copy_from_slice(&result), m2ts_offset));
+            }
+            Ok(result)
         }),
         size: m2ts_size,
         filename_hint: Some(filename),
@@ -589,7 +647,23 @@ async fn create_hls_session_internal(
     // M2TS-local offsets to the correct byte ranges inside the ISO file.
     let (direct_input, effective_iso_type) = if !is_local && local_path.is_none() {
         if iso_type == Some("bluray") {
-            match build_iso_m2ts_input(state, source_id, &file.path, file.size).await {
+            // Build subtitle tap with `.m2ts` path hint so TsStreamTap is used for PGS.
+            let m2ts_hint = {
+                let p = &file.path;
+                let lower = p.to_ascii_lowercase();
+                if lower.ends_with(".iso") {
+                    format!("{}.m2ts", &p[..p.len() - 4])
+                } else {
+                    format!("{p}.m2ts")
+                }
+            };
+            let tap = build_subtitle_tap_for_hls_with_path(state, file, &m2ts_hint).await;
+            // Deserialize pre-scanned M2TS location info — avoids re-parsing UDF over SMB.
+            let iso_meta = file
+                .iso_meta
+                .as_ref()
+                .and_then(|v| serde_json::from_value::<IsoMeta>(v.clone()).ok());
+            match build_iso_m2ts_input(state, source_id, &file.path, file.size, iso_meta.as_ref(), tap).await {
                 Ok(input) => {
                     info!("[ISO] Remote Blu-ray ISO: M2TS extracted via UDF → AVIO ready");
                     // We serve raw M2TS bytes, so no ISO-specific FFmpeg prefix needed.
@@ -713,6 +787,25 @@ async fn build_subtitle_tap_for_hls(
     state: &AppState,
     file: &media_files::Model,
 ) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
+    build_subtitle_tap_impl(state, file, &file.path).await
+}
+
+/// Same as `build_subtitle_tap_for_hls` but uses `tap_path` for extension
+/// detection and registry keying instead of `file.path`.  Used for ISO
+/// Blu-ray where the inner stream is `.m2ts` even though the file is `.iso`.
+async fn build_subtitle_tap_for_hls_with_path(
+    state: &AppState,
+    file: &media_files::Model,
+    tap_path: &str,
+) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
+    build_subtitle_tap_impl(state, file, tap_path).await
+}
+
+async fn build_subtitle_tap_impl(
+    state: &AppState,
+    file: &media_files::Model,
+    tap_path: &str,
+) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     let file_id = file.id.to_string();
     let rows = SubtitleRepo::load_file_subtitles(&state.db, &file_id)
         .await
@@ -730,7 +823,7 @@ async fn build_subtitle_tap_for_hls(
         &state.subtitle_cache,
         &state.tap_registry,
         tracks,
-        &file.path,
+        tap_path,
         start_time_ms,
     )
 }
