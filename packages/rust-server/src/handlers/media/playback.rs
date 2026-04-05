@@ -107,7 +107,6 @@ pub async fn stream_url(
     AuthUser(auth): AuthUser,
     Json(body): Json<StreamUrlBody>,
 ) -> Response {
-    tracing::info!("[DBG-ENTRY] stream_url handler reached");
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
         Err(_) => {
@@ -282,7 +281,6 @@ pub async fn stream_url(
         let codec = selected_audio
             .map(|a| a.codec.to_lowercase())
             .unwrap_or_default();
-        tracing::info!("[DBG-COMPAT] entered hls_compat branch: codec={codec} transcode_audio={transcode_audio} transcode_container={transcode_container} is_iso={is_iso} should_transcode_video={should_transcode_video}");
         match codec.as_str() {
             "ac3" | "eac3" => Some(format!(
                 "AudioNotCompatibleWithHls ({codec}) — mediabunny unavailable in HLS mode"
@@ -290,11 +288,9 @@ pub async fn stream_url(
             _ => None,
         }
     } else {
-        tracing::info!("[DBG-COMPAT] skipped hls_compat: transcode_audio={transcode_audio} transcode_container={transcode_container} is_iso={is_iso} should_transcode_video={should_transcode_video}");
         None
     };
     let transcode_audio = transcode_audio || hls_audio_compat_reason.is_some();
-    tracing::info!("[DBG-RESULT] after hls_compat: transcode_audio={transcode_audio} audio_reason={}", audio_reason.as_deref().unwrap_or("none"));
     let audio_reason = audio_reason.or(hls_audio_compat_reason);
 
     let tonemap_opts = if should_transcode_video && is_hdr_content {
