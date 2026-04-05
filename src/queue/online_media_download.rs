@@ -61,10 +61,11 @@ type HandlerResult = Result<Option<JsonValue>, Box<dyn std::error::Error + Send 
 const DEFAULT_POLL_INTERVAL_MS: u64 = 1000;
 const DEFAULT_POLL_RETRY_LIMIT: u32 = 3;
 
+#[allow(clippy::too_many_lines)]
 pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
-    _job_id: Uuid,
+    job_id: Uuid,
     payload: &JsonValue,
 ) -> HandlerResult {
     let record_id = payload
@@ -408,7 +409,7 @@ pub async fn handle(
         // we update the job row directly so the SSE stream picks it up.
         if let Ok(Some(model)) = crate::db::repos::job_repo::JobRepo::update_progress(
             db,
-            _job_id,
+            job_id,
             resp.progress.map_or(0, |p| p.round() as i32),
             Some(json!({
                 "recordId": record_id,
@@ -621,7 +622,6 @@ fn stage_to_log_phase(stage: &str) -> &'static str {
     match stage {
         "preparing" | "queued" => "download-started",
         "analyzing" => "analyze",
-        "downloading" => "download-progress",
         "packaging" => "manifest-import",
         "completed" => "completed",
         "failed" => "error",
@@ -760,20 +760,18 @@ async fn copy_staged_to_vfs(
             let local = local_path.clone();
             tokio::spawn(async move {
                 use tokio::io::AsyncReadExt as _;
-                let mut file = match tokio::fs::File::open(&local).await {
-                    Ok(f) => f,
-                    Err(_) => return,
+                let Ok(mut file) = tokio::fs::File::open(&local).await else {
+                    return;
                 };
                 let mut buf = vec![0u8; 256 * 1024];
                 loop {
                     match file.read(&mut buf).await {
-                        Ok(0) => break,
+                        Ok(0) | Err(_) => break,
                         Ok(n) => {
                             if tx.send(buf[..n].to_vec()).await.is_err() {
                                 break;
                             }
                         }
-                        Err(_) => break,
                     }
                 }
             });

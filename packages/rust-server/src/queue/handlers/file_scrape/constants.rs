@@ -77,7 +77,6 @@ pub fn guess_mime(filename: &str) -> Option<String> {
 /// Subtitle extension → format string.
 pub fn subtitle_ext_to_format(ext: &str) -> &'static str {
     match ext {
-        ".srt" | "srt" => "srt",
         ".ass" | "ass" => "ass",
         ".ssa" | "ssa" => "ssa",
         ".sub" | "sub" => "sub",

@@ -1409,20 +1409,17 @@ impl AppSyncService {
                         group.dir_path.trim_end_matches('/'),
                         cover_name
                     );
-                    match vfs.stat(std::path::Path::new(&cover_path)).await {
-                        Ok(_) => {
-                            // Store VFS-relative cover path
-                            let album = music_albums::Entity::find_by_id(album_id)
-                                .one(db)
-                                .await?;
-                            if let Some(album) = album {
-                                let mut active: music_albums::ActiveModel = album.into();
-                                active.cover_path = Set(Some(cover_path));
-                                active.update(db).await?;
-                            }
-                            break;
+                    if vfs.stat(std::path::Path::new(&cover_path)).await.is_ok() {
+                        // Store VFS-relative cover path
+                        let album = music_albums::Entity::find_by_id(album_id)
+                            .one(db)
+                            .await?;
+                        if let Some(album) = album {
+                            let mut active: music_albums::ActiveModel = album.into();
+                            active.cover_path = Set(Some(cover_path));
+                            active.update(db).await?;
                         }
-                        Err(_) => continue,
+                        break;
                     }
                 }
             }
