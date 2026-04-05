@@ -293,6 +293,25 @@ pub async fn stream_url(
     let transcode_audio = transcode_audio || hls_audio_compat_reason.is_some();
     let audio_reason = audio_reason.or(hls_audio_compat_reason);
 
+    // ── Target audio codec selection ───────────────────────────────────────
+    // Mirrors Jellyfin's TranscodingProfile.AudioCodec priority: iterate the
+    // client's ordered codec list, filter by HLS container constraints, pick first.
+    // fmp4 (used when video is transcoded) supports more codecs than mpegts.
+    let hls_audio_allowed: &[&str] = if should_transcode_video {
+        &["aac", "ac3", "eac3", "mp3", "alac", "flac", "opus"]
+    } else {
+        &["aac", "ac3", "eac3", "mp3"]
+    };
+    let target_audio_codec: Option<String> = if transcode_audio {
+        client_audio_codecs
+            .iter()
+            .find(|c| hls_audio_allowed.contains(&c.as_str()))
+            .cloned()
+            .or_else(|| Some("aac".to_string()))
+    } else {
+        None
+    };
+
     let tonemap_opts = if should_transcode_video && is_hdr_content {
         Some(TonemapOptions {
             algorithm: "bt2390".to_string(),
@@ -353,6 +372,9 @@ pub async fn stream_url(
             .and_then(|a| a.channels)
             .map(|c| c.to_string())
             .unwrap_or_default();
+        let client_prefers_hevc = client_profile.supported_vc.iter().any(|c| c == "hevc");
+        let target_video_codec = if client_prefers_hevc { "hevc" } else { "h264" };
+        let target_audio_codec_log = target_audio_codec.as_deref().unwrap_or("aac");
         info!(
             target: "playback::decision",
             filename = %filename,
@@ -365,6 +387,8 @@ pub async fn stream_url(
             method = %play_method,
             transcode_video = should_transcode_video,
             transcode_audio = transcode_audio,
+            target_video_codec = %target_video_codec,
+            target_audio_codec = %target_audio_codec_log,
             reason_video = %eff_video_reason.unwrap_or(""),
             reason_audio = %audio_reason.as_deref().unwrap_or(""),
             reason_container = %container_reason.as_deref().unwrap_or(""),
@@ -373,15 +397,6 @@ pub async fn stream_url(
             ""
         );
     }
-
-    tracing::info!(
-        "[DBG-PRE-HLS] transcode_audio={} transcode_container={} is_iso={} should_transcode_video={} audio_codec={}",
-        transcode_audio,
-        transcode_container,
-        is_iso,
-        should_transcode_video,
-        selected_audio.map_or("", |a| a.codec.as_str()),
-    );
 
     if needs_hls {
         // Create HLS session
@@ -392,6 +407,7 @@ pub async fn stream_url(
             audio_index,
             should_transcode_video,
             transcode_audio,
+            target_audio_codec,
             tonemap_opts,
             &vs,
             source_type == "local",
@@ -669,6 +685,7 @@ async fn create_hls_session_internal(
     audio_index: usize,
     transcode_video: bool,
     transcode_audio: bool,
+    target_audio_codec: Option<String>,
     tonemap: Option<TonemapOptions>,
     vs: &VideoStreamInfo,
     is_local: bool,
@@ -778,6 +795,7 @@ async fn create_hls_session_internal(
         audio_streams: hls_audio_streams,
         transcode_video,
         transcode_audio: Some(transcode_audio),
+        target_audio_codec,
         tonemap,
         video_codec: file.video_codec.clone(),
         video_width: vs.width.map(|w| w as u32),
