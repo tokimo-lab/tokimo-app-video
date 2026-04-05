@@ -43,6 +43,12 @@ static RE_CJK_EPISODE: LazyLock<Regex> =
 static RE_CJK_TITLE_CLEAN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)[\s.]+(?:S\d|第\s*\d|Season|EP?\d).*$").unwrap());
 
+/// Strips season/episode suffix from a space-normalized title (fallback path).
+/// e.g. "Ever Night s01 e37" → "Ever Night", "Show S01E02 720p" → "Show"
+static RE_TITLE_SE_SUFFIX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\s+(?:s\d{1,2}(?:[\s.]*e\d{1,4})?|ep?\s*\d{1,4}).*$").unwrap()
+});
+
 // ── CJK detection helpers ──
 
 fn is_cjk_char(c: char) -> bool {
@@ -266,7 +272,8 @@ fn extract_title_and_year(name: &str) -> (String, Option<i32>) {
         return result;
     }
     let clean = name.replace(['.', '_'], " ");
-    (clean.trim().to_string(), None)
+    let title = RE_TITLE_SE_SUFFIX.replace(&clean, "").trim().to_string();
+    (title, None)
 }
 
 fn extract_year_in_brackets(name: &str) -> Option<(String, Option<i32>)> {

@@ -2,6 +2,7 @@
 
 use rust_client_api::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
 use sea_orm::prelude::Expr;
+use sea_orm::sea_query::Condition;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
@@ -23,7 +24,59 @@ pub struct TvResult {
     pub episode_id: Option<Uuid>,
 }
 
+/// Quick DB lookup before touching TMDB.
+/// Returns `(show_id, tmdb_show_id)` when the show is already indexed.
+/// Checks external IDs first (reliable), then falls back to title+year dedup
+/// (mirrors movie's `find_existing_movie_by_title`).
+async fn quick_find_existing(
+    db: &DatabaseConnection,
+    app_id: Uuid,
+    nfo: &Option<NfoInfo>,
+    title: &str,
+    year: Option<i32>,
+) -> Result<Option<(Uuid, Option<i64>)>, Box<dyn std::error::Error + Send + Sync>> {
+    // 1. External IDs from NFO (most reliable — no false positives)
+    let nfo_tmdb_id = nfo.as_ref().and_then(|n| n.tmdb_id.as_deref());
+    let nfo_imdb_id = nfo.as_ref().and_then(|n| n.imdb_id.as_deref());
+    if nfo_tmdb_id.is_some() || nfo_imdb_id.is_some() {
+        let mut cond = Condition::any();
+        if let Some(tid) = nfo_tmdb_id { cond = cond.add(tv_shows::Column::TmdbId.eq(tid)); }
+        if let Some(iid) = nfo_imdb_id { cond = cond.add(tv_shows::Column::ImdbId.eq(iid)); }
+        if let Some(show) = tv_shows::Entity::find()
+            .filter(tv_shows::Column::AppId.eq(app_id))
+            .filter(cond)
+            .one(db).await?
+        {
+            let tmdb_id = show.tmdb_id.as_deref().and_then(|s| s.parse::<i64>().ok());
+            return Ok(Some((show.id, tmdb_id)));
+        }
+    }
+
+    // 2. Title+year fallback — catches shows already imported without NFO external IDs
+    //    (the TMDB call for the first episode stores tmdb_id on the record, so
+    //    subsequent episodes with a matching title skip the search entirely)
+    if !title.is_empty() {
+        let mut q = tv_shows::Entity::find()
+            .filter(tv_shows::Column::AppId.eq(app_id))
+            .filter(tv_shows::Column::Title.eq(title));
+        if let Some(y) = year {
+            q = q.filter(tv_shows::Column::Year.eq(y));
+        }
+        if let Some(show) = q.one(db).await? {
+            let tmdb_id = show.tmdb_id.as_deref().and_then(|s| s.parse::<i64>().ok());
+            info!("[file_scrape] TV dedup by title+year: '{title}' → {}", show.id);
+            return Ok(Some((show.id, tmdb_id)));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Single entry point called from mod.rs.
+///
+/// Fast path: if the show is already in the DB (looked up by NFO external IDs
+/// or title+year), we skip the TMDB search+detail entirely — same as movies.
+/// The TMDB client is still built so new seasons can be fetched on demand.
 #[allow(clippy::too_many_arguments)]
 pub async fn scrape(
     db: &DatabaseConnection,
@@ -40,21 +93,32 @@ pub async fn scrape(
     nfo_backdrop_tmdb: &Option<String>,
 ) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
     let _ = lib_type; // currently all TV uses TMDB
+
+    let api_key = tmdb::get_api_key(db).await?;
+
+    // Pre-check: is this show already in the DB?
+    // If yes, skip the expensive TMDB search+detail (2 HTTP calls → 0).
+    let pre_existing = quick_find_existing(db, app_id, nfo, title, year).await?;
+
     let mut tmdb_detail: Option<TmdbMediaDetail> = None;
     let mut tmdb_client: Option<TmdbClient> = None;
 
-    if let Some(api_key) = tmdb::get_api_key(db).await? {
-        let client = tmdb::build_client(state, &api_key);
-        tmdb_detail = tmdb::scrape_tv(
-            &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
-        )
-        .await;
+    if let Some(ref key) = api_key {
+        let client = tmdb::build_client(state, key);
+        if pre_existing.is_none() {
+            // New show — run full TMDB scrape (search + detail)
+            tmdb_detail = tmdb::scrape_tv(
+                &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
+            )
+            .await;
+        }
+        // Keep client so new seasons can call get_tv_season_detail when needed
         tmdb_client = Some(client);
     }
 
     find_or_create_tv(
         db, state, tmdb_client.as_ref(),
-        app_id, tmdb_detail.as_ref(), nfo.as_ref(),
+        app_id, pre_existing, tmdb_detail.as_ref(), nfo.as_ref(),
         title, year, season, episode,
         artwork, nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
     )
@@ -62,12 +126,18 @@ pub async fn scrape(
 }
 
 /// Find or create a TV show, then create season/episode if we have numbers.
+///
+/// `pre_existing` — result from `quick_find_existing`: `(show_id, tmdb_show_id)`.
+/// When provided the internal DB lookup is skipped (avoids a redundant query)
+/// and the stored `tmdb_show_id` is used for season fetching even when
+/// `tmdb_detail` is `None` (i.e. TMDB scrape was skipped for an existing show).
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_tv(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     tmdb: Option<&TmdbClient>,
     app_id: Uuid,
+    pre_existing: Option<(Uuid, Option<i64>)>,
     tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
     parsed_title: &str,
@@ -85,9 +155,16 @@ pub async fn find_or_create_tv(
         .and_then(|d| d.imdb_id.clone())
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
-    let existing = find_existing_tv_show(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+    // Use pre_existing from caller when available (avoids a redundant DB query).
+    // Fall back to a DB lookup only when scrape() couldn't pre-check (shouldn't
+    // normally happen, but keeps the function usable standalone).
+    let resolved_existing = if let Some((id, _)) = pre_existing {
+        Some(id)
+    } else {
+        find_existing_tv_show(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
+    };
 
-    let (tv_show_id, is_new) = if let Some(existing_id) = existing {
+    let (tv_show_id, is_new) = if let Some(existing_id) = resolved_existing {
         tv_shows::Entity::update_many()
             .col_expr(tv_shows::Column::UpdatedAt, Expr::cust("NOW()"))
             .col_expr(tv_shows::Column::ScrapedAt, Expr::cust("NOW()"))
@@ -157,7 +234,13 @@ pub async fn find_or_create_tv(
     let episode_num = nfo.and_then(|n| n.episode).or(parsed_episode);
 
     let episode_id = if let (Some(sn), Some(en)) = (season_num, episode_num) {
-        let tmdb_show_id = tmdb_detail.map(|d| d.base.id);
+        // Prefer tmdb_id from the freshly-fetched detail; fall back to the
+        // id stored in DB (via pre_existing) or the NFO — so new seasons can
+        // still call get_tv_season_detail even when the show scrape was skipped.
+        let tmdb_show_id = tmdb_detail
+            .map(|d| d.base.id)
+            .or_else(|| pre_existing.and_then(|(_, sid)| sid))
+            .or_else(|| tmdb_id_str.as_deref().and_then(|s| s.parse::<i64>().ok()));
         match create_season_and_episode(db, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
             Ok(eid) => Some(eid),
             Err(e) => { warn!("[file_scrape] Failed to create season/episode: {e}"); None }
@@ -258,7 +341,14 @@ async fn create_season_and_episode(
     db: &DatabaseConnection, tmdb: Option<&TmdbClient>, tmdb_show_id: Option<i64>,
     show_id: Uuid, season_number: i32, episode_number: i32, nfo: Option<&NfoInfo>,
 ) -> Result<Uuid, Box<dyn std::error::Error + Send + Sync>> {
-    let season_detail = if let (Some(tmdb), Some(sid)) = (tmdb, tmdb_show_id) {
+    // Check season existence BEFORE any TMDB call.
+    // For 24 episodes of the same season this saves 23 get_tv_season_detail requests.
+    let season_exists = seasons::Entity::find()
+        .filter(seasons::Column::TvShowId.eq(show_id))
+        .filter(seasons::Column::SeasonNumber.eq(season_number))
+        .one(db).await?.is_some();
+
+    let season_detail = if season_exists { None } else if let (Some(tmdb), Some(sid)) = (tmdb, tmdb_show_id) {
         tmdb.get_tv_season_detail(sid, season_number).await.ok()
     } else { None };
 

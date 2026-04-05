@@ -1,10 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftOutlined, Button, Spin } from "@tokiomo/components";
-import { getGenreName } from "@tokiomo/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeftOutlined,
+  Button,
+  PillTabBar,
+  Spin,
+} from "@tokiomo/components";
+import { Play } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
-import { useBackgroundArt, useLang, useWindowNav } from "@/system";
+import { useBackgroundArt, usePlayer, useWindowNav } from "@/system";
 import type { EpisodeOutput } from "@/types";
 import {
   CastRow,
@@ -55,15 +60,32 @@ function EpisodeRow({
   };
 }) {
   const [open, setOpen] = useState(false);
+  const { play } = usePlayer();
+  const firstFile = episode.files?.[0];
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--glass-border)]">
-      <button
-        type="button"
-        className="flex w-full items-start gap-4 p-3 text-left hover:bg-fill-tertiary/50"
+      {/* Entire row is the expand click target */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: desktop-only UI, can't nest <button> */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: desktop-only UI */}
+      <div
+        className="flex w-full cursor-pointer items-stretch gap-4 p-3 transition-colors hover:bg-fill-tertiary/50"
         onClick={() => setOpen((v) => !v)}
       >
-        {/* Thumbnail 16:9 */}
-        <div className="h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded bg-fill-tertiary">
+        {/* Thumbnail — click to play, stopPropagation prevents expand */}
+        <button
+          type="button"
+          disabled={!firstFile}
+          className="group/thumb relative h-[60px] w-[106px] flex-shrink-0 self-start cursor-pointer overflow-hidden rounded bg-fill-tertiary"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (firstFile)
+              play(firstFile, {
+                ...playMeta,
+                title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+                episodeId: episode.id,
+              });
+          }}
+        >
           {episode.stillPath ? (
             <img
               src={posterThumbUrl(episode.stillPath, 400)}
@@ -76,34 +98,45 @@ function EpisodeRow({
               E{episode.episodeNumber}
             </div>
           )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-fg-muted">
-              第 {episode.episodeNumber} 集
-            </span>
-            {episode.runtime != null && (
+          {firstFile && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/thumb:opacity-100">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-md">
+                <Play className="h-4 w-4 translate-x-0.5 fill-black text-black" />
+              </div>
+            </div>
+          )}
+        </button>
+
+        {/* Info — visual only, parent div handles expand click */}
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
               <span className="text-xs text-fg-muted">
-                {formatRuntime(episode.runtime)}
+                第 {episode.episodeNumber} 集
               </span>
-            )}
-            {episode.rating != null && (
-              <span className="text-xs font-medium text-yellow-500">
-                ★ {episode.rating.toFixed(1)}
-              </span>
+              {episode.runtime != null && (
+                <span className="text-xs text-fg-muted">
+                  {formatRuntime(episode.runtime)}
+                </span>
+              )}
+              {episode.rating != null && (
+                <span className="text-xs font-medium text-yellow-500">
+                  ★ {episode.rating.toFixed(1)}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-sm font-semibold text-fg-primary">
+              {episode.title ?? `第 ${episode.episodeNumber} 集`}
+            </p>
+            {episode.airDate && (
+              <p className="mt-0.5 text-xs text-fg-muted">{episode.airDate}</p>
             )}
           </div>
-          <p className="mt-0.5 text-sm font-semibold text-fg-primary">
-            {episode.title ?? `第 ${episode.episodeNumber} 集`}
-          </p>
-          {episode.airDate && (
-            <p className="mt-0.5 text-xs text-fg-muted">{episode.airDate}</p>
-          )}
+          <span className="flex-shrink-0 self-center text-xs text-fg-muted">
+            {open ? "▲" : "▼"}
+          </span>
         </div>
-        <span className="mt-1 flex-shrink-0 text-xs text-fg-muted">
-          {open ? "▲" : "▼"}
-        </span>
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-[var(--glass-border)] p-3">
@@ -135,7 +168,6 @@ export default function TvShowDetailPage() {
   const { params, goBack } = useWindowNav();
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
-  const { lang } = useLang();
 
   const { data: show, isLoading } = api.app.getTvShowDetail.useQuery(
     { id: tvId! },
@@ -146,53 +178,6 @@ export default function TvShowDetailPage() {
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
   const selectedSeason =
     seasons.find((s) => s.seasonNumber === activeSeason) ?? seasons[0];
-
-  const [showStickyHeader, setShowStickyHeader] = useState(false);
-  const [showSeasonInHeader, setShowSeasonInHeader] = useState(false);
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-
-  // React 19 callback ref — runs when h1 mounts (after data loads), returns cleanup
-  const titleCallbackRef = useCallback(
-    (node: HTMLHeadingElement | null): (() => void) | undefined => {
-      if (!node) return;
-      // Find the actual scroll container (overflow-y: auto) from parent chain
-      let cursor: HTMLElement | null = node.parentElement;
-      while (cursor && getComputedStyle(cursor).overflowY !== "auto") {
-        cursor = cursor.parentElement;
-      }
-      scrollContainerRef.current = cursor;
-      const observer = new IntersectionObserver(
-        ([entry]) => setShowStickyHeader(!entry!.isIntersecting),
-        { root: cursor ?? null, threshold: 0 },
-      );
-      observer.observe(node);
-      return () => observer.disconnect();
-    },
-    [],
-  );
-
-  const seasonsCallbackRef = useCallback(
-    (node: HTMLElement | null): (() => void) | undefined => {
-      if (!node) return;
-      // Same approach as titleCallbackRef: find the actual scroll container
-      let cursor: HTMLElement | null = node.parentElement;
-      while (cursor && getComputedStyle(cursor).overflowY !== "auto") {
-        cursor = cursor.parentElement;
-      }
-      const observer = new IntersectionObserver(
-        ([entry]) => setShowSeasonInHeader(!entry!.isIntersecting),
-        { root: cursor ?? null, threshold: 0 },
-      );
-      observer.observe(node);
-      return () => observer.disconnect();
-    },
-    [],
-  );
-
-  const handleSeasonClick = useCallback((seasonNumber: number) => {
-    setActiveSeason(seasonNumber);
-    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
 
   useEffect(() => {
     if (show?.backdropPath) {
@@ -226,106 +211,6 @@ export default function TvShowDetailPage() {
 
   return (
     <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
-      {/* ── Fixed scroll header (out of flow, no layout impact) ── */}
-      <div
-        className={`glass-sidebar fixed top-16 lg:top-0 left-0 right-0 lg:left-64 z-30 flex flex-col border-r-0 border-b border-b-[var(--border-base)] transition-all duration-200 ${
-          showStickyHeader
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-full pointer-events-none"
-        }`}
-      >
-        {/* Row 1: back + title info */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button
-            type="button"
-            className="flex cursor-pointer items-center gap-1.5 text-sm text-fg-muted hover:text-fg-primary transition-colors"
-            onClick={() => goBack()}
-          >
-            <ArrowLeftOutlined />
-            <span>返回</span>
-          </button>
-          <div className="mx-1 h-5 w-px bg-border-base" />
-          {show.posterPath && (
-            <img
-              src={posterThumbUrl(show.posterPath, 92)}
-              alt={show.title}
-              className="h-8 w-[21px] flex-shrink-0 rounded object-cover shadow"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-sm text-fg-primary">
-              {show.title}
-            </p>
-            <div className="flex items-center gap-2 text-xs text-fg-muted">
-              {show.originalTitle && show.originalTitle !== show.title && (
-                <span className="truncate max-w-[120px]">
-                  {show.originalTitle}
-                </span>
-              )}
-              {show.year && <span>{show.year}</span>}
-              {show.genres && show.genres.length > 0 && (
-                <div className="flex gap-1">
-                  {show.genres.slice(0, 3).map((g) => (
-                    <span
-                      key={g.id}
-                      className="rounded-full bg-fill-tertiary dark:bg-white/10 px-2 py-px text-[11px] text-fg-secondary"
-                    >
-                      {getGenreName(g.tmdbGenreId, lang) || g.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        {/* Row 2: season switcher (only when seasons section scrolled out) */}
-        {showSeasonInHeader && seasons.length > 0 && (
-          <div className="flex justify-center gap-2 overflow-x-auto border-t border-[var(--border-base)] px-4 py-2">
-            {seasons.map((sn) => (
-              <button
-                key={sn.id}
-                type="button"
-                onClick={() => handleSeasonClick(sn.seasonNumber)}
-                className={`flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
-                  selectedSeason?.id === sn.id
-                    ? "bg-fill-tertiary dark:bg-white/10 text-fg-primary dark:text-white"
-                    : "hover:bg-gray-100 dark:hover:bg-white/8 text-fg-secondary"
-                }`}
-              >
-                {sn.posterPath ? (
-                  <img
-                    src={posterThumbUrl(sn.posterPath, 92)}
-                    alt=""
-                    className="h-8 w-[22px] flex-shrink-0 rounded object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex h-8 w-[22px] flex-shrink-0 items-center justify-center rounded bg-white/20 text-[10px]">
-                    S{sn.seasonNumber}
-                  </div>
-                )}
-                <div className="text-left">
-                  <p className="text-xs font-semibold leading-tight">
-                    {sn.title ?? `第 ${sn.seasonNumber} 季`}
-                  </p>
-                  {sn.episodeCount != null && (
-                    <p
-                      className={`text-[11px] leading-tight ${
-                        selectedSeason?.id === sn.id
-                          ? "text-white/70"
-                          : "text-fg-muted"
-                      }`}
-                    >
-                      {sn.episodeCount} 集
-                    </p>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ── Header ── */}
       <div className="relative z-10 px-6 pt-6 pb-6">
         <div className="mb-6">
@@ -341,12 +226,7 @@ export default function TvShowDetailPage() {
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h1
-                ref={titleCallbackRef}
-                className="text-3xl font-bold leading-tight"
-              >
-                {show.title}
-              </h1>
+              <h1 className="text-3xl font-bold leading-tight">{show.title}</h1>
               <FavoriteButton isFavorite={isFavorite} tvShowId={show.id} />
             </div>
             {show.originalTitle && show.originalTitle !== show.title && (
@@ -425,55 +305,32 @@ export default function TvShowDetailPage() {
         {/* Season + Episodes */}
         {seasons.length > 0 && (
           <section className="mb-8">
-            {/* Season selector — horizontal scrollable row */}
-            <div
-              ref={seasonsCallbackRef}
-              className="flex flex-row justify-center gap-2 overflow-x-auto pb-3"
-            >
-              {seasons.map((sn) => (
-                <button
-                  key={sn.id}
-                  type="button"
-                  onClick={() => setActiveSeason(sn.seasonNumber)}
-                  className={`flex cursor-pointer flex-shrink-0 items-center gap-2.5 rounded-lg p-2 text-left transition-colors ${
-                    selectedSeason?.id === sn.id
-                      ? "dark:bg-white/10"
-                      : "hover:bg-fill-tertiary"
-                  }`}
-                  style={
-                    selectedSeason?.id === sn.id
-                      ? {
-                          background: "var(--accent-subtle)",
-                          color: "var(--accent)",
-                        }
-                      : undefined
-                  }
-                >
-                  {sn.posterPath ? (
-                    <img
-                      src={posterThumbUrl(sn.posterPath, 92)}
-                      alt=""
-                      className="h-10 w-7 flex-shrink-0 rounded object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-7 flex-shrink-0 items-center justify-center rounded bg-fill-tertiary text-xs">
-                      S
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold">
-                      {sn.title ?? `第 ${sn.seasonNumber} 季`}
-                    </p>
-                    {sn.episodeCount != null && (
-                      <p className="text-[11px] text-fg-muted">
-                        {sn.episodeCount} 集
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+            {/* Season selector — PillTabBar */}
+            <PillTabBar
+              tabs={seasons.map((sn) => {
+                const base = `第 ${sn.seasonNumber} 季`;
+                // Only append title if it's a real scraped name (not generic "Season X")
+                const hasRealTitle =
+                  sn.title && !/^season\s+\d+$/i.test(sn.title);
+                const parts: string[] = [base];
+                if (hasRealTitle) parts.push(sn.title!);
+                const episodeCount =
+                  sn.episodeCount ?? sn.episodes?.length ?? null;
+                if (episodeCount != null) parts.push(`${episodeCount} 集`);
+                return {
+                  key: String(sn.seasonNumber),
+                  label: parts.join(" · "),
+                  posterSrc: sn.posterPath
+                    ? posterThumbUrl(sn.posterPath, 92)
+                    : undefined,
+                };
+              })}
+              activeTab={String(
+                selectedSeason?.seasonNumber ?? seasons[0]?.seasonNumber,
+              )}
+              onTabChange={(key) => setActiveSeason(Number(key))}
+              sticky={false}
+            />
 
             {/* Episode list */}
             {selectedSeason && (
