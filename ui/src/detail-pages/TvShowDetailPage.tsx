@@ -9,7 +9,6 @@ import type { EpisodeOutput } from "@/types";
 import {
   CastRow,
   CrewRow,
-  ExtrasSection,
   formatRuntime,
   MediaFileCard,
   MediaInfoBlock,
@@ -532,8 +531,6 @@ export default function TvShowDetailPage() {
 
         {/* Crew */}
         <CrewRow credits={show.credits ?? []} />
-
-        <ExtrasSection extras={show.extras ?? []} />
       </div>
     </div>
   );

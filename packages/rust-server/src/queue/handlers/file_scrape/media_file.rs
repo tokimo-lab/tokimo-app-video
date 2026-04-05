@@ -133,7 +133,6 @@ pub async fn create_or_update(
         updated_at: Set(Some(now)),
         movie_id: Set(movie_id),
         episode_id: Set(episode_id),
-        edition_id: Set(None),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),
     };
