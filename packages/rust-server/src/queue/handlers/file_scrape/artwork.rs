@@ -110,8 +110,8 @@ pub async fn discover_artwork(ctx: &DirContext) -> DiscoveredArtwork {
                 .position(|e| e == name)
                 .map(|idx| ctx.dir_entries[idx].clone())
         });
-        if let Some(found) = found {
-            if let Some(buf) = read_file_from_dir(ctx, &found).await {
+        if let Some(found) = found
+            && let Some(buf) = read_file_from_dir(ctx, &found).await {
                 let ext = found.rsplit('.').next().unwrap_or("jpg").to_ascii_lowercase();
                 extra_art.push(ExtraArtBuf {
                     art_type: def.art_type.to_string(),
@@ -119,7 +119,6 @@ pub async fn discover_artwork(ctx: &DirContext) -> DiscoveredArtwork {
                     ext,
                 });
             }
-        }
     }
 
     DiscoveredArtwork {

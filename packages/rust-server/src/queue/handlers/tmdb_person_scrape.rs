@@ -77,16 +77,14 @@ pub async fn handle(
     if let Some(bio) = &detail.biography {
         active.biography = Set(Some(bio.clone()));
     }
-    if let Some(birthday_str) = &detail.birthday {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(birthday_str, "%Y-%m-%d") {
+    if let Some(birthday_str) = &detail.birthday
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(birthday_str, "%Y-%m-%d") {
             active.birthday = Set(Some(date));
         }
-    }
-    if let Some(deathday_str) = &detail.deathday {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(deathday_str, "%Y-%m-%d") {
+    if let Some(deathday_str) = &detail.deathday
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(deathday_str, "%Y-%m-%d") {
             active.deathday = Set(Some(date));
         }
-    }
     if let Some(place) = &detail.place_of_birth {
         active.birthplace = Set(Some(place.clone()));
     }
@@ -111,18 +109,16 @@ pub async fn handle(
     }
 
     // Aliases from also_known_as
-    if let Some(aka) = &detail.also_known_as {
-        if !aka.is_empty() {
+    if let Some(aka) = &detail.also_known_as
+        && !aka.is_empty() {
             active.aliases = Set(Some(aka.clone()));
         }
-    }
 
     // IMDb ID from external_ids
-    if let Some(ext) = &detail.external_ids {
-        if let Some(imdb_id) = &ext.imdb_id {
+    if let Some(ext) = &detail.external_ids
+        && let Some(imdb_id) = &ext.imdb_id {
             active.imdb_id = Set(Some(imdb_id.clone()));
         }
-    }
 
     // Dispatch image_upload job for the profile image
     if let Some(profile_path) = &detail.profile_path {

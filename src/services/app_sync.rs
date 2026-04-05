@@ -308,6 +308,7 @@ impl AppSyncService {
 
     // ── core sync logic ─────────────────────────────────────────────────
 
+    #[allow(clippy::too_many_arguments)]
     async fn do_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -540,6 +541,7 @@ impl AppSyncService {
     /// Batch size for flushing accumulated jobs to DB.
     const JOB_BATCH_FLUSH_SIZE: usize = 50;
 
+    #[allow(clippy::too_many_arguments)]
     async fn sync_fs_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -990,8 +992,8 @@ impl AppSyncService {
     }
 
     fn get_album_info(file: &CollectedAudioFile) -> (String, String, Option<i32>) {
-        if let Some(ref tags) = file.tags {
-            if let Some(ref album) = tags.album {
+        if let Some(ref tags) = file.tags
+            && let Some(ref album) = tags.album {
                 let artist_name = tags
                     .album_artist
                     .clone()
@@ -1000,7 +1002,6 @@ impl AppSyncService {
                 let clean_album = Self::extract_clean_title(album);
                 return (artist_name, clean_album, tags.year);
             }
-        }
 
         let file_name = file
             .file_path
@@ -1095,11 +1096,9 @@ impl AppSyncService {
                 if let Some(person) = persons::Entity::find_by_id(credit.person_id)
                     .one(db)
                     .await?
-                {
-                    if person.name.to_lowercase() == group.artist_name.to_lowercase() {
+                    && person.name.to_lowercase() == group.artist_name.to_lowercase() {
                         return Ok(album.id);
                     }
-                }
             }
         }
 
@@ -1403,8 +1402,8 @@ impl AppSyncService {
         active.update(db).await?;
 
         // Try to find local cover art
-        if is_local {
-            if let Some(vfs) = vfs {
+        if is_local
+            && let Some(vfs) = vfs {
                 for cover_name in Self::COVER_ART_NAMES {
                     let cover_path = format!(
                         "{}/{}",
@@ -1428,7 +1427,6 @@ impl AppSyncService {
                     }
                 }
             }
-        }
 
         Ok(())
     }
@@ -1533,11 +1531,10 @@ impl AppSyncService {
                 .one(db)
                 .await?;
 
-            if let Some(ref ex) = existing {
-                if ex.checksum.as_deref() == Some(&checksum) {
+            if let Some(ref ex) = existing
+                && ex.checksum.as_deref() == Some(&checksum) {
                     continue;
                 }
-            }
 
             // Read tags for local sources using lofty (in blocking task)
             let tags = if is_local {
@@ -1710,8 +1707,8 @@ impl AppSyncService {
                 .filter(music_files::Column::TrackId.eq(*track_id))
                 .count(db)
                 .await?;
-            if remaining == 0 {
-                if let Some(track) = music_tracks::Entity::find_by_id(*track_id)
+            if remaining == 0
+                && let Some(track) = music_tracks::Entity::find_by_id(*track_id)
                     .one(db)
                     .await?
                 {
@@ -1720,7 +1717,6 @@ impl AppSyncService {
                         .exec(db)
                         .await?;
                 }
-            }
         }
 
         // Cascade: delete orphan albums (no remaining tracks)
@@ -1780,8 +1776,8 @@ impl AppSyncService {
                     return Ok(movie.poster_path.is_none());
                 }
             }
-        } else if is_tv {
-            if let Some(episode_id) = file.episode_id {
+        } else if is_tv
+            && let Some(episode_id) = file.episode_id {
                 let episode = episodes::Entity::find_by_id(episode_id).one(db).await?;
                 if let Some(episode) = episode {
                     let tv_show = tv_shows::Entity::find_by_id(episode.tv_show_id)
@@ -1792,7 +1788,6 @@ impl AppSyncService {
                     }
                 }
             }
-        }
         Ok(false)
     }
 
@@ -1900,13 +1895,12 @@ impl AppSyncService {
                 .filter(video_files::Column::EpisodeId.eq(*episode_id))
                 .count(db)
                 .await?;
-            if remaining == 0 {
-                if let Some(ep) = episodes::Entity::find_by_id(*episode_id).one(db).await? {
+            if remaining == 0
+                && let Some(ep) = episodes::Entity::find_by_id(*episode_id).one(db).await? {
                     season_ids.insert(ep.season_id);
                     tv_show_ids.insert(ep.tv_show_id);
                     episodes::Entity::delete_by_id(*episode_id).exec(db).await?;
                 }
-            }
         }
 
         for season_id in &season_ids {

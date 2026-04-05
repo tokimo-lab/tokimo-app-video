@@ -55,15 +55,14 @@ fn score_candidate(
         score += 50.0;
     }
 
-    if let (Some(py), Some(rd)) = (year, &candidate.release_date) {
-        if let Ok(cy) = rd.get(..4).unwrap_or("").parse::<i32>() {
+    if let (Some(py), Some(rd)) = (year, &candidate.release_date)
+        && let Ok(cy) = rd.get(..4).unwrap_or("").parse::<i32>() {
             if cy == py {
                 score += 30.0;
             } else if (cy - py).abs() <= 1 {
                 score += 15.0;
             }
         }
-    }
 
     let expected = if is_tv { "tv" } else { "movie" };
     if candidate.media_type == expected {
@@ -117,19 +116,17 @@ pub async fn scrape_movie(
         || artwork.fanart_buf.is_none() && nfo_backdrop_tmdb.is_none();
 
     if let Some(nfo) = nfo {
-        if let Some(ref tmdb_id) = nfo.tmdb_id {
-            if let Ok(id) = tmdb_id.parse::<i64>() {
+        if let Some(ref tmdb_id) = nfo.tmdb_id
+            && let Ok(id) = tmdb_id.parse::<i64>() {
                 if nfo.is_sufficient() && !needs_remote_art {
                     return None;
                 }
                 return tmdb.get_movie_detail(id).await.ok();
             }
-        }
-        if let Some(ref imdb_id) = nfo.imdb_id {
-            if let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
+        if let Some(ref imdb_id) = nfo.imdb_id
+            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
                 return tmdb.get_movie_detail(found.id).await.ok();
             }
-        }
     }
 
     let mut candidates = tmdb
@@ -170,19 +167,17 @@ pub async fn scrape_tv(
         || artwork.fanart_buf.is_none() && nfo_backdrop_tmdb.is_none();
 
     if let Some(nfo) = nfo {
-        if let Some(ref tmdb_id) = nfo.tmdb_id {
-            if let Ok(id) = tmdb_id.parse::<i64>() {
+        if let Some(ref tmdb_id) = nfo.tmdb_id
+            && let Ok(id) = tmdb_id.parse::<i64>() {
                 if nfo.is_sufficient() && !needs_remote_art {
                     return None;
                 }
                 return tmdb.get_tv_detail(id).await.ok();
             }
-        }
-        if let Some(ref imdb_id) = nfo.imdb_id {
-            if let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
+        if let Some(ref imdb_id) = nfo.imdb_id
+            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
                 return tmdb.get_tv_detail(found.id).await.ok();
             }
-        }
     }
 
     let mut candidates = tmdb

@@ -485,7 +485,7 @@ pub(crate) async fn parse_iso_m2ts(
             handle.block_on(async move {
                 vfs.read_bytes(std::path::Path::new(&path), offset, Some(size as u64))
                     .await
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                    .map_err(std::io::Error::other)
             })
         })
     });
@@ -522,7 +522,7 @@ fn build_direct_input_from_m2ts(
                 handle.block_on(async move {
                     vfs.read_bytes(std::path::Path::new(&path), iso_offset, Some(len as u64))
                         .await
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                        .map_err(std::io::Error::other)
                 })
             })?;
             if let Some(ref tx) = subtitle_tap {
@@ -576,6 +576,7 @@ fn read_from_m2ts_extents(
 }
 
 
+#[allow(clippy::too_many_arguments)]
 async fn create_hls_session_internal(
     state: &AppState,
     file: &video_files::Model,
@@ -737,7 +738,7 @@ async fn build_direct_input(
                         Ok(buf)
                     }
                 }
-                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
+                Err(e) => Err(std::io::Error::other(e)),
             }
         }),
         size: file_size,
@@ -888,7 +889,7 @@ pub async fn watch_history(
     };
     let movie_id = q.movie_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
-    let limit = q.limit.unwrap_or(20).min(50).max(1);
+    let limit = q.limit.unwrap_or(20).clamp(1, 50);
 
     match PlaybackRepo::get_watch_history(&state.db, user_id, movie_id, episode_id, limit).await {
         Ok(items) => ok(items).into_response(),

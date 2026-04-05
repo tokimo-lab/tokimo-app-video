@@ -108,11 +108,10 @@ pub async fn find_or_create_online_video(
                         .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
                         .filter(movies::Column::Id.eq(id));
 
-                    if missing_metadata {
-                        if let Some(mj) = build_metadata_json(nfo, online_record) {
+                    if missing_metadata
+                        && let Some(mj) = build_metadata_json(nfo, online_record) {
                             update = update.col_expr(movies::Column::Metadata, Expr::value(mj));
                         }
-                    }
                     if missing_year {
                         let snapshot_date = online_record
                             .and_then(|r| r.analysis_snapshot.as_ref())
@@ -120,12 +119,12 @@ pub async fn find_or_create_online_video(
                                 s.get("releaseDate")
                                     .or_else(|| s.get("release_date"))
                                     .and_then(|v| v.as_str())
-                                    .and_then(|d| normalize_date_to_naive(d))
+                                    .and_then(normalize_date_to_naive)
                                     .or_else(|| {
                                         s.get("rawMetadata")
                                             .and_then(|rm| rm.get("upload_date"))
                                             .and_then(|v| v.as_str())
-                                            .and_then(|d| normalize_date_to_naive(d))
+                                            .and_then(normalize_date_to_naive)
                                     })
                             });
                         if let Some(d) = snapshot_date {
@@ -261,13 +260,13 @@ async fn create_record(
                     s.get("releaseDate")
                         .or_else(|| s.get("release_date"))
                         .and_then(|v| v.as_str())
-                        .and_then(|d| normalize_date_to_naive(d))
+                        .and_then(normalize_date_to_naive)
                         .or_else(|| {
                             // Try rawMetadata.upload_date (yt-dlp YYYYMMDD format)
                             s.get("rawMetadata")
                                 .and_then(|rm| rm.get("upload_date"))
                                 .and_then(|v| v.as_str())
-                                .and_then(|d| normalize_date_to_naive(d))
+                                .and_then(normalize_date_to_naive)
                         })
                 });
             let year = snapshot_date.map(|d| d.year());
@@ -361,16 +360,14 @@ fn build_metadata_json(
         }
     }
     if let Some(or) = online_record {
-        if !metadata.contains_key("uploader") {
-            if let Some(ref u) = or.uploader {
+        if !metadata.contains_key("uploader")
+            && let Some(ref u) = or.uploader {
                 metadata.insert("uploader".into(), json!(u));
             }
-        }
-        if !metadata.contains_key("sourceSite") {
-            if let Some(ref s) = or.source_site {
+        if !metadata.contains_key("sourceSite")
+            && let Some(ref s) = or.source_site {
                 metadata.insert("sourceSite".into(), json!(s));
             }
-        }
         if let Some(ref e) = or.external_id {
             metadata.insert("externalId".into(), json!(e));
         }
@@ -419,14 +416,13 @@ async fn upload_artwork_and_finish(
             .and_then(|n| n.poster_url.as_deref())
             .filter(|u| u.starts_with("http"))
             .or_else(|| online_record.and_then(|r| r.thumbnail_url.as_deref()));
-        if let Some(url) = thumb_url {
-            if !url.is_empty() {
+        if let Some(url) = thumb_url
+            && !url.is_empty() {
                 match download_thumbnail(state, url, &movie_id.to_string()).await {
                     Ok(sp) => poster_path = Some(sp),
                     Err(e) => tracing::warn!("[online_video] thumbnail download failed: {e}"),
                 }
             }
-        }
     }
 
     if poster_path.is_some() || backdrop_path.is_some() {

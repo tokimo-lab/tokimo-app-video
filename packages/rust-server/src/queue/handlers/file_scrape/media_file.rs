@@ -188,26 +188,22 @@ pub async fn try_nfo_patch(
     let mut entity_tv_show_id: Option<Uuid> = None;
 
     if lib_type.is_movie_family() {
-        if let Some(mid) = indexed.movie_id {
-            if let Ok(Some(movie)) = movies::Entity::find_by_id(mid).one(db).await {
+        if let Some(mid) = indexed.movie_id
+            && let Ok(Some(movie)) = movies::Entity::find_by_id(mid).one(db).await {
                 needs_tmdb_id = movie.tmdb_id.is_none();
                 needs_poster = movie.poster_path.is_none();
                 entity_movie_id = Some(mid);
             }
-        }
-    } else if lib_type.is_tv_family() {
-        if let Some(eid) = indexed.episode_id {
-            if let Ok(Some(ep)) = episodes::Entity::find_by_id(eid).one(db).await {
-                if let Ok(Some(show)) =
+    } else if lib_type.is_tv_family()
+        && let Some(eid) = indexed.episode_id
+            && let Ok(Some(ep)) = episodes::Entity::find_by_id(eid).one(db).await
+                && let Ok(Some(show)) =
                     tv_shows::Entity::find_by_id(ep.tv_show_id).one(db).await
                 {
                     needs_tmdb_id = show.tmdb_id.is_none();
                     needs_poster = show.poster_path.is_none();
                     entity_tv_show_id = Some(ep.tv_show_id);
                 }
-            }
-        }
-    }
 
     if (!needs_tmdb_id && !needs_poster)
         || (entity_movie_id.is_none() && entity_tv_show_id.is_none())
@@ -267,6 +263,7 @@ pub async fn try_nfo_patch(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn patch_movie(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
@@ -277,9 +274,9 @@ async fn patch_movie(
     poster_buf: &Option<Vec<u8>>,
     poster_filename: &Option<String>,
 ) {
-    if needs_tmdb_id {
-        if let Some(nfo) = nfo {
-            if nfo.tmdb_id.is_some() || nfo.imdb_id.is_some() {
+    if needs_tmdb_id
+        && let Some(nfo) = nfo
+            && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some()) {
                 let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(mid));
                 if let Some(ref tid) = nfo.tmdb_id {
                     update = update.col_expr(movies::Column::TmdbId, Expr::value(tid.as_str()));
@@ -294,8 +291,6 @@ async fn patch_movie(
                     nfo.imdb_id.as_deref().unwrap_or("-")
                 );
             }
-        }
-    }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
@@ -317,6 +312,7 @@ async fn patch_movie(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn patch_tv_show(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
@@ -327,9 +323,9 @@ async fn patch_tv_show(
     poster_buf: &Option<Vec<u8>>,
     poster_filename: &Option<String>,
 ) {
-    if needs_tmdb_id {
-        if let Some(nfo) = nfo {
-            if nfo.tmdb_id.is_some() || nfo.imdb_id.is_some() {
+    if needs_tmdb_id
+        && let Some(nfo) = nfo
+            && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some()) {
                 let mut update =
                     tv_shows::Entity::update_many().filter(tv_shows::Column::Id.eq(tid));
                 if let Some(ref tmdb) = nfo.tmdb_id {
@@ -345,8 +341,6 @@ async fn patch_tv_show(
                     nfo.imdb_id.as_deref().unwrap_or("-")
                 );
             }
-        }
-    }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);

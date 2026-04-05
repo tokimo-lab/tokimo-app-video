@@ -18,7 +18,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     db::models::subtitle::SubtitleRecord,
-    db::repos::subtitle_repo::SubtitleRepo,
+    db::repos::subtitle_repo::{CreateSubtitleInput, SubtitleRepo},
     handlers::{err500, ok, ApiResponse},
     services::storage::UploadOptions,
     AppState,
@@ -160,13 +160,15 @@ pub async fn download(
     // 4. Save to DB
     let row = match SubtitleRepo::create_subtitle(
         &state.db,
-        &input.file_id,
-        &input.language,
-        title,
-        &format,
-        &input.provider,
-        Some(input.subtitle_id),
-        &s3_key,
+        CreateSubtitleInput {
+            file_id: input.file_id.clone(),
+            language: input.language.clone(),
+            title,
+            format: format.clone(),
+            source: input.provider.clone(),
+            source_id: Some(input.subtitle_id.clone()),
+            s3_key: s3_key.clone(),
+        },
     )
     .await
     {
