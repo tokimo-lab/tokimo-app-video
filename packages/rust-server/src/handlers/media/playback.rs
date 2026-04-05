@@ -678,6 +678,8 @@ async fn create_hls_session_internal(
         transcode_audio: Some(transcode_audio),
         tonemap,
         video_codec: file.video_codec.clone(),
+        video_width: vs.width.map(|w| w as u32),
+        video_height: vs.height.map(|h| h as u32),
         video_fps: vs.frame_rate,
         video_bitrate: vs.bitrate_kbps.map(|k| (k * 1000) as u64),
         deinterlace: vs.is_interlaced.unwrap_or(false),
