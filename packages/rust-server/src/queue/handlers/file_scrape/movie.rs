@@ -54,7 +54,7 @@ pub async fn scrape(
         }
 
     let scraped =
-        tmdb_detail.is_some() || nfo.as_ref().is_some_and(|n| n.is_sufficient());
+        tmdb_detail.is_some() || nfo.as_ref().is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient);
 
     let result = find_or_create_movie(
         db, state, app_id, lib_type,
@@ -67,7 +67,7 @@ pub async fn scrape(
     Ok(MovieResult { movie_id: result.movie_id, scraped })
 }
 
-/// Compute a stable i64 advisory lock key from (app_id, title, year).
+/// Compute a stable i64 advisory lock key from (`app_id`, title, year).
 fn movie_lock_key(app_id: Uuid, title: &str, year: Option<i32>) -> i64 {
     let mut h = DefaultHasher::new();
     app_id.hash(&mut h);
@@ -77,8 +77,8 @@ fn movie_lock_key(app_id: Uuid, title: &str, year: Option<i32>) -> i64 {
 }
 
 /// Find or create a movie record, fully aligned with TS logic.
-/// Uses a PostgreSQL advisory lock keyed on (app_id, title, year) to prevent
-/// concurrent workers from creating duplicate movie records when tmdb_id is NULL.
+/// Uses a `PostgreSQL` advisory lock keyed on (`app_id`, title, year) to prevent
+/// concurrent workers from creating duplicate movie records when `tmdb_id` is NULL.
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_movie(
     db: &DatabaseConnection,
@@ -243,7 +243,7 @@ async fn find_existing_movie_by_title(
 }
 
 /// Backfill external IDs onto an existing movie when a new file brings better metadata.
-/// e.g. MKV was scraped with tmdb_id but BDMV matched by title — now copy tmdb_id over.
+/// e.g. MKV was scraped with `tmdb_id` but BDMV matched by title — now copy `tmdb_id` over.
 async fn backfill_external_ids(
     db: &impl ConnectionTrait,
     movie_id: Uuid,
@@ -326,7 +326,7 @@ async fn create_movie_record(
     let content_rating = nfo.and_then(|n| n.content_rating.clone());
     let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
     let scraped_at = if tmdb_detail.is_some()
-        || nfo.is_some_and(|n| n.is_sufficient())
+        || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient)
         || lib_type == LibType::Custom
     { Some(now) } else { None };
 
@@ -349,8 +349,8 @@ async fn create_movie_record(
         tmdb_rating: Set(tmdb_rating),
         imdb_rating: Set(None),
         douban_rating: Set(None),
-        tmdb_id: Set(if should_use_tmdb { tmdb_id_str.map(|s| s.to_string()) } else { None }),
-        imdb_id: Set(if should_use_tmdb { imdb_id_str.map(|s| s.to_string()) } else { None }),
+        tmdb_id: Set(if should_use_tmdb { tmdb_id_str.map(std::string::ToString::to_string) } else { None }),
+        imdb_id: Set(if should_use_tmdb { imdb_id_str.map(std::string::ToString::to_string) } else { None }),
         douban_id: Set(None),
         jav_number: Set(None),
         javbus_id: Set(None),

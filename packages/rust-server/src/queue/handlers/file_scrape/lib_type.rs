@@ -44,7 +44,7 @@ impl LibType {
         }
     }
 
-    /// True for all library types stored as movies (movie_id, not episode_id).
+    /// True for all library types stored as movies (`movie_id`, not `episode_id`).
     pub fn is_movie_family(self) -> bool {
         matches!(self, Self::Movie | Self::Adult | Self::Custom | Self::OnlineVideo)
     }

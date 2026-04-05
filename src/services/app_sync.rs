@@ -22,7 +22,7 @@ use crate::error::OptionExt;
 use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
-/// Types of media libraries (matches TS AppType).
+/// Types of media libraries (matches TS `AppType`).
 fn is_movie_type(lib_type: &str) -> bool {
     matches!(lib_type, "movie" | "adult" | "custom" | "online_video")
 }
@@ -181,7 +181,7 @@ impl AppSyncService {
     /// Execute full app sync.
     ///
     /// Walks file-system sources and writes pending `file_scrape` job records.
-    /// A separate TS worker polls the `jobs` table and dispatches into BullMQ.
+    /// A separate TS worker polls the `jobs` table and dispatches into `BullMQ`.
     pub async fn execute_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -267,7 +267,7 @@ impl AppSyncService {
         };
 
         let auto_flag = |key: &str| -> bool {
-            app_settings.get(key).and_then(|v| v.as_bool()).unwrap_or(true)
+            app_settings.get(key).and_then(sea_orm::JsonValue::as_bool).unwrap_or(true)
         };
 
         let ai_job_types: Vec<&str> = [
@@ -828,14 +828,14 @@ impl AppSyncService {
                 (
                     tag.title().map(|s| s.to_string()),
                     tag.artist().map(|s| s.to_string()),
-                    tag.get_string(&lofty::tag::ItemKey::AlbumArtist).map(|s| s.to_string()),
+                    tag.get_string(&lofty::tag::ItemKey::AlbumArtist).map(std::string::ToString::to_string),
                     tag.album().map(|s| s.to_string()),
                     tag.track().map(|n| n as i32),
                     tag.disk().map(|n| n as i32),
                     tag.year().map(|n| n as i32),
                     tag.genre().map(|s| s.to_string()),
-                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzRecordingId).map(|s| s.to_string()),
-                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzReleaseId).map(|s| s.to_string()),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzRecordingId).map(std::string::ToString::to_string),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzReleaseId).map(std::string::ToString::to_string),
                 )
             } else {
                 (None, None, None, None, None, None, None, None, None, None)
@@ -852,7 +852,7 @@ impl AppSyncService {
 
         let codec = {
             let file_type = tagged_file.file_type();
-            Some(format!("{:?}", file_type))
+            Some(format!("{file_type:?}"))
         };
 
         Some(AudioTagInfo {
@@ -982,9 +982,8 @@ impl AppSyncService {
                 let suffix = t[end + '》'.len_utf8()..].trim();
                 if suffix.is_empty() {
                     return inside.trim().to_string();
-                } else {
-                    return format!("{} {}", inside.trim(), suffix);
                 }
+                return format!("{} {}", inside.trim(), suffix);
             }
         }
 
@@ -1076,7 +1075,7 @@ impl AppSyncService {
         Ok(id)
     }
 
-    /// Find or create a MusicAlbum for the given group.
+    /// Find or create a `MusicAlbum` for the given group.
     async fn find_or_create_album(
         db: &DatabaseConnection,
         app_id: Uuid,
@@ -1132,7 +1131,7 @@ impl AppSyncService {
         Ok(id)
     }
 
-    /// Ensure an "artist" MediaCredit exists linking person to album.
+    /// Ensure an "artist" `MediaCredit` exists linking person to album.
     async fn ensure_artist_credit(
         db: &DatabaseConnection,
         album_id: Uuid,
@@ -1159,7 +1158,7 @@ impl AppSyncService {
         Ok(())
     }
 
-    /// Upsert a MusicTrack record.
+    /// Upsert a `MusicTrack` record.
     async fn upsert_track(
         db: &DatabaseConnection,
         album_id: Uuid,
@@ -1281,7 +1280,7 @@ impl AppSyncService {
         Ok(id)
     }
 
-    /// Upsert a MediaFile record linked to a music track.
+    /// Upsert a `MediaFile` record linked to a music track.
     async fn upsert_music_media_file(
         db: &DatabaseConnection,
         file: &CollectedAudioFile,
@@ -1375,10 +1374,10 @@ impl AppSyncService {
         };
 
         let now = Utc::now().fixed_offset();
-        let metadata = if !is_local {
-            Some(json!({"needsTagRead": true}))
-        } else {
+        let metadata = if is_local {
             None
+        } else {
+            Some(json!({"needsTagRead": true}))
         };
 
         let album = music_albums::Entity::find_by_id(album_id)
@@ -1661,7 +1660,7 @@ impl AppSyncService {
         seen_paths: &HashSet<String>,
     ) -> Result<(), AppError> {
         let normalized_root = root_path.trim_end_matches('/');
-        let prefix = format!("{}/", normalized_root);
+        let prefix = format!("{normalized_root}/");
 
         // Find all music_files for this source under root_path
         let db_files = music_files::Entity::find()
@@ -1818,8 +1817,8 @@ impl AppSyncService {
 
     // ── missing file cleanup ────────────────────────────────────────────
 
-    /// Delete video_files that are in DB but were NOT found during the walk.
-    /// Also cascade-deletes orphan movies/episodes/seasons/tv_shows.
+    /// Delete `video_files` that are in DB but were NOT found during the walk.
+    /// Also cascade-deletes orphan `movies/episodes/seasons/tv_shows`.
     async fn cleanup_missing_files(
         db: &DatabaseConnection,
         _app_id: Uuid,
@@ -1830,7 +1829,7 @@ impl AppSyncService {
     ) -> Result<(), AppError> {
         // Find all files in DB for this source under root_path
         let normalized_root = root_path.trim_end_matches('/');
-        let prefix = format!("{}/", normalized_root);
+        let prefix = format!("{normalized_root}/");
 
         let db_files = video_files::Entity::find()
             .filter(video_files::Column::SourceId.eq(source_id))
@@ -1935,7 +1934,7 @@ impl AppSyncService {
         seen_paths: &HashSet<String>,
     ) -> Result<(), AppError> {
         let normalized_root = root_path.trim_end_matches('/');
-        let prefix = format!("{}/", normalized_root);
+        let prefix = format!("{normalized_root}/");
 
         let db_photos = photos::Entity::find()
             .filter(photos::Column::AppId.eq(app_id))

@@ -20,7 +20,7 @@ pub async fn create_session(
     Json(req): Json<CreateSessionRequest>,
 ) -> Result<Json<ApiResponse<HlsSessionInfo>>, (StatusCode, Json<ApiResponse<HlsSessionInfo>>)> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
-    let base_url = format!("http://127.0.0.1:{}", port);
+    let base_url = format!("http://127.0.0.1:{port}");
 
     match state.hls_manager.create_session(req, &base_url).await {
         Ok(info) => Ok(ok(info)),
@@ -28,7 +28,7 @@ pub async fn create_session(
     }
 }
 
-/// DELETE /api/hls/{session_id} — stop an HLS session.
+/// DELETE /`api/hls/{session_id`} — stop an HLS session.
 pub async fn stop_session(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
@@ -59,7 +59,7 @@ pub async fn stop_sessions_for_file(
     StatusCode::NO_CONTENT.into_response()
 }
 
-/// GET /api/hls/{session_id}/playlist.m3u8 — serve the VOD playlist.
+/// GET /`api/hls/{session_id}/playlist.m3u8` — serve the VOD playlist.
 pub async fn get_playlist(
     State(state): State<Arc<AppState>>,
     Path(session_id): Path<String>,
@@ -86,7 +86,7 @@ pub async fn get_playlist(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
-/// GET /api/hls/{session_id}/{segment} — serve an HLS segment file.
+/// GET /`api/hls/{session_id}/{segment`} — serve an HLS segment file.
 pub async fn get_segment(
     State(state): State<Arc<AppState>>,
     Path((session_id, segment)): Path<(String, String)>,
@@ -108,12 +108,9 @@ pub async fn get_segment(
         s.prepare_segment_wait(&segment).await
     };
 
-    let wait_handle = match wait_handle {
-        Some(h) => h,
-        None => {
-            warn!("[HLS:{}] segment {} not available", session_id, segment);
-            return StatusCode::NOT_FOUND.into_response();
-        }
+    let wait_handle = if let Some(h) = wait_handle { h } else {
+        warn!("[HLS:{}] segment {} not available", session_id, segment);
+        return StatusCode::NOT_FOUND.into_response();
     };
 
     let prepare_ms = req_start.elapsed().as_millis();
@@ -124,21 +121,18 @@ pub async fn get_segment(
 
     let wait_ms = req_start.elapsed().as_millis();
 
-    let segment_path = match segment_path {
-        Some(path) => path,
-        None => {
-            warn!(
-                "[HLS:{}] segment {} wait timeout (prepare={}ms wait={}ms)",
-                session_id, segment, prepare_ms, wait_ms
-            );
-            return StatusCode::NOT_FOUND.into_response();
-        }
+    let segment_path = if let Some(path) = segment_path { path } else {
+        warn!(
+            "[HLS:{}] segment {} wait timeout (prepare={}ms wait={}ms)",
+            session_id, segment, prepare_ms, wait_ms
+        );
+        return StatusCode::NOT_FOUND.into_response();
     };
 
     match tokio::fs::File::open(&segment_path).await {
         Ok(file) => {
             let meta = file.metadata().await.ok();
-            let size = meta.as_ref().map(|m| m.len());
+            let size = meta.as_ref().map(std::fs::Metadata::len);
             let total_ms = req_start.elapsed().as_millis();
             let size_kb = size.unwrap_or(0) / 1024;
             debug!(

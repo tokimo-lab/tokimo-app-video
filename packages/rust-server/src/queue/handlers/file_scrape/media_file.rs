@@ -1,4 +1,4 @@
-//! VideoFile record creation/update, and NFO patch for already-indexed files.
+//! `VideoFile` record creation/update, and NFO patch for already-indexed files.
 
 use sea_orm::prelude::Expr;
 use sea_orm::*;
@@ -20,7 +20,7 @@ use super::DirContext;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
-/// Create a new VideoFile or re-associate an existing orphan.
+/// Create a new `VideoFile` or re-associate an existing orphan.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_or_update(
     db: &DatabaseConnection,
@@ -119,7 +119,7 @@ pub async fn create_or_update(
         size: Set(if file_size > 0 { Some(file_size) } else { None }),
         mime_type: Set(mime_type),
         duration: Set(duration),
-        checksum: Set(checksum.map(|s| s.to_string())),
+        checksum: Set(checksum.map(std::string::ToString::to_string)),
         video_codec: Set(video_codec),
         video_width: Set(video_width),
         video_height: Set(video_height),
@@ -215,8 +215,7 @@ pub async fn try_nfo_patch(
     let filename = indexed.filename.as_str();
     let stem = filename
         .rsplit_once('.')
-        .map(|(n, _)| n)
-        .unwrap_or(filename)
+        .map_or(filename, |(n, _)| n)
         .to_string();
     let dir_folder_name = dir_path
         .trim_end_matches('/')
@@ -362,7 +361,7 @@ async fn patch_tv_show(
     }
 }
 
-/// Read NFO file from a directory context for nfo_patch.
+/// Read NFO file from a directory context for `nfo_patch`.
 async fn read_nfo_for_patch(
     ctx: &DirContext,
     stem: &str,

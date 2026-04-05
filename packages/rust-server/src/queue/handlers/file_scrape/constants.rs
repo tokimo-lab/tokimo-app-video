@@ -1,4 +1,4 @@
-//! Constants for file_scrape handler.
+//! Constants for `file_scrape` handler.
 
 pub const SUBTITLE_EXTENSIONS: &[&str] = &[
     ".srt", ".ass", ".ssa", ".sub", ".idx", ".sup", ".vtt",

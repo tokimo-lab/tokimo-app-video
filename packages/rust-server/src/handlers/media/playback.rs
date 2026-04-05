@@ -288,8 +288,8 @@ pub async fn stream_url(
             let eff_video_reason = video_reason.as_deref()
                 .or(if force_sdr && is_hdr_content { Some("ForceSDR (HDR→SDR tone mapping)") } else { None })
                 .or(if should_transcode_video { open_gop_reason.as_deref() } else { None });
-            let eff_remux_reason = if !should_transcode_video { open_gop_reason.as_deref() } else { None };
-            let audio_codec_str = selected_audio.map(|a| a.codec.as_str()).unwrap_or("");
+            let eff_remux_reason = if should_transcode_video { None } else { open_gop_reason.as_deref() };
+            let audio_codec_str = selected_audio.map_or("", |a| a.codec.as_str());
             let audio_ch_str = selected_audio
                 .and_then(|a| a.channels)
                 .map(|c| c.to_string())
@@ -329,7 +329,7 @@ pub async fn stream_url(
                 source_type == "local",
                 source.config.as_ref(),
                 &auth.user_id,
-                file.source_id.as_ref().map(|u| u.to_string()).as_deref(),
+                file.source_id.as_ref().map(std::string::ToString::to_string).as_deref(),
                 iso_type,
             )
             .await
@@ -359,7 +359,7 @@ fn build_direct_stream_url(file: &video_files::Model) -> String {
 /// Strategy:
 /// 1. Path contains "dvd" (case-insensitive) → DVD ISO
 /// 2. Path contains "bluray" or "blu-ray" → Blu-ray ISO
-/// 3. Path contains Blu-ray quality markers (TrueHD, HEVC Remux, etc.) → Blu-ray
+/// 3. Path contains Blu-ray quality markers (`TrueHD`, HEVC Remux, etc.) → Blu-ray
 /// 4. Default: Blu-ray (the overwhelmingly common modern ISO format)
 fn detect_iso_type(path: &str) -> &'static str {
     let lower = path.to_lowercase();
@@ -376,7 +376,7 @@ fn detect_iso_type(path: &str) -> &'static str {
 /// to locate the main M2TS stream within the ISO, then returning an AVIO reader
 /// that maps M2TS-local byte offsets to the correct ranges within the ISO file.
 ///
-/// This allows FFmpeg to decode the M2TS without the ISO being mounted locally.
+/// This allows `FFmpeg` to decode the M2TS without the ISO being mounted locally.
 /// Serializable M2TS location info stored in `video_files.iso_meta`.
 /// Written during ffprobe scan; read during playback to skip UDF re-parsing.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -467,8 +467,8 @@ pub(crate) async fn build_iso_m2ts_input(
     build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap)
 }
 
-/// UDF parse + main M2TS selection. Called both from playback (when iso_meta is
-/// not in DB yet) and from the ffprobe scan (to populate iso_meta).
+/// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
+/// not in DB yet) and from the ffprobe scan (to populate `iso_meta`).
 pub(crate) async fn parse_iso_m2ts(
     vfs: &Arc<next_fs::Vfs>,
     iso_path: &str,
@@ -672,7 +672,7 @@ async fn create_hls_session_internal(
     let req = CreateSessionRequest {
         file_id: file.id.to_string(),
         local_path,
-        duration_secs: file.duration.unwrap_or(0) as f64,
+        duration_secs: f64::from(file.duration.unwrap_or(0)),
         audio_stream_index: audio_index as u32,
         audio_streams: hls_audio_streams,
         transcode_video,
@@ -695,14 +695,14 @@ async fn create_hls_session_internal(
         .hls_manager
         .create_session(req, &base_url)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.clone())?;
 
     Ok(format!("/api/hls/{}/playlist.m3u8", info.session_id))
 }
 
 /// Build a `DirectInput` for remote VFS-backed files.
 ///
-/// This allows FFmpeg to read directly from VFS via a custom AVIO context,
+/// This allows `FFmpeg` to read directly from VFS via a custom AVIO context,
 /// bypassing the HTTP→VFS→SMB round-trip that adds ~500ms per seek.
 async fn build_direct_input(
     state: &AppState,
@@ -756,7 +756,7 @@ async fn build_direct_input(
 
 /// Build a subtitle stream tap for HLS sessions using AVIO direct input.
 ///
-/// When FFmpeg reads via AVIO (bypassing the HTTP stream endpoint), the
+/// When `FFmpeg` reads via AVIO (bypassing the HTTP stream endpoint), the
 /// normal subtitle extraction tap in the stream handler is never triggered.
 /// This function builds an equivalent tap that can be fed from the AVIO reads.
 async fn build_subtitle_tap_for_hls(
@@ -792,7 +792,7 @@ async fn build_subtitle_tap_impl(
 
     let ffprobe_raw = rows[0].ffprobe_raw.clone();
     let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-    let subs: Vec<_> = rows.iter().map(|row| row.to_embedded_record()).collect();
+    let subs: Vec<_> = rows.iter().map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record).collect();
     let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
 
     build_stream_tap(

@@ -37,7 +37,7 @@ pub async fn upload_image_buffer(
     Ok(format!("/storage/{storage_key}"))
 }
 
-/// Dispatch TMDB image_upload job.
+/// Dispatch TMDB `image_upload` job.
 pub async fn dispatch_tmdb_image_job(
     db: &DatabaseConnection,
     tmdb_path: &str,
@@ -138,7 +138,7 @@ async fn read_file_from_dir(ctx: &DirContext, filename: &str) -> Option<Vec<u8>>
 }
 
 /// Upload poster and backdrop for a movie or TV show.
-/// Returns (poster_storage_path, backdrop_storage_path) for local uploads.
+/// Returns (`poster_storage_path`, `backdrop_storage_path`) for local uploads.
 #[allow(clippy::too_many_arguments)]
 pub async fn upload_poster_and_backdrop(
     db: &DatabaseConnection,
@@ -182,7 +182,7 @@ pub async fn upload_poster_and_backdrop(
     Ok((poster_storage_path, backdrop_storage_path))
 }
 
-/// Upload extra art to media_arts table.
+/// Upload extra art to `media_arts` table.
 pub async fn upload_extra_art(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
