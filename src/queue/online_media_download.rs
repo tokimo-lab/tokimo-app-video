@@ -545,34 +545,19 @@ pub async fn handle(
                             }
                         }
                     } else {
-                        // Local source: create media_file + ffprobe for immediate
-                        // visibility, then dispatch file_scrape for metadata extraction.
+                        // Local source: create media_file for immediate visibility,
+                        // then dispatch file_scrape (which runs ffprobe inline).
                         for output in &resp.output_files {
                             if !is_media_file(&output.path) {
                                 continue;
                             }
-                            if let Some(media_file_id) = create_media_file_for_output(
+                            create_media_file_for_output(
                                 db,
                                 output,
                                 source_id,
                                 fs_driver_root.as_deref(),
                             )
-                            .await
-                            {
-                                if let Err(e) = JobRepo::create_job(
-                                    db,
-                                    "media_file_ffprobe",
-                                    json!({ "mediaFileId": media_file_id.to_string() }),
-                                    None,
-                                )
-                                .await
-                                {
-                                    warn!(
-                                        %media_file_id,
-                                        "Failed to dispatch ffprobe job: {e}"
-                                    );
-                                }
-                            }
+                            .await;
 
                             let rel_path =
                                 to_relative_path(&output.path, fs_driver_root.as_deref());

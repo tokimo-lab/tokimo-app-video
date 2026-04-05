@@ -45,7 +45,7 @@ pub async fn stream_media_file(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
 ) -> Response {
-    let db = state.sources.db_conn();
+    let db = state.db.clone();
     let user_id = match validate_stream_access(
         &db,
         request.headers().get(header::COOKIE),

@@ -60,6 +60,7 @@ pub fn guess_mime(filename: &str) -> Option<String> {
         "rmvb" => "video/vnd.rn-realvideo",
         "rm" => "application/vnd.rn-realmedia-vbr",
         "vob" => "video/dvd",
+        "iso" => "video/iso-image",
         "m4a" => "audio/mp4",
         "mp3" => "audio/mpeg",
         "flac" => "audio/flac",
