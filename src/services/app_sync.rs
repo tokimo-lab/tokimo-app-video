@@ -12,7 +12,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, file_systems, app_file_systems, media_credits, media_files, apps,
+    episodes, file_systems, app_file_systems, media_credits, video_files, music_files, novel_files, apps,
     movies, music_albums, music_tracks, persons, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
@@ -391,12 +391,12 @@ impl AppSyncService {
                 .map(|m| m.id)
                 .collect();
             if !movie_ids.is_empty() {
-                let mf_deleted = media_files::Entity::delete_many()
-                    .filter(media_files::Column::MovieId.is_in(movie_ids.clone()))
+                let mf_deleted = video_files::Entity::delete_many()
+                    .filter(video_files::Column::MovieId.is_in(movie_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {mf_deleted} media files (linked to movies)");
+                info!("  Deleted {mf_deleted} video files (linked to movies)");
             }
 
             let deleted = movies::Entity::delete_many()
@@ -423,12 +423,12 @@ impl AppSyncService {
                     .map(|e| e.id)
                     .collect();
                 if !episode_ids.is_empty() {
-                    let mf_deleted = media_files::Entity::delete_many()
-                        .filter(media_files::Column::EpisodeId.is_in(episode_ids))
+                    let mf_deleted = video_files::Entity::delete_many()
+                        .filter(video_files::Column::EpisodeId.is_in(episode_ids))
                         .exec(db)
                         .await?
                         .rows_affected;
-                    info!("  Deleted {mf_deleted} media files (linked to episodes)");
+                    info!("  Deleted {mf_deleted} video files (linked to episodes)");
                 }
             }
 
@@ -470,12 +470,12 @@ impl AppSyncService {
                     .rows_affected;
                 info!("  Deleted {vol_deleted} novel volumes");
 
-                let mf_deleted = media_files::Entity::delete_many()
-                    .filter(media_files::Column::NovelId.is_in(novel_ids.clone()))
+                let mf_deleted = novel_files::Entity::delete_many()
+                    .filter(novel_files::Column::NovelId.is_in(novel_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {mf_deleted} media files (linked to novels)");
+                info!("  Deleted {mf_deleted} novel files (linked to novels)");
             }
 
             let deleted = novels::Entity::delete_many()
@@ -493,19 +493,40 @@ impl AppSyncService {
             info!("  Deleted {deleted} photos");
         }
 
-        // Delete orphaned media_files (unlinked, with movie_id/episode_id/track_id all NULL)
+        // Delete orphaned video_files (unlinked, with movie_id AND episode_id both NULL)
         // that belong to this library's sources.
-        if !source_ids.is_empty() {
-            let orphan_deleted = media_files::Entity::delete_many()
-                .filter(media_files::Column::SourceId.is_in(source_ids))
-                .filter(media_files::Column::MovieId.is_null())
-                .filter(media_files::Column::EpisodeId.is_null())
-                .filter(media_files::Column::TrackId.is_null())
+        if !source_ids.is_empty() && (is_movie_type(lib_type) || is_tv_type(lib_type)) {
+            let orphan_deleted = video_files::Entity::delete_many()
+                .filter(video_files::Column::SourceId.is_in(source_ids.clone()))
+                .filter(video_files::Column::MovieId.is_null())
+                .filter(video_files::Column::EpisodeId.is_null())
                 .exec(db)
                 .await?
                 .rows_affected;
             if orphan_deleted > 0 {
-                info!("  Deleted {orphan_deleted} orphaned media files");
+                info!("  Deleted {orphan_deleted} orphaned video files");
+            }
+        }
+        if !source_ids.is_empty() && is_music_type(lib_type) {
+            let orphan_deleted = music_files::Entity::delete_many()
+                .filter(music_files::Column::SourceId.is_in(source_ids.clone()))
+                .filter(music_files::Column::TrackId.is_null())
+                .exec(db)
+                .await?
+                .rows_affected;
+            if orphan_deleted > 0 {
+                info!("  Deleted {orphan_deleted} orphaned music files");
+            }
+        }
+        if !source_ids.is_empty() && is_novel_type(lib_type) {
+            let orphan_deleted = novel_files::Entity::delete_many()
+                .filter(novel_files::Column::SourceId.is_in(source_ids.clone()))
+                .filter(novel_files::Column::NovelId.is_null())
+                .exec(db)
+                .await?
+                .rows_affected;
+            if orphan_deleted > 0 {
+                info!("  Deleted {orphan_deleted} orphaned novel files");
             }
         }
 
@@ -621,10 +642,10 @@ impl AppSyncService {
                 continue;
             }
 
-            // Video/TV/Movie libraries: check media_files table with checksum.
+            // Video/TV/Movie libraries: check video_files table with checksum.
             if !is_photo && !is_novel {
                 let existing =
-                    Self::find_existing_media_file(db, source_id, &video.file_path, is_movie, is_tv)
+                    Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv)
                         .await?;
 
                 if let Some(existing) = existing {
@@ -638,7 +659,7 @@ impl AppSyncService {
                     }
 
                     if !checksum_matches {
-                        Self::reset_media_file_link(db, existing.id, &checksum).await?;
+                        Self::reset_video_file_link(db, existing.id, &checksum).await?;
                     }
                 }
             }
@@ -1276,9 +1297,9 @@ impl AppSyncService {
         let mime_type = Self::audio_mime_type(&file.file_path);
         let now = Utc::now().fixed_offset();
 
-        let existing = media_files::Entity::find()
-            .filter(media_files::Column::SourceId.eq(file.source_id))
-            .filter(media_files::Column::Path.eq(&file.file_path))
+        let existing = music_files::Entity::find()
+            .filter(music_files::Column::SourceId.eq(file.source_id))
+            .filter(music_files::Column::Path.eq(&file.file_path))
             .one(db)
             .await?;
 
@@ -1288,7 +1309,7 @@ impl AppSyncService {
             {
                 return Ok(());
             }
-            let mut active: media_files::ActiveModel = existing.into();
+            let mut active: music_files::ActiveModel = existing.into();
             active.checksum = Set(Some(checksum));
             active.track_id = Set(Some(track_id));
             active.size = Set(Some(file.file_size as i64));
@@ -1301,7 +1322,7 @@ impl AppSyncService {
             return Ok(());
         }
 
-        let active = media_files::ActiveModel {
+        let active = music_files::ActiveModel {
             id: Set(Uuid::new_v4()),
             source_id: Set(Some(file.source_id)),
             path: Set(file.file_path.clone()),
@@ -1315,7 +1336,7 @@ impl AppSyncService {
             created_at: Set(Some(now)),
             ..Default::default()
         };
-        media_files::Entity::insert(active).exec(db).await?;
+        music_files::Entity::insert(active).exec(db).await?;
         Ok(())
     }
 
@@ -1505,10 +1526,10 @@ impl AppSyncService {
             let checksum = format!("{}:{}", audio_file.file_size, audio_file.mtime);
 
             // Skip unchanged files
-            let existing = media_files::Entity::find()
-                .filter(media_files::Column::SourceId.eq(source_id))
-                .filter(media_files::Column::Path.eq(&audio_file.file_path))
-                .filter(media_files::Column::TrackId.is_not_null())
+            let existing = music_files::Entity::find()
+                .filter(music_files::Column::SourceId.eq(source_id))
+                .filter(music_files::Column::Path.eq(&audio_file.file_path))
+                .filter(music_files::Column::TrackId.is_not_null())
                 .one(db)
                 .await?;
 
@@ -1645,19 +1666,19 @@ impl AppSyncService {
         let normalized_root = root_path.trim_end_matches('/');
         let prefix = format!("{}/", normalized_root);
 
-        // Find all music media_files for this source under root_path
-        let db_files = media_files::Entity::find()
-            .filter(media_files::Column::SourceId.eq(source_id))
-            .filter(media_files::Column::TrackId.is_not_null())
+        // Find all music_files for this source under root_path
+        let db_files = music_files::Entity::find()
+            .filter(music_files::Column::SourceId.eq(source_id))
+            .filter(music_files::Column::TrackId.is_not_null())
             .filter(
                 sea_orm::Condition::any()
-                    .add(media_files::Column::Path.eq(normalized_root))
-                    .add(media_files::Column::Path.starts_with(&prefix)),
+                    .add(music_files::Column::Path.eq(normalized_root))
+                    .add(music_files::Column::Path.starts_with(&prefix)),
             )
             .all(db)
             .await?;
 
-        let stale_files: Vec<&media_files::Model> = db_files
+        let stale_files: Vec<&music_files::Model> = db_files
             .iter()
             .filter(|f| !seen_paths.contains(&f.path))
             .collect();
@@ -1676,17 +1697,17 @@ impl AppSyncService {
         let stale_file_ids: Vec<Uuid> = stale_files.iter().map(|f| f.id).collect();
         let track_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.track_id).collect();
 
-        // Delete stale media files
-        media_files::Entity::delete_many()
-            .filter(media_files::Column::Id.is_in(stale_file_ids))
+        // Delete stale music files
+        music_files::Entity::delete_many()
+            .filter(music_files::Column::Id.is_in(stale_file_ids))
             .exec(db)
             .await?;
 
         // Cascade: delete orphan tracks (no remaining files)
         let mut album_ids: HashSet<Uuid> = HashSet::new();
         for track_id in &track_ids {
-            let remaining = media_files::Entity::find()
-                .filter(media_files::Column::TrackId.eq(*track_id))
+            let remaining = music_files::Entity::find()
+                .filter(music_files::Column::TrackId.eq(*track_id))
                 .count(db)
                 .await?;
             if remaining == 0 {
@@ -1718,25 +1739,25 @@ impl AppSyncService {
         Ok(())
     }
 
-    // ── find existing media file ────────────────────────────────────────
+    // ── find existing video file ────────────────────────────────────────
 
-    /// Look up an existing `media_files` record for the given source + path,
+    /// Look up an existing `video_files` record for the given source + path,
     /// scoped to the library type (movie vs tv).
-    async fn find_existing_media_file(
+    async fn find_existing_video_file(
         db: &DatabaseConnection,
         source_id: Uuid,
         file_path: &str,
         is_movie: bool,
         is_tv: bool,
-    ) -> Result<Option<media_files::Model>, AppError> {
-        let mut query = media_files::Entity::find()
-            .filter(media_files::Column::SourceId.eq(source_id))
-            .filter(media_files::Column::Path.eq(file_path));
+    ) -> Result<Option<video_files::Model>, AppError> {
+        let mut query = video_files::Entity::find()
+            .filter(video_files::Column::SourceId.eq(source_id))
+            .filter(video_files::Column::Path.eq(file_path));
 
         if is_movie {
-            query = query.filter(media_files::Column::MovieId.is_not_null());
+            query = query.filter(video_files::Column::MovieId.is_not_null());
         } else if is_tv {
-            query = query.filter(media_files::Column::EpisodeId.is_not_null());
+            query = query.filter(video_files::Column::EpisodeId.is_not_null());
         }
 
         Ok(query.one(db).await?)
@@ -1748,7 +1769,7 @@ impl AppSyncService {
     /// and the file should be re-scraped.
     async fn needs_artwork_backfill(
         db: &DatabaseConnection,
-        file: &media_files::Model,
+        file: &video_files::Model,
         is_movie: bool,
         is_tv: bool,
     ) -> Result<bool, AppError> {
@@ -1775,21 +1796,21 @@ impl AppSyncService {
         Ok(false)
     }
 
-    // ── reset media file link ───────────────────────────────────────────
+    // ── reset video file link ───────────────────────────────────────────
 
     /// When a file's checksum changed, clear its linked movie/episode so it
     /// gets re-scraped.
-    async fn reset_media_file_link(
+    async fn reset_video_file_link(
         db: &DatabaseConnection,
         file_id: Uuid,
         new_checksum: &str,
     ) -> Result<(), AppError> {
-        let model = media_files::Entity::find_by_id(file_id)
+        let model = video_files::Entity::find_by_id(file_id)
             .one(db)
             .await?
-            .not_found(format!("media file {file_id} not found"))?;
+            .not_found(format!("video file {file_id} not found"))?;
 
-        let mut active: media_files::ActiveModel = model.into();
+        let mut active: video_files::ActiveModel = model.into();
         active.checksum = Set(Some(new_checksum.to_string()));
         active.movie_id = Set(None);
         active.episode_id = Set(None);
@@ -1802,7 +1823,7 @@ impl AppSyncService {
 
     // ── missing file cleanup ────────────────────────────────────────────
 
-    /// Delete media_files that are in DB but were NOT found during the walk.
+    /// Delete video_files that are in DB but were NOT found during the walk.
     /// Also cascade-deletes orphan movies/episodes/seasons/tv_shows.
     async fn cleanup_missing_files(
         db: &DatabaseConnection,
@@ -1816,12 +1837,12 @@ impl AppSyncService {
         let normalized_root = root_path.trim_end_matches('/');
         let prefix = format!("{}/", normalized_root);
 
-        let db_files = media_files::Entity::find()
-            .filter(media_files::Column::SourceId.eq(source_id))
+        let db_files = video_files::Entity::find()
+            .filter(video_files::Column::SourceId.eq(source_id))
             .filter(
                 sea_orm::Condition::any()
-                    .add(media_files::Column::Path.eq(normalized_root))
-                    .add(media_files::Column::Path.starts_with(&prefix)),
+                    .add(video_files::Column::Path.eq(normalized_root))
+                    .add(video_files::Column::Path.starts_with(&prefix)),
             )
             .all(db)
             .await?;
@@ -1845,7 +1866,7 @@ impl AppSyncService {
         );
 
         // Collect related IDs for cascade cleanup
-        let stale_files: Vec<&media_files::Model> = db_files
+        let stale_files: Vec<&video_files::Model> = db_files
             .iter()
             .filter(|f| stale_file_ids.contains(&f.id))
             .collect();
@@ -1853,16 +1874,16 @@ impl AppSyncService {
         let movie_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.movie_id).collect();
         let episode_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.episode_id).collect();
 
-        // Delete the stale media files
-        media_files::Entity::delete_many()
-            .filter(media_files::Column::Id.is_in(stale_file_ids.clone()))
+        // Delete the stale video files
+        video_files::Entity::delete_many()
+            .filter(video_files::Column::Id.is_in(stale_file_ids.clone()))
             .exec(db)
             .await?;
 
         // Cascade: delete orphan movies (no remaining files)
         for movie_id in &movie_ids {
-            let remaining = media_files::Entity::find()
-                .filter(media_files::Column::MovieId.eq(*movie_id))
+            let remaining = video_files::Entity::find()
+                .filter(video_files::Column::MovieId.eq(*movie_id))
                 .count(db)
                 .await?;
             if remaining == 0 {
@@ -1875,8 +1896,8 @@ impl AppSyncService {
         let mut tv_show_ids = HashSet::new();
 
         for episode_id in &episode_ids {
-            let remaining = media_files::Entity::find()
-                .filter(media_files::Column::EpisodeId.eq(*episode_id))
+            let remaining = video_files::Entity::find()
+                .filter(video_files::Column::EpisodeId.eq(*episode_id))
                 .count(db)
                 .await?;
             if remaining == 0 {

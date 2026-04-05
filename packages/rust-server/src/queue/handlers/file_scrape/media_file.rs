@@ -1,4 +1,4 @@
-//! MediaFile record creation/update, and NFO patch for already-indexed files.
+//! VideoFile record creation/update, and NFO patch for already-indexed files.
 
 use sea_orm::prelude::Expr;
 use sea_orm::*;
@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{episodes, media_files, movies, tv_shows};
+use crate::db::entities::{episodes, video_files, movies, tv_shows};
 use crate::queue::handlers::common;
 use crate::AppState;
 
@@ -20,7 +20,7 @@ use super::DirContext;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
-/// Create a new MediaFile or re-associate an existing orphan.
+/// Create a new VideoFile or re-associate an existing orphan.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_or_update(
     db: &DatabaseConnection,
@@ -38,44 +38,44 @@ pub async fn create_or_update(
 ) -> Result<Uuid, BoxError> {
     // Match orphan (no association) OR same-library file
     let or_conditions = {
-        let mut conds = vec!["(media_files.movie_id IS NULL AND media_files.episode_id IS NULL AND media_files.track_id IS NULL)".to_string()];
+        let mut conds = vec!["(video_files.movie_id IS NULL AND video_files.episode_id IS NULL)".to_string()];
         if movie_id.is_some() {
-            conds.push(format!("EXISTS (SELECT 1 FROM movies m WHERE m.id = media_files.movie_id AND m.app_id = '{app_uuid}')"));
+            conds.push(format!("EXISTS (SELECT 1 FROM movies m WHERE m.id = video_files.movie_id AND m.app_id = '{app_uuid}')"));
         }
         if episode_id.is_some() {
-            conds.push(format!("EXISTS (SELECT 1 FROM episodes e JOIN tv_shows ts ON e.tv_show_id = ts.id WHERE e.id = media_files.episode_id AND ts.app_id = '{app_uuid}')"));
+            conds.push(format!("EXISTS (SELECT 1 FROM episodes e JOIN tv_shows ts ON e.tv_show_id = ts.id WHERE e.id = video_files.episode_id AND ts.app_id = '{app_uuid}')"));
         }
         conds.join(" OR ")
     };
 
-    let existing = media_files::Entity::find()
-        .filter(media_files::Column::SourceId.eq(source_uuid))
-        .filter(media_files::Column::Path.eq(file_path))
+    let existing = video_files::Entity::find()
+        .filter(video_files::Column::SourceId.eq(source_uuid))
+        .filter(video_files::Column::Path.eq(file_path))
         .filter(Expr::cust(format!("({or_conditions})")))
         .one(db)
         .await?;
 
     if let Some(existing) = existing {
         let mut update =
-            media_files::Entity::update_many().filter(media_files::Column::Id.eq(existing.id));
+            video_files::Entity::update_many().filter(video_files::Column::Id.eq(existing.id));
         if movie_id.is_some() {
-            update = update.col_expr(media_files::Column::MovieId, Expr::value(movie_id));
+            update = update.col_expr(video_files::Column::MovieId, Expr::value(movie_id));
         }
         if episode_id.is_some() {
-            update = update.col_expr(media_files::Column::EpisodeId, Expr::value(episode_id));
+            update = update.col_expr(video_files::Column::EpisodeId, Expr::value(episode_id));
         }
         if let Some(cs) = checksum {
-            update = update.col_expr(media_files::Column::Checksum, Expr::value(cs));
+            update = update.col_expr(video_files::Column::Checksum, Expr::value(cs));
         }
         update
-            .col_expr(media_files::Column::ScannedAt, Expr::cust("NOW()"))
-            .col_expr(media_files::Column::IsAvailable, Expr::value(true))
+            .col_expr(video_files::Column::ScannedAt, Expr::cust("NOW()"))
+            .col_expr(video_files::Column::IsAvailable, Expr::value(true))
             .exec(db)
             .await?;
         return Ok(existing.id);
     }
 
-    let media_file_id = Uuid::new_v4();
+    let video_file_id = Uuid::new_v4();
     let now = chrono::Utc::now().fixed_offset();
     let mime_type = guess_mime(filename);
 
@@ -111,8 +111,8 @@ pub async fn create_or_update(
 
     let _ = lib_type; // reserved for future per-type logic
 
-    let model = media_files::ActiveModel {
-        id: Set(media_file_id),
+    let model = video_files::ActiveModel {
+        id: Set(video_file_id),
         source_id: Set(Some(source_uuid)),
         path: Set(file_path.to_string()),
         filename: Set(filename.to_string()),
@@ -133,42 +133,40 @@ pub async fn create_or_update(
         updated_at: Set(Some(now)),
         movie_id: Set(movie_id),
         episode_id: Set(episode_id),
-        track_id: Set(None),
-        novel_id: Set(None),
         edition_id: Set(None),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),
     };
 
-    match media_files::Entity::insert(model).exec(db).await {
+    match video_files::Entity::insert(model).exec(db).await {
         Ok(_) => {
-            info!("[file_scrape] Created media file: {filename} ({media_file_id})");
-            Ok(media_file_id)
+            info!("[file_scrape] Created video file: {filename} ({video_file_id})");
+            Ok(video_file_id)
         }
         Err(e) if common::is_unique_violation(&e) => {
-            let existing = media_files::Entity::find()
-                .filter(media_files::Column::SourceId.eq(source_uuid))
-                .filter(media_files::Column::Path.eq(file_path))
+            let existing = video_files::Entity::find()
+                .filter(video_files::Column::SourceId.eq(source_uuid))
+                .filter(video_files::Column::Path.eq(file_path))
                 .one(db)
                 .await?
                 .ok_or_else(|| {
-                    format!("Unique violation but no existing media_file for {file_path}")
+                    format!("Unique violation but no existing video_file for {file_path}")
                 })?;
-            let mut update = media_files::Entity::update_many()
-                .filter(media_files::Column::Id.eq(existing.id));
+            let mut update = video_files::Entity::update_many()
+                .filter(video_files::Column::Id.eq(existing.id));
             if movie_id.is_some() {
-                update = update.col_expr(media_files::Column::MovieId, Expr::value(movie_id));
+                update = update.col_expr(video_files::Column::MovieId, Expr::value(movie_id));
             }
             if episode_id.is_some() {
                 update =
-                    update.col_expr(media_files::Column::EpisodeId, Expr::value(episode_id));
+                    update.col_expr(video_files::Column::EpisodeId, Expr::value(episode_id));
             }
             update
-                .col_expr(media_files::Column::ScannedAt, Expr::cust("NOW()"))
-                .col_expr(media_files::Column::IsAvailable, Expr::value(true))
+                .col_expr(video_files::Column::ScannedAt, Expr::cust("NOW()"))
+                .col_expr(video_files::Column::IsAvailable, Expr::value(true))
                 .exec(db)
                 .await?;
-            info!("[file_scrape] Media file already exists (concurrent), updated: {filename}");
+            info!("[file_scrape] Video file already exists (concurrent), updated: {filename}");
             Ok(existing.id)
         }
         Err(e) => Err(e.into()),
@@ -183,7 +181,7 @@ pub async fn try_nfo_patch(
     source_id: &str,
     dir_path: &str,
     lib_type: LibType,
-    indexed: &media_files::Model,
+    indexed: &video_files::Model,
 ) {
     let mut needs_tmdb_id = false;
     let mut needs_poster = false;
@@ -371,7 +369,7 @@ async fn patch_tv_show(
     }
 }
 
-/// Local copy of read_nfo for use inside nfo_patch (avoids importing from mod.rs).
+/// Read NFO file from a directory context for nfo_patch.
 async fn read_nfo_for_patch(
     ctx: &DirContext,
     stem: &str,
@@ -405,3 +403,4 @@ async fn read_nfo_for_patch(
     let content = String::from_utf8_lossy(&bytes).to_string();
     Some(nfo_parser::parse_nfo(&content))
 }
+

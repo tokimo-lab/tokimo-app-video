@@ -7,7 +7,7 @@ use serde_json::{json, Value as JsonValue};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, file_systems, media_files};
+use crate::db::entities::{download_records, file_systems, video_files};
 use crate::db::repos::job_repo::JobRepo;
 use crate::services::storage::{StorageProvider, UploadOptions};
 use crate::AppState;
@@ -906,8 +906,8 @@ fn to_relative_path(abs_path: &str, driver_root: Option<&str>) -> String {
     abs_path.to_string()
 }
 
-/// Creates a `media_files` record for one downloaded output file. Returns the
-/// newly created media file ID, or `None` if the file is not a media file or
+/// Creates a `video_files` record for one downloaded output file. Returns the
+/// newly created video file ID, or `None` if the file is not a media file or
 /// the insert fails.
 async fn create_media_file_for_output(
     db: &DatabaseConnection,
@@ -928,11 +928,11 @@ async fn create_media_file_for_output(
         .to_string();
     let size = output.size_bytes.map(|s| s as i64);
     let mime = guess_mime(&filename);
-    let media_file_id = Uuid::new_v4();
+    let video_file_id = Uuid::new_v4();
     let now = chrono::Utc::now().fixed_offset();
 
-    let model = media_files::ActiveModel {
-        id: Set(media_file_id),
+    let model = video_files::ActiveModel {
+        id: Set(video_file_id),
         source_id: Set(Some(source_id)),
         path: Set(rel_path.clone()),
         filename: Set(filename.clone()),
@@ -953,24 +953,22 @@ async fn create_media_file_for_output(
         updated_at: Set(Some(now)),
         movie_id: Set(None),
         episode_id: Set(None),
-        track_id: Set(None),
-        novel_id: Set(None),
         edition_id: Set(None),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),
     };
 
-    match media_files::Entity::insert(model).exec(db).await {
+    match video_files::Entity::insert(model).exec(db).await {
         Ok(_) => {
             info!(
-                %media_file_id,
+                %video_file_id,
                 %filename,
-                "Created media file record for online media download"
+                "Created video file record for online media download"
             );
-            Some(media_file_id)
+            Some(video_file_id)
         }
         Err(e) => {
-            error!(%filename, "Failed to create media file record: {e}");
+            error!(%filename, "Failed to create video file record: {e}");
             None
         }
     }

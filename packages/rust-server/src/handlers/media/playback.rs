@@ -14,7 +14,7 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::db::entities::{file_systems, media_files};
+use crate::db::entities::{file_systems, video_files};
 use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
@@ -26,7 +26,7 @@ use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::scheduler::tasks::persist_playback_progress;
 use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
-use sea_orm::{EntityTrait, QuerySelect};
+use sea_orm::EntityTrait;
 
 // ── Query parameters ─────────────────────────────────────────────────────────
 
@@ -122,8 +122,8 @@ pub async fn stream_url(
 
     let db = &state.db;
 
-    // Single JOIN query: media_files + file_systems (no second round-trip).
-    let (file, source) = match media_files::Entity::find_by_id(file_uuid)
+    // Single JOIN query: video_files + file_systems (no second round-trip).
+    let (file, source) = match video_files::Entity::find_by_id(file_uuid)
         .find_also_related(file_systems::Entity)
         .one(db)
         .await
@@ -377,7 +377,7 @@ pub async fn stream_url(
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
-fn build_direct_stream_url(file: &media_files::Model) -> String {
+fn build_direct_stream_url(file: &video_files::Model) -> String {
     format!("/api/media-files/{}/stream", file.id)
 }
 
@@ -404,7 +404,7 @@ fn detect_iso_type(path: &str) -> &'static str {
 /// that maps M2TS-local byte offsets to the correct ranges within the ISO file.
 ///
 /// This allows FFmpeg to decode the M2TS without the ISO being mounted locally.
-/// Serializable M2TS location info stored in `media_files.iso_meta`.
+/// Serializable M2TS location info stored in `video_files.iso_meta`.
 /// Written during ffprobe scan; read during playback to skip UDF re-parsing.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct IsoMeta {
@@ -467,7 +467,7 @@ pub(crate) async fn build_iso_m2ts_input(
     let iso_path = file_path.to_string();
 
     // UDF parsing is expensive (~1s over SMB). The scan phase already parsed
-    // the UDF and stored the M2TS location in `media_files.iso_meta`. Use it
+    // the UDF and stored the M2TS location in `video_files.iso_meta`. Use it
     // when available; only fall back to live UDF parse for un-scanned files.
     let m2ts = if let Some(meta) = iso_meta {
         debug!("[ISO] Using pre-scanned M2TS info from iso_meta (no UDF re-parse)");
@@ -605,7 +605,7 @@ fn read_from_m2ts_extents(
 
 async fn create_hls_session_internal(
     state: &AppState,
-    file: &media_files::Model,
+    file: &video_files::Model,
     audio_streams: &[AudioStreamInfo],
     audio_index: usize,
     transcode_video: bool,
@@ -785,7 +785,7 @@ async fn build_direct_input(
 /// This function builds an equivalent tap that can be fed from the AVIO reads.
 async fn build_subtitle_tap_for_hls(
     state: &AppState,
-    file: &media_files::Model,
+    file: &video_files::Model,
 ) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     build_subtitle_tap_impl(state, file, &file.path).await
 }
@@ -795,7 +795,7 @@ async fn build_subtitle_tap_for_hls(
 /// Blu-ray where the inner stream is `.m2ts` even though the file is `.iso`.
 async fn build_subtitle_tap_for_hls_with_path(
     state: &AppState,
-    file: &media_files::Model,
+    file: &video_files::Model,
     tap_path: &str,
 ) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     build_subtitle_tap_impl(state, file, tap_path).await
@@ -803,7 +803,7 @@ async fn build_subtitle_tap_for_hls_with_path(
 
 async fn build_subtitle_tap_impl(
     state: &AppState,
-    file: &media_files::Model,
+    file: &video_files::Model,
     tap_path: &str,
 ) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     let file_id = file.id.to_string();
