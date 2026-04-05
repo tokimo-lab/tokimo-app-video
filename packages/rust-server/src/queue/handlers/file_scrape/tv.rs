@@ -127,11 +127,10 @@ pub async fn find_or_create_tv(
             if let Some(genres) = &detail.genres {
                 sync_genres(db, genres, None, Some(tv_show_id)).await?;
             }
-        } else if let Some(nfo) = nfo {
-            if !nfo.genres.is_empty() {
+        } else if let Some(nfo) = nfo
+            && !nfo.genres.is_empty() {
                 sync_genres_from_names(db, &nfo.genres, None, Some(tv_show_id)).await?;
             }
-        }
         // Cast + directors: unified sync (aligned with TS syncPeopleForMedia)
         {
             let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail {

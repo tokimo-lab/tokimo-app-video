@@ -34,11 +34,10 @@ pub async fn stop_session(
     Path(session_id): Path<String>,
 ) -> Response {
     debug!("[HLS] stop request for session {}", session_id);
-    if let Some(snap) = state.hls_manager.stop_session(&session_id).await {
-        if let Err(e) = persist_playback_progress(&state.db, &snap).await {
+    if let Some(snap) = state.hls_manager.stop_session(&session_id).await
+        && let Err(e) = persist_playback_progress(&state.db, &snap).await {
             warn!("[HLS] failed to persist final progress for {}: {}", session_id, e);
         }
-    }
     StatusCode::NO_CONTENT.into_response()
 }
 

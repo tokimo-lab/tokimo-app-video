@@ -364,14 +364,13 @@ pub async fn handle(
         let resp = task.to_response();
 
         // Write a log entry whenever the stage changes.
-        if resp.stage != last_logged_stage {
-            if let Some(ref stage) = resp.stage {
+        if resp.stage != last_logged_stage
+            && let Some(ref stage) = resp.stage {
                 let phase = stage_to_log_phase(stage);
                 let msg = stage_to_log_message(stage, resp.progress);
                 append_download_log(&state.storage, &record_uuid, &task_id, phase, &msg, None).await;
                 last_logged_stage = resp.stage.clone();
             }
-        }
 
         // Update download record with progress.
         let progress_str = to_record_progress(resp.progress);
@@ -423,7 +422,7 @@ pub async fn handle(
         .await
         {
             let _ = state.event_tx.send(crate::queue::AppEvent::JobUpdate {
-                job: crate::db::models::job::JobOutput::from(model),
+                job: Box::new(crate::db::models::job::JobOutput::from(model)),
             });
         }
 
@@ -896,14 +895,13 @@ fn guess_mime(filename: &str) -> Option<String> {
 /// Converts an absolute output file path to a VFS-relative path by stripping
 /// the file system's driver root (e.g. `root_folder_path`).
 fn to_relative_path(abs_path: &str, driver_root: Option<&str>) -> String {
-    if let Some(root) = driver_root {
-        if abs_path.starts_with(root) && abs_path.len() > root.len() {
+    if let Some(root) = driver_root
+        && abs_path.starts_with(root) && abs_path.len() > root.len() {
             let rel = &abs_path[root.len()..];
             if rel.starts_with('/') {
                 return rel.to_string();
             }
         }
-    }
     abs_path.to_string()
 }
 

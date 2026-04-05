@@ -94,14 +94,12 @@ pub async fn stream_media_file(
     if target.source_type.as_deref() == Some("local") {
         // When embedded subtitles need tapping, stream through VFS so chunks
         // are fed to the subtitle extractor. Otherwise use ServeFile for efficiency.
-        if tap_tx.is_some() {
-            if let Some(source_id) = target.source_id.as_deref() {
-                if let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
+        if tap_tx.is_some()
+            && let Some(source_id) = target.source_id.as_deref()
+                && let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
                     return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id.clone()))
                         .await;
                 }
-            }
-        }
 
         let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
         let response = match ServeFile::new(&abs_path)
@@ -166,23 +164,21 @@ async fn validate_stream_access(
         return Ok(user_id);
     }
 
-    if let Some(token) = access_token {
-        if AuthRepo::validate_internal_stream_token(db, token)
+    if let Some(token) = access_token
+        && AuthRepo::validate_internal_stream_token(db, token)
             .await
             .unwrap_or(false)
         {
             return Ok(user_id);
         }
-    }
 
-    if let Some(token) = access_token_header.and_then(|value| value.to_str().ok()) {
-        if AuthRepo::validate_internal_stream_token(db, token)
+    if let Some(token) = access_token_header.and_then(|value| value.to_str().ok())
+        && AuthRepo::validate_internal_stream_token(db, token)
             .await
             .unwrap_or(false)
         {
             return Ok(user_id);
         }
-    }
 
     if user_id.is_some() {
         // Session was already validated above when extracting user_id

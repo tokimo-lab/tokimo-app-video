@@ -44,18 +44,17 @@ pub async fn scrape(
 ) -> Result<MovieResult, Box<dyn std::error::Error + Send + Sync>> {
     let mut tmdb_detail: Option<TmdbMediaDetail> = None;
 
-    if lib_type.uses_tmdb() {
-        if let Some(api_key) = tmdb::get_api_key(db).await? {
+    if lib_type.uses_tmdb()
+        && let Some(api_key) = tmdb::get_api_key(db).await? {
             let client = tmdb::build_client(state, &api_key);
             tmdb_detail = tmdb::scrape_movie(
                 &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
             )
             .await;
         }
-    }
 
     let scraped =
-        tmdb_detail.is_some() || nfo.as_ref().map_or(false, |n| n.is_sufficient());
+        tmdb_detail.is_some() || nfo.as_ref().is_some_and(|n| n.is_sufficient());
 
     let result = find_or_create_movie(
         db, state, app_id, lib_type,
@@ -161,11 +160,10 @@ pub async fn find_or_create_movie(
         if let Some(genres) = &detail.genres {
             sync_genres(db, genres, Some(movie_id), None).await?;
         }
-    } else if let Some(nfo) = nfo {
-        if !nfo.genres.is_empty() {
+    } else if let Some(nfo) = nfo
+        && !nfo.genres.is_empty() {
             sync_genres_from_names(db, &nfo.genres, Some(movie_id), None).await?;
         }
-    }
 
     // Sync cast/people: unified approach (TMDB cast preferred, NFO actors fallback + NFO directors)
     // Aligned with TS: single syncPeopleForMedia call with aggregated cast + directors
