@@ -1,6 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { HorizontalScroll, Modal, Spin, useToast } from "@tokiomo/components";
-import { ExternalLink, Film, RefreshCw } from "lucide-react";
+import { HorizontalScroll, Modal, Spin } from "@tokiomo/components";
+import { ExternalLink, Film } from "lucide-react";
 import { useState } from "react";
 import {
   PersonPlaceholder,
@@ -54,24 +53,12 @@ export default function PersonDetailModal({
   onClose,
 }: PersonDetailModalProps) {
   const { navigate } = useWindowNav();
-  const toast = useToast();
-  const qc = useQueryClient();
   const [bioExpanded, setBioExpanded] = useState(false);
 
   const { data: person, isLoading } = api.app.getPersonDetail.useQuery(
     { id: personId! },
     { enabled: !!personId },
   );
-
-  const refreshMutation = api.app.refreshPersonFromTmdb.useMutation({
-    onSuccess: () => {
-      toast.success("已从 TMDB 更新演员数据");
-      api.app.getPersonDetail.invalidate(qc, { id: personId! });
-    },
-    onError: (err) => {
-      toast.error(err.message || "从 TMDB 获取数据失败");
-    },
-  });
 
   const profileSrc = person
     ? resolveMediaImage(person.profileKey, person.profilePath)
@@ -145,28 +132,11 @@ export default function PersonDetailModal({
     </div>
   ) : undefined;
 
-  // Refresh icon — rendered next to close button via Modal's extra prop
-  const refreshExtra = personId ? (
-    <button
-      type="button"
-      title="从 TMDB 更新"
-      className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-black/[0.06] hover:text-[var(--text-secondary)] dark:hover:bg-white/[0.08] cursor-pointer"
-      onClick={() => refreshMutation.mutate({ id: personId })}
-      disabled={refreshMutation.isPending}
-    >
-      <RefreshCw
-        size={16}
-        className={refreshMutation.isPending ? "animate-spin" : ""}
-      />
-    </button>
-  ) : null;
-
   return (
     <Modal
       open={!!personId}
       onCancel={onClose}
       title={isLoading ? "加载中…" : modalTitle}
-      extra={refreshExtra}
       footer={null}
       width={1040}
       centered
@@ -190,13 +160,6 @@ export default function PersonDetailModal({
         </div>
       ) : (
         <div>
-          {refreshMutation.isPending && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-              <RefreshCw size={14} className="animate-spin" />
-              正在从 TMDB 获取演员数据…
-            </div>
-          )}
-
           {/* ── 顶部：基本信息 ── */}
           <div className="mb-6 flex flex-col gap-2">
             {/* 原名 */}
@@ -408,23 +371,11 @@ export function PersonDetailPopoverContent({
   character?: string | null;
 }) {
   const { navigate } = useWindowNav();
-  const toast = useToast();
-  const qc = useQueryClient();
 
   const { data: person, isLoading } = api.app.getPersonDetail.useQuery(
     { id: personId },
     { enabled: !!personId },
   );
-
-  const refreshMutation = api.app.refreshPersonFromTmdb.useMutation({
-    onSuccess: () => {
-      toast.success("已从 TMDB 更新演员数据");
-      api.app.getPersonDetail.invalidate(qc, { id: personId });
-    },
-    onError: (err) => {
-      toast.error(err.message || "从 TMDB 获取数据失败");
-    },
-  });
 
   if (isLoading) {
     return (
@@ -539,31 +490,9 @@ export function PersonDetailPopoverContent({
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             )}
-            <button
-              type="button"
-              title="从 TMDB 更新"
-              className="ml-auto rounded p-0.5 text-fg-muted transition-colors hover:bg-black/[0.06] hover:text-fg-secondary dark:hover:bg-white/[0.08] cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                refreshMutation.mutate({ id: personId });
-              }}
-              disabled={refreshMutation.isPending}
-            >
-              <RefreshCw
-                size={12}
-                className={refreshMutation.isPending ? "animate-spin" : ""}
-              />
-            </button>
           </div>
         </div>
       </div>
-
-      {refreshMutation.isPending && (
-        <div className="flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-          <RefreshCw size={11} className="animate-spin" />
-          正在从 TMDB 获取演员数据…
-        </div>
-      )}
 
       {/* Biography (truncated) */}
       {person.biography && (
