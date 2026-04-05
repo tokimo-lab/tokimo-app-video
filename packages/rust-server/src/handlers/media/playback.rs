@@ -1,8 +1,8 @@
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use rust_subtitle::{
@@ -107,6 +107,7 @@ pub async fn stream_url(
     AuthUser(auth): AuthUser,
     Json(body): Json<StreamUrlBody>,
 ) -> Response {
+    tracing::info!("[DBG-ENTRY] stream_url handler reached");
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
         Err(_) => {
@@ -135,7 +136,11 @@ pub async fn stream_url(
     };
 
     let client_profile = ClientProfile {
-        supported_vc: body.video_codecs.iter().map(|s| s.trim().to_lowercase()).collect(),
+        supported_vc: body
+            .video_codecs
+            .iter()
+            .map(|s| s.trim().to_lowercase())
+            .collect(),
         supported_range_types: if body.video_range_types.is_empty() {
             vec!["SDR".to_string()]
         } else {
@@ -149,7 +154,11 @@ pub async fn stream_url(
         max_ref_frames: body.max_ref_frames,
         max_framerate: body.max_framerate,
         supports_anamorphic: body.supports_anamorphic,
-        hevc_codec_tags: body.hevc_codec_tags.iter().map(|s| s.trim().to_lowercase()).collect(),
+        hevc_codec_tags: body
+            .hevc_codec_tags
+            .iter()
+            .map(|s| s.trim().to_lowercase())
+            .collect(),
         max_video_bit_depth: body.max_video_bit_depth,
         max_audio_channels: body.max_audio_channels,
         max_audio_bitrate: body.max_audio_bitrate,
@@ -157,12 +166,28 @@ pub async fn stream_url(
         max_audio_bit_depth: body.max_audio_bit_depth,
         hevc_max_framerate: body.hevc_max_framerate,
         max_av1_level: body.av1_level,
-        h264_profiles: body.h264_profiles.iter().map(|s| s.trim().to_lowercase().replace(' ', "")).collect(),
-        hevc_profiles: body.hevc_profiles.iter().map(|s| s.trim().to_lowercase().replace(' ', "")).collect(),
+        h264_profiles: body
+            .h264_profiles
+            .iter()
+            .map(|s| s.trim().to_lowercase().replace(' ', ""))
+            .collect(),
+        hevc_profiles: body
+            .hevc_profiles
+            .iter()
+            .map(|s| s.trim().to_lowercase().replace(' ', ""))
+            .collect(),
     };
     let force_sdr = body.force_sdr;
-    let client_containers: Vec<String> = body.containers.iter().map(|s| s.trim().to_lowercase()).collect();
-    let client_audio_codecs: Vec<String> = body.audio_codecs.iter().map(|s| s.trim().to_lowercase()).collect();
+    let client_containers: Vec<String> = body
+        .containers
+        .iter()
+        .map(|s| s.trim().to_lowercase())
+        .collect();
+    let client_audio_codecs: Vec<String> = body
+        .audio_codecs
+        .iter()
+        .map(|s| s.trim().to_lowercase())
+        .collect();
 
     // ── Filesystem source ───────────────────────────────────────────────────
     let Some(source) = source else {
@@ -185,166 +210,216 @@ pub async fn stream_url(
     let is_iso = file.mime_type.as_deref() == Some("video/iso-image")
         || file.path.to_lowercase().ends_with(".iso");
     let iso_type: Option<&'static str> = if is_iso {
-            Some(detect_iso_type(&file.path))
-        } else {
-            None
-        };
+        Some(detect_iso_type(&file.path))
+    } else {
+        None
+    };
 
-        // Audio-only → direct stream (skip for ISO which has no video_codec in DB)
-        if !is_iso
-            && transcode_decision::is_audio_only_file(
-                file.video_codec.as_deref(),
-                file.mime_type.as_deref(),
-            )
-        {
-            let url = build_direct_stream_url(&file);
-            return ok(StreamUrlDto { url }).into_response();
+    // Audio-only → direct stream (skip for ISO which has no video_codec in DB)
+    if !is_iso
+        && transcode_decision::is_audio_only_file(
+            file.video_codec.as_deref(),
+            file.mime_type.as_deref(),
+        )
+    {
+        let url = build_direct_stream_url(&file);
+        return ok(StreamUrlDto { url }).into_response();
+    }
+
+    // Parse stream metadata
+    let audio_streams = AudioStreamInfo::from_json_array(file.audio_streams.as_ref());
+    let audio_index = body.audio_index.unwrap_or(0);
+    let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
+    let selected_audio_info = selected_audio.map(|a| rust_hls::transcode_decision::AudioInfo {
+        channels: a.channels,
+        bitrate: a.bitrate,
+        sample_rate: a.sample_rate,
+        bit_depth: a.bit_depth,
+        profile: a.profile.clone(),
+    });
+
+    let audio_reason = transcode_decision::audio_transcode_reason(
+        selected_audio.map(|a| a.codec.as_str()),
+        selected_audio_info.as_ref(),
+        &client_profile,
+        &client_audio_codecs,
+    );
+    let transcode_audio = audio_reason.is_some();
+
+    let vs = VideoStreamInfo::from_json(file.video_streams.as_ref());
+    let video_reason = transcode_decision::video_transcode_reason(
+        file.video_codec.as_deref(),
+        file.video_profile.as_deref(),
+        file.hdr_type.as_deref(),
+        &vs,
+        &client_profile,
+    );
+    let transcode_video = video_reason.is_some();
+    let container_reason =
+        transcode_decision::container_transcode_reason(&file.path, &client_containers);
+    let transcode_container = container_reason.is_some();
+    let codec_tag_reason = transcode_decision::codec_tag_transcode_reason(
+        file.video_codec.as_deref(),
+        &vs,
+        &client_profile,
+        &file.path,
+    );
+    let transcode_codec_tag = codec_tag_reason.is_some();
+
+    let is_hdr_content = transcode_decision::is_hdr(file.hdr_type.as_deref());
+    let open_gop_reason =
+        transcode_decision::open_gop_transcode_reason(&file.path, file.video_codec.as_deref());
+    let should_transcode_video =
+        transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
+
+    // Mediabunny (client-side AC3/EAC3 decoder) is only active in direct-stream
+    // mode. When HLS is forced (container remux, video transcode, ISO, codec-tag),
+    // the frontend falls into `isHLS` path which disables mediabunny — the browser
+    // would have to decode AC3 natively, which it cannot. Force AAC transcode.
+    let hls_audio_compat_reason: Option<String> = if !transcode_audio
+        && (is_iso || should_transcode_video || transcode_container || transcode_codec_tag)
+    {
+        let codec = selected_audio
+            .map(|a| a.codec.to_lowercase())
+            .unwrap_or_default();
+        tracing::info!("[DBG-COMPAT] entered hls_compat branch: codec={codec} transcode_audio={transcode_audio} transcode_container={transcode_container} is_iso={is_iso} should_transcode_video={should_transcode_video}");
+        match codec.as_str() {
+            "ac3" | "eac3" => Some(format!(
+                "AudioNotCompatibleWithHls ({codec}) — mediabunny unavailable in HLS mode"
+            )),
+            _ => None,
         }
+    } else {
+        tracing::info!("[DBG-COMPAT] skipped hls_compat: transcode_audio={transcode_audio} transcode_container={transcode_container} is_iso={is_iso} should_transcode_video={should_transcode_video}");
+        None
+    };
+    let transcode_audio = transcode_audio || hls_audio_compat_reason.is_some();
+    tracing::info!("[DBG-RESULT] after hls_compat: transcode_audio={transcode_audio} audio_reason={}", audio_reason.as_deref().unwrap_or("none"));
+    let audio_reason = audio_reason.or(hls_audio_compat_reason);
 
-        // Parse stream metadata
-        let audio_streams = AudioStreamInfo::from_json_array(file.audio_streams.as_ref());
-        let audio_index = body.audio_index.unwrap_or(0);
-        let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
-        let selected_audio_info = selected_audio.map(|a| rust_hls::transcode_decision::AudioInfo {
-            channels: a.channels,
-            bitrate: a.bitrate,
-            sample_rate: a.sample_rate,
-            bit_depth: a.bit_depth,
-            profile: a.profile.clone(),
-        });
+    let tonemap_opts = if should_transcode_video && is_hdr_content {
+        Some(TonemapOptions {
+            algorithm: "bt2390".to_string(),
+            peak: 100.0,
+            desat: 0.0,
+            // Jellyfin default TonemappingMode is "max"
+            mode: "max".to_string(),
+            param: 0.0,
+            range: "auto".to_string(),
+        })
+    } else {
+        None
+    };
 
-        let audio_reason = transcode_decision::audio_transcode_reason(
-            selected_audio.map(|a| a.codec.as_str()),
-            selected_audio_info.as_ref(),
-            &client_profile,
-            &client_audio_codecs,
-        );
-        let transcode_audio = audio_reason.is_some();
+    // Jellyfin three-way decision:
+    //   DirectPlay:    container + codecs + codec tag all supported by client
+    //   DirectStream:  container/audio/codec-tag issues but video ok → remux (-c:v copy)
+    //   Transcode:     video codec issues → re-encode
+    // ISO images always require transcoding (libbluray / UDF reader path).
+    let needs_hls = is_iso
+        || transcode_audio
+        || should_transcode_video
+        || transcode_container
+        || transcode_codec_tag;
 
-        let vs = VideoStreamInfo::from_json(file.video_streams.as_ref());
-        let video_reason = transcode_decision::video_transcode_reason(
-            file.video_codec.as_deref(),
-            file.video_profile.as_deref(),
-            file.hdr_type.as_deref(),
-            &vs,
-            &client_profile,
-        );
-        let transcode_video = video_reason.is_some();
-        let container_reason =
-            transcode_decision::container_transcode_reason(&file.path, &client_containers);
-        let transcode_container = container_reason.is_some();
-        let codec_tag_reason = transcode_decision::codec_tag_transcode_reason(
-            file.video_codec.as_deref(),
-            &vs,
-            &client_profile,
-            &file.path,
-        );
-        let transcode_codec_tag = codec_tag_reason.is_some();
+    let play_method = if should_transcode_video {
+        "Transcode"
+    } else if needs_hls {
+        "DirectStream"
+    } else {
+        "DirectPlay"
+    };
 
-        let is_hdr_content = transcode_decision::is_hdr(file.hdr_type.as_deref());
-        let open_gop_reason = transcode_decision::open_gop_transcode_reason(
-            &file.path,
-            file.video_codec.as_deref(),
-        );
-        let should_transcode_video =
-            transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
-        let tonemap_opts = if should_transcode_video && is_hdr_content {
-            Some(TonemapOptions {
-                algorithm: "bt2390".to_string(),
-                peak: 100.0,
-                desat: 0.0,
-                // Jellyfin default TonemappingMode is "max"
-                mode: "max".to_string(),
-                param: 0.0,
-                range: "auto".to_string(),
+    {
+        let filename = std::path::Path::new(&file.path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&file.path);
+        let eff_video_reason = video_reason
+            .as_deref()
+            .or(if force_sdr && is_hdr_content {
+                Some("ForceSDR (HDR→SDR tone mapping)")
+            } else {
+                None
             })
-        } else {
+            .or(if should_transcode_video {
+                open_gop_reason.as_deref()
+            } else {
+                None
+            });
+        let eff_remux_reason = if should_transcode_video {
             None
-        };
-
-        // Jellyfin three-way decision:
-        //   DirectPlay:    container + codecs + codec tag all supported by client
-        //   DirectStream:  container/audio/codec-tag issues but video ok → remux (-c:v copy)
-        //   Transcode:     video codec issues → re-encode
-        // ISO images always require transcoding (libbluray / UDF reader path).
-        let needs_hls = is_iso
-            || transcode_audio
-            || should_transcode_video
-            || transcode_container
-            || transcode_codec_tag;
-
-        let play_method = if should_transcode_video {
-            "Transcode"
-        } else if needs_hls {
-            "DirectStream"
         } else {
-            "DirectPlay"
+            open_gop_reason.as_deref()
         };
+        let audio_codec_str = selected_audio.map_or("", |a| a.codec.as_str());
+        let audio_ch_str = selected_audio
+            .and_then(|a| a.channels)
+            .map(|c| c.to_string())
+            .unwrap_or_default();
+        info!(
+            target: "playback::decision",
+            filename = %filename,
+            video_codec = %file.video_codec.as_deref().unwrap_or(""),
+            video_profile = %file.video_profile.as_deref().unwrap_or(""),
+            hdr = %file.hdr_type.as_deref().unwrap_or("SDR"),
+            audio_codec = %audio_codec_str,
+            audio_ch = %audio_ch_str,
+            audio_idx = %audio_index,
+            method = %play_method,
+            transcode_video = should_transcode_video,
+            transcode_audio = transcode_audio,
+            reason_video = %eff_video_reason.unwrap_or(""),
+            reason_audio = %audio_reason.as_deref().unwrap_or(""),
+            reason_container = %container_reason.as_deref().unwrap_or(""),
+            reason_codec_tag = %codec_tag_reason.as_deref().unwrap_or(""),
+            reason_remux = %eff_remux_reason.unwrap_or(""),
+            ""
+        );
+    }
 
+    tracing::info!(
+        "[DBG-PRE-HLS] transcode_audio={} transcode_container={} is_iso={} should_transcode_video={} audio_codec={}",
+        transcode_audio,
+        transcode_container,
+        is_iso,
+        should_transcode_video,
+        selected_audio.map_or("", |a| a.codec.as_str()),
+    );
+
+    if needs_hls {
+        // Create HLS session
+        match create_hls_session_internal(
+            &state,
+            &file,
+            &audio_streams,
+            audio_index,
+            should_transcode_video,
+            transcode_audio,
+            tonemap_opts,
+            &vs,
+            source_type == "local",
+            source.config.as_ref(),
+            &auth.user_id,
+            file.source_id
+                .as_ref()
+                .map(std::string::ToString::to_string)
+                .as_deref(),
+            iso_type,
+            client_profile.supported_vc.iter().any(|c| c == "hevc"),
+        )
+        .await
         {
-            let filename = std::path::Path::new(&file.path)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(&file.path);
-            let eff_video_reason = video_reason.as_deref()
-                .or(if force_sdr && is_hdr_content { Some("ForceSDR (HDR→SDR tone mapping)") } else { None })
-                .or(if should_transcode_video { open_gop_reason.as_deref() } else { None });
-            let eff_remux_reason = if should_transcode_video { None } else { open_gop_reason.as_deref() };
-            let audio_codec_str = selected_audio.map_or("", |a| a.codec.as_str());
-            let audio_ch_str = selected_audio
-                .and_then(|a| a.channels)
-                .map(|c| c.to_string())
-                .unwrap_or_default();
-            info!(
-                target: "playback::decision",
-                filename = %filename,
-                video_codec = %file.video_codec.as_deref().unwrap_or(""),
-                video_profile = %file.video_profile.as_deref().unwrap_or(""),
-                hdr = %file.hdr_type.as_deref().unwrap_or("SDR"),
-                audio_codec = %audio_codec_str,
-                audio_ch = %audio_ch_str,
-                audio_idx = %audio_index,
-                method = %play_method,
-                transcode_video = should_transcode_video,
-                transcode_audio = transcode_audio,
-                reason_video = %eff_video_reason.unwrap_or(""),
-                reason_audio = %audio_reason.as_deref().unwrap_or(""),
-                reason_container = %container_reason.as_deref().unwrap_or(""),
-                reason_codec_tag = %codec_tag_reason.as_deref().unwrap_or(""),
-                reason_remux = %eff_remux_reason.unwrap_or(""),
-                ""
-            );
-        }
-
-        if needs_hls {
-            // Create HLS session
-            match create_hls_session_internal(
-                &state,
-                &file,
-                &audio_streams,
-                audio_index,
-                should_transcode_video,
-                transcode_audio,
-                tonemap_opts,
-                &vs,
-                source_type == "local",
-                source.config.as_ref(),
-                &auth.user_id,
-                file.source_id.as_ref().map(std::string::ToString::to_string).as_deref(),
-                iso_type,
-            )
-            .await
-            {
-                Ok(url) => return ok(StreamUrlDto { url }).into_response(),
-                Err(e) => {
-                    return err_resp::<StreamUrlDto>(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("HLS stream failed: {e}"),
-                    )
-                    .into_response();
-                }
+            Ok(url) => return ok(StreamUrlDto { url }).into_response(),
+            Err(e) => {
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("HLS stream failed: {e}"),
+                )
+                .into_response();
             }
         }
+    }
 
     let url = build_direct_stream_url(&file);
     ok(StreamUrlDto { url }).into_response()
@@ -401,7 +476,10 @@ impl IsoMeta {
             extents: m
                 .extents
                 .iter()
-                .map(|e| IsoExtentJson { offset: e.offset, length: e.length })
+                .map(|e| IsoExtentJson {
+                    offset: e.offset,
+                    length: e.length,
+                })
                 .collect(),
         }
     }
@@ -413,7 +491,10 @@ impl IsoMeta {
             extents: self
                 .extents
                 .iter()
-                .map(|e| iso_reader::IsoExtent { offset: e.offset, length: e.length })
+                .map(|e| iso_reader::IsoExtent {
+                    offset: e.offset,
+                    length: e.length,
+                })
                 .collect(),
         }
     }
@@ -465,7 +546,12 @@ pub(crate) async fn build_iso_m2ts_input(
         );
     }
 
-    Ok(build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap))
+    Ok(build_direct_input_from_m2ts(
+        vfs,
+        iso_path,
+        m2ts,
+        subtitle_tap,
+    ))
 }
 
 /// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
@@ -480,17 +566,19 @@ pub(crate) async fn parse_iso_m2ts(
     let vfs_for_parse = vfs.clone();
     let iso_path_for_parse = iso_path.to_string();
 
-    let parse_read_at = Arc::new(move |offset: u64, size: usize| -> std::io::Result<Vec<u8>> {
-        let vfs = vfs_for_parse.clone();
-        let path = iso_path_for_parse.clone();
-        tokio::task::block_in_place(|| {
-            handle.block_on(async move {
-                vfs.read_bytes(std::path::Path::new(&path), offset, Some(size as u64))
-                    .await
-                    .map_err(std::io::Error::other)
+    let parse_read_at = Arc::new(
+        move |offset: u64, size: usize| -> std::io::Result<Vec<u8>> {
+            let vfs = vfs_for_parse.clone();
+            let path = iso_path_for_parse.clone();
+            tokio::task::block_in_place(|| {
+                handle.block_on(async move {
+                    vfs.read_bytes(std::path::Path::new(&path), offset, Some(size as u64))
+                        .await
+                        .map_err(std::io::Error::other)
+                })
             })
-        })
-    });
+        },
+    );
 
     let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
         .map_err(|e| format!("UDF parse failed: {e}"))?;
@@ -576,7 +664,6 @@ fn read_from_m2ts_extents(
     Ok(result)
 }
 
-
 #[allow(clippy::too_many_arguments)]
 async fn create_hls_session_internal(
     state: &AppState,
@@ -592,6 +679,7 @@ async fn create_hls_session_internal(
     user_id: &str,
     source_id: Option<&str>,
     iso_type: Option<&str>,
+    client_supports_hevc: bool,
 ) -> Result<String, String> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "5678".to_string());
     let base_url = format!("http://127.0.0.1:{port}");
@@ -641,7 +729,16 @@ async fn create_hls_session_internal(
                 .iso_meta
                 .as_ref()
                 .and_then(|v| serde_json::from_value::<IsoMeta>(v.clone()).ok());
-            match build_iso_m2ts_input(state, source_id, &file.path, file.size, iso_meta.as_ref(), tap).await {
+            match build_iso_m2ts_input(
+                state,
+                source_id,
+                &file.path,
+                file.size,
+                iso_meta.as_ref(),
+                tap,
+            )
+            .await
+            {
                 Ok(input) => {
                     info!("[ISO] Remote Blu-ray ISO: M2TS extracted via UDF → AVIO ready");
                     // We serve raw M2TS bytes, so no ISO-specific FFmpeg prefix needed.
@@ -665,7 +762,10 @@ async fn create_hls_session_internal(
                         file.id, source_id, file.size,
                     )
                 })?;
-            (Some(input), iso_type.map(String::from).as_deref().map(|_| "dvd"))
+            (
+                Some(input),
+                iso_type.map(String::from).as_deref().map(|_| "dvd"),
+            )
         }
     } else {
         // Local file (including local ISO): use the filesystem path directly.
@@ -688,6 +788,7 @@ async fn create_hls_session_internal(
         video_fps: vs.frame_rate,
         video_bitrate: vs.bitrate_kbps.map(|k| (k * 1000) as u64),
         deinterlace: vs.is_interlaced.unwrap_or(false),
+        client_supports_hevc,
         user_id: Some(user_id.to_string()),
         movie_id: file.movie_id.map(|u| u.to_string()),
         episode_id: file.episode_id.map(|u| u.to_string()),
@@ -796,7 +897,10 @@ async fn build_subtitle_tap_impl(
 
     let ffprobe_raw = rows[0].ffprobe_raw.clone();
     let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-    let subs: Vec<_> = rows.iter().map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record).collect();
+    let subs: Vec<_> = rows
+        .iter()
+        .map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record)
+        .collect();
     let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
 
     build_stream_tap(
