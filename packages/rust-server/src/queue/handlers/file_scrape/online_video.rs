@@ -469,5 +469,5 @@ async fn download_thumbnail(
         })
         .unwrap_or_else(|| "jpg".to_string());
     let key = format!("library-images/movies/{entity_id}/poster.{ext}");
-    super::artwork::upload_image_buffer(state, &bytes, &key).await
+    super::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
 }

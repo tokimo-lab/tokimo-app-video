@@ -2,7 +2,7 @@
 //! Aligned with TS `media-parser.ts`: CJK title extraction, CJK season/episode,
 //! multi-episode range, parent dir season inference, bare E01/EP01.
 
-use regex_lite::Regex;
+use regex::Regex;
 use std::sync::LazyLock;
 
 // ── Regex patterns (compiled once) ──
