@@ -137,6 +137,7 @@ pub async fn create_or_update(
         novel_id: Set(None),
         edition_id: Set(None),
         ffprobe_raw: Set(None),
+        iso_meta: Set(None),
     };
 
     match media_files::Entity::insert(model).exec(db).await {

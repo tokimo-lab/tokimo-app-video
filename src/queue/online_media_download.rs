@@ -957,6 +957,7 @@ async fn create_media_file_for_output(
         novel_id: Set(None),
         edition_id: Set(None),
         ffprobe_raw: Set(None),
+        iso_meta: Set(None),
     };
 
     match media_files::Entity::insert(model).exec(db).await {
