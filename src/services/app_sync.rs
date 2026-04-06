@@ -12,8 +12,8 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, file_systems, app_file_systems, media_credits, video_files, music_files, novel_files, apps,
-    movies, music_albums, music_tracks, persons, photos, seasons, tv_shows,
+    episodes, file_systems, app_file_systems, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
+    movies, music_albums, music_tracks, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
@@ -1052,26 +1052,46 @@ impl AppSyncService {
         groups.into_values().collect()
     }
 
-    /// Find or create a Person record by name.
-    async fn find_or_create_person(
+    /// Find or create a `MusicArtist` record by name.
+    async fn find_or_create_music_artist(
         db: &DatabaseConnection,
         name: &str,
     ) -> Result<Uuid, AppError> {
-        let existing = persons::Entity::find()
-            .filter(persons::Column::Name.eq(name))
+        if let Some(a) = music_artists::Entity::find()
+            .filter(music_artists::Column::Name.eq(name))
             .one(db)
-            .await?;
-        if let Some(p) = existing {
-            return Ok(p.id);
+            .await?
+        {
+            return Ok(a.id);
+        }
+
+        // Serialise creation: `music_artists.name` has no unique constraint.
+        let lock_key = name.to_lowercase();
+        let per_lock = {
+            let mut locks = crate::MUSIC_ARTIST_CREATION_LOCKS.lock().await;
+            locks.entry(lock_key).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+        };
+        let _guard = per_lock.lock().await;
+
+        // Re-check under lock.
+        if let Some(a) = music_artists::Entity::find()
+            .filter(music_artists::Column::Name.eq(name))
+            .one(db)
+            .await?
+        {
+            return Ok(a.id);
         }
 
         let id = Uuid::new_v4();
-        let active = persons::ActiveModel {
+        let now = Utc::now().fixed_offset();
+        let active = music_artists::ActiveModel {
             id: Set(id),
             name: Set(name.to_string()),
+            created_at: Set(Some(now)),
+            updated_at: Set(Some(now)),
             ..Default::default()
         };
-        persons::Entity::insert(active).exec(db).await?;
+        music_artists::Entity::insert(active).exec(db).await?;
         Ok(id)
     }
 
@@ -1085,17 +1105,17 @@ impl AppSyncService {
         let candidates = music_albums::Entity::find()
             .filter(music_albums::Column::AppId.eq(app_id))
             .filter(music_albums::Column::Title.eq(&group.album_title))
-            .find_with_related(media_credits::Entity)
+            .find_with_related(music_album_artists::Entity)
             .all(db)
             .await?;
 
-        // Match by artist name via credits → person
-        for (album, credits) in &candidates {
-            for credit in credits {
-                if let Some(person) = persons::Entity::find_by_id(credit.person_id)
+        // Match by artist name via album_artists → music_artist
+        for (album, artists) in &candidates {
+            for artist_link in artists {
+                if let Some(artist) = music_artists::Entity::find_by_id(artist_link.artist_id)
                     .one(db)
                     .await?
-                    && person.name.to_lowercase() == group.artist_name.to_lowercase() {
+                    && artist.name.to_lowercase() == group.artist_name.to_lowercase() {
                         return Ok(album.id);
                     }
             }
@@ -1131,30 +1151,32 @@ impl AppSyncService {
         Ok(id)
     }
 
-    /// Ensure an "artist" `MediaCredit` exists linking person to album.
+    /// Ensure an "artist" link exists between a music artist and an album.
     async fn ensure_artist_credit(
         db: &DatabaseConnection,
         album_id: Uuid,
-        person_id: Uuid,
+        artist_id: Uuid,
     ) -> Result<(), AppError> {
-        let existing = media_credits::Entity::find()
-            .filter(media_credits::Column::PersonId.eq(person_id))
-            .filter(media_credits::Column::AlbumId.eq(album_id))
-            .filter(media_credits::Column::Role.eq("artist"))
+        let existing = music_album_artists::Entity::find()
+            .filter(music_album_artists::Column::ArtistId.eq(artist_id))
+            .filter(music_album_artists::Column::AlbumId.eq(album_id))
+            .filter(music_album_artists::Column::Role.eq("artist"))
             .one(db)
             .await?;
         if existing.is_some() {
             return Ok(());
         }
 
-        let active = media_credits::ActiveModel {
+        let active = music_album_artists::ActiveModel {
             id: Set(Uuid::new_v4()),
-            person_id: Set(person_id),
-            album_id: Set(Some(album_id)),
+            artist_id: Set(artist_id),
+            album_id: Set(album_id),
             role: Set("artist".to_string()),
-            ..Default::default()
+            sort_order: Set(0),
         };
-        media_credits::Entity::insert(active).exec(db).await?;
+        match music_album_artists::Entity::insert(active).exec(db).await {
+            Ok(_) | Err(_) => {} // ignore unique violations
+        }
         Ok(())
     }
 
@@ -1436,8 +1458,8 @@ impl AppSyncService {
         vfs: Option<&Arc<Vfs>>,
     ) -> Result<(), AppError> {
         let album_id = Self::find_or_create_album(db, app_id, group).await?;
-        let person_id = Self::find_or_create_person(db, &group.artist_name).await?;
-        Self::ensure_artist_credit(db, album_id, person_id).await?;
+        let artist_id = Self::find_or_create_music_artist(db, &group.artist_name).await?;
+        Self::ensure_artist_credit(db, album_id, artist_id).await?;
 
         for file in &group.files {
             match Self::upsert_track(db, album_id, file).await {

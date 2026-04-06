@@ -172,11 +172,33 @@ pub async fn find_or_create_tv(
             .exec(db).await?;
         (existing_id, false)
     } else {
-        let id = create_tv_show_record(
-            db, app_id, tmdb_detail, nfo, parsed_title, parsed_year,
-            tmdb_id_str.as_deref(), imdb_id_str.as_deref(),
-        ).await?;
-        (id, true)
+        // Acquire a per-show lock to prevent concurrent workers from creating
+        // duplicate tv_show rows when tmdb_id/imdb_id are NULL (NULL values
+        // are treated as distinct in PostgreSQL unique constraints).
+        let lock_key = format!("{}|{}", app_id, parsed_title.to_lowercase());
+        let per_show_lock = {
+            let mut locks = state.tv_show_creation_locks.lock().await;
+            locks.entry(lock_key).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+        };
+        let _guard = per_show_lock.lock().await;
+
+        // Re-check DB while holding the per-show lock — another worker may have
+        // already created the record between the pre-check and lock acquisition.
+        let fresh_existing = find_tv_show_by_title(db, app_id, parsed_title, parsed_year).await?;
+        if let Some(existing_id) = fresh_existing {
+            info!("[file_scrape] TV dedup by title+year (concurrent lock): '{parsed_title}' → {existing_id}");
+            tv_shows::Entity::update_many()
+                .col_expr(tv_shows::Column::UpdatedAt, Expr::cust("NOW()"))
+                .filter(tv_shows::Column::Id.eq(existing_id))
+                .exec(db).await?;
+            (existing_id, false)
+        } else {
+            let id = create_tv_show_record(
+                db, app_id, tmdb_detail, nfo, parsed_title, parsed_year,
+                tmdb_id_str.as_deref(), imdb_id_str.as_deref(),
+            ).await?;
+            (id, true)
+        }
     };
 
     if is_new {
@@ -208,32 +230,38 @@ pub async fn find_or_create_tv(
             && !nfo.genres.is_empty() {
                 sync_genres_from_names(db, &nfo.genres, None, Some(tv_show_id)).await?;
             }
-        // Cast + directors: unified sync (aligned with TS syncPeopleForMedia)
-        {
-            let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail {
-                detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
-            } else if let Some(nfo) = nfo {
-                nfo.actors.iter().map(|a| CastMember {
-                    name: a.name.clone(),
-                    role: a.role.clone(),
-                    thumb: a.thumb.clone(),
-                    tmdb_id: None,
-                }).collect()
-            } else {
-                vec![]
-            };
-            let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
-            sync_people_for_media(db, &cast, &directors, None, Some(tv_show_id)).await?;
-        }
 
         upload_extra_art(db, state, None, Some(tv_show_id), &artwork.extra_art).await?;
     }
 
-    // Season + Episode
+    // Compute cast + directors (needed after season creation for tv_season_cast linking)
+    let pending_cast: Vec<CastMember> = if is_new {
+        if let Some(detail) = tmdb_detail {
+            detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
+        } else if let Some(nfo) = nfo {
+            nfo.actors.iter().map(|a| CastMember {
+                name: a.name.clone(),
+                role: a.role.clone(),
+                thumb: a.thumb.clone(),
+                tmdb_id: None,
+            }).collect()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+    let pending_directors: Vec<String> = if is_new {
+        nfo.map(|n| n.directors.clone()).unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    // Season + Episode — create BEFORE cast sync so we have season_id for tv_season_cast
     let season_num = nfo.and_then(|n| n.season).or(parsed_season);
     let episode_num = nfo.and_then(|n| n.episode).or(parsed_episode);
 
-    let episode_id = if let (Some(sn), Some(en)) = (season_num, episode_num) {
+    let (season_id, episode_id) = if let (Some(sn), Some(en)) = (season_num, episode_num) {
         // Prefer tmdb_id from the freshly-fetched detail; fall back to the
         // id stored in DB (via pre_existing) or the NFO — so new seasons can
         // still call get_tv_season_detail even when the show scrape was skipped.
@@ -242,10 +270,17 @@ pub async fn find_or_create_tv(
             .or_else(|| pre_existing.and_then(|(_, sid)| sid))
             .or_else(|| tmdb_id_str.as_deref().and_then(|s| s.parse::<i64>().ok()));
         match create_season_and_episode(db, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
-            Ok(eid) => Some(eid),
-            Err(e) => { warn!("[file_scrape] Failed to create season/episode: {e}"); None }
+            Ok((sid, eid)) => (Some(sid), Some(eid)),
+            Err(e) => { warn!("[file_scrape] Failed to create season/episode: {e}"); (None, None) }
         }
-    } else { None };
+    } else { (None, None) };
+
+    // Cast sync: only for new shows and only when we have a season_id to link to
+    if is_new
+        && let Err(e) = sync_people_for_media(db, &pending_cast, &pending_directors, None, Some(tv_show_id), season_id).await
+    {
+        warn!("[file_scrape] TV cast sync failed: {e}");
+    }
 
     Ok(TvResult { tv_show_id, episode_id })
 }
@@ -263,6 +298,20 @@ async fn find_existing_tv_show(
         .filter(conditions)
         .one(db).await?;
     Ok(existing.map(|s| s.id))
+}
+
+/// Title+year lookup used as the serialized re-check inside the per-show lock.
+async fn find_tv_show_by_title(
+    db: &DatabaseConnection, app_id: Uuid,
+    title: &str, year: Option<i32>,
+) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut q = tv_shows::Entity::find()
+        .filter(tv_shows::Column::AppId.eq(app_id))
+        .filter(tv_shows::Column::Title.eq(title));
+    if let Some(y) = year {
+        q = q.filter(tv_shows::Column::Year.eq(y));
+    }
+    Ok(q.one(db).await?.map(|s| s.id))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -340,7 +389,7 @@ async fn create_tv_show_record(
 async fn create_season_and_episode(
     db: &DatabaseConnection, tmdb: Option<&TmdbClient>, tmdb_show_id: Option<i64>,
     show_id: Uuid, season_number: i32, episode_number: i32, nfo: Option<&NfoInfo>,
-) -> Result<Uuid, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(Uuid, Uuid), Box<dyn std::error::Error + Send + Sync>> {
     // Check season existence BEFORE any TMDB call.
     // For 24 episodes of the same season this saves 23 get_tv_season_detail requests.
     let season_exists = seasons::Entity::find()
@@ -356,7 +405,8 @@ async fn create_season_and_episode(
     let tmdb_episode = season_detail.as_ref()
         .and_then(|sd| sd.episodes.as_ref())
         .and_then(|eps| eps.iter().find(|e| e.episode_number == episode_number));
-    upsert_episode(db, show_id, season_id, episode_number, tmdb_episode, nfo).await
+    let episode_id = upsert_episode(db, show_id, season_id, episode_number, tmdb_episode, nfo).await?;
+    Ok((season_id, episode_id))
 }
 
 async fn upsert_season(
