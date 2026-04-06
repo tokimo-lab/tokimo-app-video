@@ -15,9 +15,9 @@ use uuid::Uuid;
 use crate::db::entities::{download_records, movies};
 use crate::AppState;
 
-use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
+use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
 use crate::queue::handlers::common::is_unique_violation;
-use super::nfo_parser::NfoInfo;
+use crate::queue::handlers::nfo_parser::NfoInfo;
 
 pub struct OnlineVideoResult {
     pub movie_id: Uuid,
@@ -465,5 +465,5 @@ async fn download_thumbnail(
         })
         .unwrap_or_else(|| "jpg".to_string());
     let key = format!("library-images/movies/{entity_id}/poster.{ext}");
-    super::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
+    crate::services::media::scrape::shared::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
 }

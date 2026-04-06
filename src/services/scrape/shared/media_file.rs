@@ -14,7 +14,7 @@ use crate::AppState;
 use super::artwork;
 use super::constants::{guess_mime, image_storage_ext, POSTER_NAMES};
 use super::lib_type::LibType;
-use super::nfo_parser::{self, extract_tmdb_path, NfoInfo};
+use crate::queue::handlers::nfo_parser::{self, extract_tmdb_path, NfoInfo};
 use super::parse;
 use super::DirContext;
 

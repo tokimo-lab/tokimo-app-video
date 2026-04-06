@@ -7,7 +7,7 @@ use tracing::warn;
 
 use crate::AppState;
 use super::artwork::DiscoveredArtwork;
-use super::nfo_parser::NfoInfo;
+use crate::queue::handlers::nfo_parser::NfoInfo;
 
 pub async fn get_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     use crate::config::TmdbSettings;

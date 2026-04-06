@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::db::entities::{
     episodes, file_systems, app_file_systems, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
-    movies, music_albums, music_tracks, photos, seasons, tv_shows,
+    movies, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
@@ -211,6 +211,7 @@ impl AppSyncService {
     pub async fn execute_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
         app_id: Uuid,
         clear_data: bool,
         http_client: reqwest::Client,
@@ -246,7 +247,7 @@ impl AppSyncService {
 
         // Wrap the actual work so we can catch errors and set status to "failed".
         let result = Self::do_sync(
-            db, sources, &library, lib_type, is_movie, is_tv, is_music, clear_data, http_client,
+            db, sources, storage, &library, lib_type, is_movie, is_tv, is_music, clear_data, http_client,
         )
         .await;
 
@@ -338,6 +339,7 @@ impl AppSyncService {
     async fn do_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
         library: &apps::Model,
         lib_type: &str,
         is_movie: bool,
@@ -368,6 +370,7 @@ impl AppSyncService {
             let jobs = Self::sync_fs_source(
                 db,
                 sources,
+                storage,
                 app_id,
                 lib_type,
                 is_movie,
@@ -512,6 +515,28 @@ impl AppSyncService {
                 .rows_affected;
             info!("  Deleted {deleted} novels");
         } else if is_photo_type(lib_type) {
+            // Delete photo_persons first (faces will cascade from photos, but persons
+            // are only linked to appId and won't be cleaned up by photo deletion).
+            let persons_deleted = photo_persons::Entity::delete_many()
+                .filter(photo_persons::Column::AppId.eq(app_id))
+                .exec(db)
+                .await?
+                .rows_affected;
+            if persons_deleted > 0 {
+                info!("  Deleted {persons_deleted} photo persons");
+            }
+
+            // Delete photo_albums (they become empty after photos are cleared and
+            // won't be rebuilt by re-sync).
+            let albums_deleted = photo_albums::Entity::delete_many()
+                .filter(photo_albums::Column::AppId.eq(app_id))
+                .exec(db)
+                .await?
+                .rows_affected;
+            if albums_deleted > 0 {
+                info!("  Deleted {albums_deleted} photo albums");
+            }
+
             let deleted = photos::Entity::delete_many()
                 .filter(photos::Column::AppId.eq(app_id))
                 .exec(db)
@@ -628,6 +653,7 @@ impl AppSyncService {
     async fn sync_fs_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
         app_id: Uuid,
         lib_type: &str,
         is_movie: bool,
@@ -646,7 +672,7 @@ impl AppSyncService {
         }
 
         if is_music {
-            return Self::sync_music_source(db, sources, app_id, source, root_path).await;
+            return Self::sync_music_source(db, sources, storage, app_id, source, root_path).await;
         }
 
         let is_local = source_type == "local";
@@ -1204,7 +1230,13 @@ impl AppSyncService {
             .await?;
 
         // Match by artist name via album_artists → music_artist
+        let mut unscraped_stub: Option<Uuid> = None;
         for (album, artists) in &candidates {
+            if artists.is_empty() {
+                // Stub from a previous sync where scraping failed — reuse it
+                unscraped_stub = Some(album.id);
+                continue;
+            }
             for artist_link in artists {
                 if let Some(artist) = music_artists::Entity::find_by_id(artist_link.artist_id)
                     .one(db)
@@ -1213,6 +1245,9 @@ impl AppSyncService {
                         return Ok(album.id);
                     }
             }
+        }
+        if let Some(id) = unscraped_stub {
+            return Ok(id);
         }
 
         let max_disc = group
@@ -1547,13 +1582,13 @@ impl AppSyncService {
     async fn process_album_group(
         db: &DatabaseConnection,
         app_id: Uuid,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        mb: &rust_client_api::metadata_providers::musicbrainz::MusicBrainzClient,
         group: &AlbumGroup,
         is_local: bool,
         vfs: Option<&Arc<Vfs>>,
     ) -> Result<(), AppError> {
         let album_id = Self::find_or_create_album(db, app_id, group).await?;
-        let artist_id = Self::find_or_create_music_artist(db, &group.artist_name).await?;
-        Self::ensure_artist_credit(db, album_id, artist_id).await?;
 
         for file in &group.files {
             match Self::upsert_track(db, album_id, file).await {
@@ -1583,6 +1618,44 @@ impl AppSyncService {
         }
 
         Self::update_album_metadata(db, album_id, group, is_local, vfs).await?;
+
+        // Scrape MusicBrainz immediately using the artist name from file tags,
+        // so artists are only created with a proper mb_id (never as stubs).
+        // Skip if already scraped (re-sync of an existing album).
+        let already_scraped = music_albums::Entity::find_by_id(album_id)
+            .one(db)
+            .await?
+            .and_then(|a| a.scraped_at)
+            .is_some();
+
+        if already_scraped {
+            return Ok(());
+        }
+
+        let result = crate::services::media::scrape::music::MusicScrapeService::scrape_album_inline(
+            db,
+            storage,
+            mb,
+            album_id,
+            &group.artist_name,
+            &group.album_title,
+        )
+        .await;
+        match result.status.as_str() {
+            "success" => info!(
+                "[music_scrape] Scraped \"{}\" by \"{}\"",
+                group.album_title, group.artist_name
+            ),
+            "no_match" => info!(
+                "[music_scrape] No MB match for \"{}\" by \"{}\"",
+                group.album_title, group.artist_name
+            ),
+            _ => warn!(
+                "[music_scrape] Scrape failed for \"{}\" by \"{}\": {:?}",
+                group.album_title, group.artist_name, result.error
+            ),
+        }
+
         Ok(())
     }
 
@@ -1590,6 +1663,7 @@ impl AppSyncService {
     async fn sync_music_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
         app_id: Uuid,
         source: &file_systems::Model,
         root_path: &str,
@@ -1730,11 +1804,12 @@ impl AppSyncService {
             album_groups.len()
         );
 
-        // Process each album group
+        // Process each album group — scrape MusicBrainz inline using tag artist name
         let vfs_ref = if is_local { Some(&vfs) } else { None };
+        let mb = rust_client_api::metadata_providers::musicbrainz::MusicBrainzClient::new();
         let mut processed_albums = 0u64;
         for (i, group) in album_groups.iter().enumerate() {
-            if let Err(e) = Self::process_album_group(db, app_id, group, is_local, vfs_ref).await {
+            if let Err(e) = Self::process_album_group(db, app_id, storage, &mb, group, is_local, vfs_ref).await {
                 error!(
                     "Album processing failed \"{}\" by \"{}\": {}",
                     group.album_title, group.artist_name, e

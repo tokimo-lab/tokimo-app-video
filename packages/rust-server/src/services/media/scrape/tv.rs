@@ -13,11 +13,11 @@ use crate::db::entities::{episodes, seasons, tv_shows};
 use crate::db::repos::job_repo::JobRepo;
 use crate::AppState;
 
-use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
+use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
 use crate::queue::handlers::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
-use super::lib_type::LibType;
-use super::nfo_parser::NfoInfo;
-use super::tmdb;
+use crate::services::media::scrape::shared::lib_type::LibType;
+use crate::queue::handlers::nfo_parser::NfoInfo;
+use crate::services::media::scrape::shared::tmdb;
 
 pub struct TvResult {
     pub tv_show_id: Uuid,
@@ -64,7 +64,7 @@ async fn quick_find_existing(
         }
         if let Some(show) = q.one(db).await? {
             let tmdb_id = show.tmdb_id.as_deref().and_then(|s| s.parse::<i64>().ok());
-            info!("[file_scrape] TV dedup by title+year: '{title}' → {}", show.id);
+            info!("[tv_scrape] TV dedup by title+year: '{title}' → {}", show.id);
             return Ok(Some((show.id, tmdb_id)));
         }
     }
@@ -171,7 +171,7 @@ pub async fn find_or_create_tv(
         // already created the record between the pre-check and lock acquisition.
         let fresh_existing = find_tv_show_by_title(db, app_id, parsed_title, parsed_year).await?;
         if let Some(existing_id) = fresh_existing {
-            info!("[file_scrape] TV dedup by title+year (concurrent lock): '{parsed_title}' → {existing_id}");
+            info!("[tv_scrape] TV dedup by title+year (concurrent lock): '{parsed_title}' → {existing_id}");
             (existing_id, false, None)
         } else {
             // Only ONE worker reaches here for a given show. Fetch TMDB now.
@@ -262,7 +262,7 @@ pub async fn find_or_create_tv(
             .or_else(|| nfo.and_then(|n| n.tmdb_id.as_deref()).and_then(|s| s.parse::<i64>().ok()));
         match create_season_and_episode(db, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
             Ok((sid, eid)) => (Some(sid), Some(eid)),
-            Err(e) => { warn!("[file_scrape] Failed to create season/episode: {e}"); (None, None) }
+            Err(e) => { warn!("[tv_scrape] Failed to create season/episode: {e}"); (None, None) }
         }
     } else { (None, None) };
 
@@ -270,7 +270,7 @@ pub async fn find_or_create_tv(
     if is_new
         && let Err(e) = sync_people_for_media(db, &pending_cast, &pending_directors, None, Some(tv_show_id), season_id).await
     {
-        warn!("[file_scrape] TV cast sync failed: {e}");
+        warn!("[tv_scrape] TV cast sync failed: {e}");
     }
 
     Ok(TvResult { tv_show_id, episode_id })
@@ -331,7 +331,7 @@ async fn create_tv_show_record(
         .or_else(|| nfo.and_then(|n| n.rating));
     let content_rating = nfo.and_then(|n| n.content_rating.clone());
     let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
-    let scraped_at = if tmdb_detail.is_some() || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient) { Some(now) } else { None };
+    let scraped_at = if tmdb_detail.is_some() || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient) { Some(now) } else { None };
 
     let mut metadata_map = serde_json::Map::new();
     if let Some(nfo) = nfo {
@@ -360,14 +360,14 @@ async fn create_tv_show_record(
 
     match tv_shows::Entity::insert(model).exec(db).await {
         Ok(_) => {
-            info!("[file_scrape] Created TV show: {title} (tmdb={}, imdb={})",
+            info!("[tv_scrape] Created TV show: {title} (tmdb={}, imdb={})",
                 tmdb_id_str.unwrap_or("-"), imdb_id_str.unwrap_or("-"));
             Ok(show_id)
         }
         Err(e) if is_unique_violation(&e) => {
             let existing = find_existing_tv_show(db, app_id, tmdb_id_str, imdb_id_str).await?;
             if let Some(id) = existing {
-                info!("[file_scrape] TV show already exists (concurrent): {title}");
+                info!("[tv_scrape] TV show already exists (concurrent): {title}");
                 Ok(id)
             } else { Err(e.into()) }
         }
