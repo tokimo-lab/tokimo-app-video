@@ -10,8 +10,9 @@ use super::artwork::DiscoveredArtwork;
 use super::nfo_parser::NfoInfo;
 
 pub async fn get_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    use crate::db::repos::config_repo::{ConfigRepo, TmdbSettings};
-    let setting = ConfigRepo::get::<TmdbSettings>(db).await?;
+    use crate::config::TmdbSettings;
+    use crate::db::repos::system_config_repo::SystemConfigRepo;
+    let setting = SystemConfigRepo::get::<TmdbSettings>(db).await?;
     if setting.api_key.is_some() {
         return Ok(setting.api_key);
     }

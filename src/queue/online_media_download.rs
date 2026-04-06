@@ -94,8 +94,9 @@ pub async fn handle(
     };
 
     // Get scraping settings for NFO generation.
-    use crate::db::repos::config_repo::{ConfigRepo, ScrapingSettings};
-    let scraping_row = ConfigRepo::get::<ScrapingSettings>(db).await.ok();
+    use crate::config::ScrapingSettings;
+    use crate::db::repos::system_config_repo::SystemConfigRepo;
+    let scraping_row = SystemConfigRepo::get::<ScrapingSettings>(db).await.ok();
     let generate_nfo = scraping_row
         .as_ref()
         .is_some_and(|s| s.generate_nfo);

@@ -24,10 +24,10 @@ pub async fn handle(
         return Err("TMDB API Key 未配置".into());
     };
 
-    use crate::db::entities::persons;
+    use crate::db::entities::cast_members;
     use sea_orm::*;
 
-    let person = persons::Entity::find_by_id(person_uuid).one(db).await?;
+    let person = cast_members::Entity::find_by_id(person_uuid).one(db).await?;
     let Some(person) = person else {
         warn!("[tmdb_person_scrape] Person {person_id} not found, skipping");
         return Ok(Some(json!({ "personId": person_id, "skipped": true })));
@@ -57,9 +57,9 @@ pub async fn handle(
 
         // Persist tmdb_id so future scrapes skip the search
         let expr_val = sea_orm::prelude::Expr::value(found_id.to_string());
-        persons::Entity::update_many()
-            .col_expr(persons::Column::TmdbId, expr_val)
-            .filter(persons::Column::Id.eq(person_uuid))
+        cast_members::Entity::update_many()
+            .col_expr(cast_members::Column::TmdbId, expr_val)
+            .filter(cast_members::Column::Id.eq(person_uuid))
             .exec(db)
             .await?;
 
@@ -70,7 +70,7 @@ pub async fn handle(
     let detail = client.get_person_detail(tmdb_id_num).await?;
 
     let now = chrono::Utc::now().fixed_offset();
-    let mut active: persons::ActiveModel = person.into();
+    let mut active: cast_members::ActiveModel = person.into();
 
     active.name = Set(detail.name.clone());
 
@@ -166,8 +166,9 @@ pub async fn handle(
 async fn get_tmdb_api_key(
     db: &DatabaseConnection,
 ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    use crate::db::repos::config_repo::{ConfigRepo, TmdbSettings};
+    use crate::config::TmdbSettings;
+    use crate::db::repos::system_config_repo::SystemConfigRepo;
 
-    let setting = ConfigRepo::get::<TmdbSettings>(db).await?;
+    let setting = SystemConfigRepo::get::<TmdbSettings>(db).await?;
     Ok(setting.api_key)
 }

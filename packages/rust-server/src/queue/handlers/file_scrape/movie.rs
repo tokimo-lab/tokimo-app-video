@@ -181,7 +181,7 @@ pub async fn find_or_create_movie(
             vec![]
         };
         let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
-        sync_people_for_media(db, &cast, &directors, Some(movie_id), None).await?;
+        sync_people_for_media(db, &cast, &directors, Some(movie_id), None, None).await?;
     }
 
     // Upload extra art
