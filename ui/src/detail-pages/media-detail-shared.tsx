@@ -7,7 +7,7 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
-import { cn, HorizontalScroll, Image, Popover, Tag } from "@tokiomo/components";
+import { cn, HorizontalScroll, Popover, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -53,22 +53,17 @@ export function MediaPoster({
     <div
       className={cn(
         "hidden flex-shrink-0 overflow-hidden rounded-xl shadow-2xl md:block",
-        landscape ? "w-[320px]" : "w-[160px]",
+        landscape ? "aspect-video w-[320px]" : "aspect-[2/3] w-[160px]",
       )}
     >
       {posterPath ? (
-        <Image
+        <img
           src={posterThumbUrl(posterPath, 300)}
           alt={title}
           className="h-full w-full object-cover"
         />
       ) : (
-        <div
-          className={cn(
-            "flex items-center justify-center bg-[var(--bg-skeleton)] text-5xl",
-            landscape ? "aspect-video" : "aspect-[2/3]",
-          )}
-        >
+        <div className="flex h-full w-full items-center justify-center bg-[var(--bg-skeleton)] text-5xl">
           {fallbackEmoji}
         </div>
       )}
