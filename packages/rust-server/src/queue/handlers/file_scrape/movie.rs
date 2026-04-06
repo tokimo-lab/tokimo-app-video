@@ -23,8 +23,6 @@ pub struct MovieResult {
 }
 
 /// Single entry point called from mod.rs.
-/// group_key serializes jobs by directory at the DB level; TMDB is only called
-/// when no matching movie record already exists.
 #[allow(clippy::too_many_arguments)]
 pub async fn scrape(
     db: &DatabaseConnection,
@@ -86,7 +84,7 @@ pub async fn find_or_create_movie(
     }
 
     // Step 2: Check by parsed title+year — handles the common case where a sibling job
-    // in the same group_key directory already created the movie record.
+    // in the same movie directory already created the movie record.
     if let Some(id) = find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await? {
         touch_movie(db, id).await?;
         return Ok(MovieResult { movie_id: id, scraped: false });
