@@ -563,34 +563,17 @@ pub(crate) async fn build_iso_m2ts_input(
         iso_path,
         m2ts,
         subtitle_tap,
-    ))
+    ).await)
 }
 
 /// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
 /// not in DB yet) and from the ffprobe scan (to populate `iso_meta`).
-#[allow(clippy::unused_async)]
 pub(crate) async fn parse_iso_m2ts(
     vfs: &Arc<next_fs::Vfs>,
     iso_path: &str,
     file_size: u64,
 ) -> Result<iso_reader::M2tsFile, String> {
-    let handle = tokio::runtime::Handle::current();
-    let vfs_for_parse = vfs.clone();
-    let iso_path_for_parse = iso_path.to_string();
-
-    let parse_read_at = Arc::new(
-        move |offset: u64, size: usize| -> std::io::Result<Vec<u8>> {
-            let vfs = vfs_for_parse.clone();
-            let path = iso_path_for_parse.clone();
-            tokio::task::block_in_place(|| {
-                handle.block_on(async move {
-                    vfs.read_bytes(std::path::Path::new(&path), offset, Some(size as u64))
-                        .await
-                        .map_err(std::io::Error::other)
-                })
-            })
-        },
-    );
+    let parse_read_at = vfs.to_read_at(std::path::Path::new(iso_path)).await;
 
     let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
         .map_err(|e| format!("UDF parse failed: {e}"))?;
@@ -604,27 +587,23 @@ pub(crate) async fn parse_iso_m2ts(
         .cloned()
 }
 
-fn build_direct_input_from_m2ts(
+async fn build_direct_input_from_m2ts(
     vfs: Arc<next_fs::Vfs>,
     iso_path: String,
     m2ts: iso_reader::M2tsFile,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
 ) -> Arc<ffmpeg_tool::DirectInput> {
-    let handle = tokio::runtime::Handle::current();
     let m2ts_size = m2ts.size;
     let filename = m2ts.filename.clone();
     let extents = m2ts.extents;
 
+    // Get a sync ReadAt for the raw ISO file (handles local/remote transparently)
+    let iso_ra: next_fs::ReadAt = vfs.to_read_at(std::path::Path::new(&iso_path)).await;
+
     let input = ffmpeg_tool::DirectInput {
         read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
             let result = read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| {
-                let vfs = vfs.clone();
-                let path = iso_path.clone();
-                handle.block_on(async move {
-                    vfs.read_bytes(std::path::Path::new(&path), iso_offset, Some(len as u64))
-                        .await
-                        .map_err(std::io::Error::other)
-                })
+                iso_ra(iso_offset, len)
             })?;
             if let Some(ref tx) = subtitle_tap {
                 let _ = tx.try_send((bytes::Bytes::copy_from_slice(&result), m2ts_offset));
@@ -835,8 +814,6 @@ async fn build_direct_input(
     let file_size = file_size.filter(|&s| s > 0)? as u64;
 
     let vfs = state.sources.ensure_vfs(source_id).await.ok()?;
-    let path = file_path.to_string();
-    let handle = tokio::runtime::Handle::current();
 
     // Extract filename for format detection hint
     let filename_hint = std::path::Path::new(file_path)
@@ -844,26 +821,30 @@ async fn build_direct_input(
         .and_then(|n| n.to_str())
         .map(String::from);
 
-    let input = ffmpeg_tool::DirectInput {
-        read_at: Arc::new(move |offset: u64, size: usize| {
-            let read_path = std::path::Path::new(&path);
-            match handle.block_on(vfs.read_bytes(read_path, offset, Some(size as u64))) {
-                Ok(buf) => {
-                    if let Some(ref tx) = subtitle_tap {
-                        // Convert to Bytes so the clone into the tap is O(1) (Arc increment).
-                        let shared = bytes::Bytes::from(buf);
-                        let _ = tx.try_send((shared.clone(), offset));
-                        Ok(shared.to_vec())
-                    } else {
-                        Ok(buf)
-                    }
-                }
-                Err(e) => Err(std::io::Error::other(e)),
-            }
-        }),
-        size: file_size,
-        filename_hint,
-        readahead_bytes: Some(ffmpeg_tool::READAHEAD_HLS),
+    let ra = vfs.to_read_at(std::path::Path::new(file_path)).await;
+
+    let input = if let Some(tap) = subtitle_tap {
+        // Wrap ReadAt with subtitle tapping
+        let inner_ra = ra;
+        let tapped_ra: next_fs::ReadAt = Arc::new(move |offset: u64, size: usize| {
+            let buf = inner_ra(offset, size)?;
+            let shared = bytes::Bytes::from(buf);
+            let _ = tap.try_send((shared.clone(), offset));
+            Ok(shared.to_vec())
+        });
+        ffmpeg_tool::DirectInput::from_read_at(
+            tapped_ra,
+            file_size,
+            filename_hint,
+            Some(ffmpeg_tool::READAHEAD_HLS),
+        )
+    } else {
+        ffmpeg_tool::DirectInput::from_read_at(
+            ra,
+            file_size,
+            filename_hint,
+            Some(ffmpeg_tool::READAHEAD_HLS),
+        )
     };
 
     info!(
@@ -872,7 +853,7 @@ async fn build_direct_input(
         file_size / 1024 / 1024,
     );
 
-    Some(Arc::new(input))
+    Some(input)
 }
 
 /// Build a subtitle stream tap for HLS sessions using AVIO direct input.
