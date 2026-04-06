@@ -11,11 +11,11 @@ use uuid::Uuid;
 use crate::db::entities::movies;
 use crate::AppState;
 
-use super::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
+use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
 use crate::queue::handlers::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
-use super::lib_type::LibType;
-use super::nfo_parser::NfoInfo;
-use super::tmdb;
+use crate::services::media::scrape::shared::lib_type::LibType;
+use crate::queue::handlers::nfo_parser::NfoInfo;
+use crate::services::media::scrape::shared::tmdb;
 
 pub struct MovieResult {
     pub movie_id: Uuid,
@@ -107,7 +107,7 @@ pub async fn find_or_create_movie(
     };
 
     let scraped =
-        tmdb_detail.is_some() || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient);
+        tmdb_detail.is_some() || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient);
 
     let tmdb_id_str = tmdb_detail
         .as_ref()
@@ -243,7 +243,7 @@ async fn find_existing_movie_by_title(
     let existing = query.one(db).await?;
     if let Some(ref m) = existing {
         info!(
-            "[file_scrape] Dedup by title+year: found existing movie '{}' ({})",
+            "[movie_scrape] Dedup by title+year: found existing movie '{}' ({})",
             title,
             m.id
         );
@@ -274,7 +274,7 @@ async fn backfill_external_ids(
     let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(movie_id));
     if need_tmdb {
         update = update.col_expr(movies::Column::TmdbId, Expr::value(tmdb_id.unwrap()));
-        info!("[file_scrape] Backfilled tmdb_id={} onto movie {}", tmdb_id.unwrap(), movie_id);
+        info!("[movie_scrape] Backfilled tmdb_id={} onto movie {}", tmdb_id.unwrap(), movie_id);
     }
     if need_imdb {
         update = update.col_expr(movies::Column::ImdbId, Expr::value(imdb_id.unwrap()));
@@ -335,7 +335,7 @@ async fn create_movie_record(
     let content_rating = nfo.and_then(|n| n.content_rating.clone());
     let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
     let scraped_at = if tmdb_detail.is_some()
-        || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient)
+        || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient)
         || lib_type == LibType::Custom
     { Some(now) } else { None };
 
@@ -384,7 +384,7 @@ async fn create_movie_record(
 
     match movies::Entity::insert(model).exec(db).await {
         Ok(_) => {
-            info!("[file_scrape] Created movie: {title} (tmdb={}, imdb={})",
+            info!("[movie_scrape] Created movie: {title} (tmdb={}, imdb={})",
                 tmdb_id_str.unwrap_or("-"), imdb_id_str.unwrap_or("-"));
             Ok(movie_id)
         }
@@ -392,7 +392,7 @@ async fn create_movie_record(
             let existing = find_existing_movie(db, app_id, tmdb_id_str, imdb_id_str).await?
                 .or(find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await?);
             if let Some(id) = existing {
-                info!("[file_scrape] Movie already exists (concurrent): {title}");
+                info!("[movie_scrape] Movie already exists (concurrent): {title}");
                 Ok(id)
             } else {
                 Err(e.into())
