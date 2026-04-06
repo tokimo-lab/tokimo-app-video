@@ -106,12 +106,12 @@ fn pick_best_match(
 /// TMDB movie scrape: NFO ID priority → search with scoring.
 pub async fn scrape_movie(
     tmdb: &TmdbClient,
-    nfo: &Option<NfoInfo>,
+    nfo: Option<&NfoInfo>,
     title: &str,
     year: Option<i32>,
     artwork: &DiscoveredArtwork,
-    nfo_poster_tmdb: &Option<String>,
-    nfo_backdrop_tmdb: &Option<String>,
+    nfo_poster_tmdb: Option<&str>,
+    nfo_backdrop_tmdb: Option<&str>,
 ) -> Option<TmdbMediaDetail> {
     let needs_remote_art = artwork.poster_buf.is_none() && nfo_poster_tmdb.is_none()
         || artwork.fanart_buf.is_none() && nfo_backdrop_tmdb.is_none();
@@ -157,12 +157,12 @@ pub async fn scrape_movie(
 /// TMDB TV scrape: NFO ID priority → search with scoring.
 pub async fn scrape_tv(
     tmdb: &TmdbClient,
-    nfo: &Option<NfoInfo>,
+    nfo: Option<&NfoInfo>,
     title: &str,
     year: Option<i32>,
     artwork: &DiscoveredArtwork,
-    nfo_poster_tmdb: &Option<String>,
-    nfo_backdrop_tmdb: &Option<String>,
+    nfo_poster_tmdb: Option<&str>,
+    nfo_backdrop_tmdb: Option<&str>,
 ) -> Option<TmdbMediaDetail> {
     let needs_remote_art = artwork.poster_buf.is_none() && nfo_poster_tmdb.is_none()
         || artwork.fanart_buf.is_none() && nfo_backdrop_tmdb.is_none();

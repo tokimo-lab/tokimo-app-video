@@ -4,7 +4,7 @@ use sea_orm::DatabaseConnection;
 use sea_orm::*;
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use tracing::{debug, warn};
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::AppState;
@@ -73,7 +73,7 @@ pub async fn handle(
         found_id
     };
 
-    debug!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id} ({person_type})");
+    // debug!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id} ({person_type})");
     let detail = client.get_person_detail(tmdb_id_num).await?;
 
     // ── Dispatch image_upload job for the profile image ──
@@ -107,7 +107,7 @@ pub async fn handle(
         tv_show_id,
     });
 
-    debug!("[tmdb_person_scrape] Updated {person_type} person {person_id}");
+    // debug!("[tmdb_person_scrape] Updated {person_type} person {person_id}");
     Ok(Some(json!({ "personId": person_id })))
 }
 

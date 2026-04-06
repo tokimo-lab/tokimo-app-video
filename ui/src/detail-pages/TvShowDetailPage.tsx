@@ -1,10 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeftOutlined,
-  Button,
-  PillTabBar,
-  Spin,
-} from "@tokiomo/components";
+import { Button, PillTabBar, Spin } from "@tokiomo/components";
 import { Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/generated/rust-api";
@@ -12,14 +7,16 @@ import { posterThumbUrl } from "@/lib/thumb";
 import { useBackgroundArt, usePlayer, useWindowNav } from "@/system";
 import type { EpisodeOutput } from "@/types";
 import {
+  CollectionsSection,
+  MediaDetailLayout,
+  MediaDetailMeta,
+  OverviewSection,
+} from "./media-detail-layout";
+import {
   CastRow,
   CrewRow,
   formatRuntime,
   MediaFileCard,
-  MediaInfoBlock,
-  MediaPoster,
-  MediaTagsRow,
-  SectionTitle,
 } from "./media-detail-shared";
 
 function FavoriteButton({
@@ -64,14 +61,12 @@ function EpisodeRow({
   const firstFile = episode.files?.[0];
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--glass-border)]">
-      {/* Entire row is the expand click target */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: desktop-only UI, can't nest <button> */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: desktop-only UI */}
       <div
         className="flex w-full cursor-pointer items-stretch gap-4 p-3 transition-colors hover:bg-fill-tertiary/50"
         onClick={() => setOpen((v) => !v)}
       >
-        {/* Thumbnail — click to play, stopPropagation prevents expand */}
         <button
           type="button"
           disabled={!firstFile}
@@ -107,7 +102,6 @@ function EpisodeRow({
           )}
         </button>
 
-        {/* Info — visual only, parent div handles expand click */}
         <div className="flex min-w-0 flex-1 items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -199,7 +193,7 @@ export default function TvShowDetailPage() {
   if (!show) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <p className="text-fg-muted">未找到该剂集</p>
+        <p className="text-fg-muted">未找到该剧集</p>
         <Button onClick={() => goBack()}>返回</Button>
       </div>
     );
@@ -210,185 +204,111 @@ export default function TvShowDetailPage() {
   const isFavorite = show.isFavorite ?? false;
 
   return (
-    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
-      {/* ── Header ── */}
-      <div className="relative z-10 px-6 pt-6 pb-6">
-        <div className="mb-6">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => goBack()}>
-            返回
-          </Button>
-        </div>
-        <div className="flex items-start gap-6">
-          <MediaPoster
-            posterPath={show.posterPath}
-            title={show.title}
-            fallbackEmoji="📺"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold leading-tight">{show.title}</h1>
-              <FavoriteButton isFavorite={isFavorite} tvShowId={show.id} />
-            </div>
-            {show.originalTitle && show.originalTitle !== show.title && (
-              <p className="mt-0.5 text-sm text-fg-muted">
-                {show.originalTitle}
-              </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              {show.year && (
-                <span className="text-fg-secondary">{show.year}</span>
-              )}
+    <MediaDetailLayout
+      onBack={goBack}
+      title={show.title}
+      posterPath={show.posterPath}
+      posterFallbackEmoji="📺"
+      headerContent={
+        <MediaDetailMeta
+          title={show.title}
+          originalTitle={show.originalTitle}
+          favoriteSlot={
+            <FavoriteButton isFavorite={isFavorite} tvShowId={show.id} />
+          }
+          yearDisplay={show.year}
+          contentRating={show.contentRating}
+          tmdbRating={show.tmdbRating}
+          imdbRating={show.imdbRating}
+          doubanRating={show.doubanRating}
+          extraBadges={
+            <>
               {seasons.length > 0 && (
                 <span className="text-fg-secondary">· {seasons.length} 季</span>
-              )}
-              {show.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-fg-secondary">
-                  {show.contentRating}
-                </span>
               )}
               {show.status && (
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                     show.status === "ended"
                       ? "bg-fill-tertiary text-fg-secondary"
-                      : "bg-green-100/60 dark:bg-green-600/60 text-green-700 dark:text-green-200"
+                      : "bg-green-100/60 text-green-700 dark:bg-green-600/60 dark:text-green-200"
                   }`}
                 >
                   {show.status}
                 </span>
               )}
-              {show.tmdbRating != null && (
-                <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400">
-                  TMDB ★ {show.tmdbRating.toFixed(1)}
-                </span>
-              )}
-              {show.imdbRating != null && (
-                <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  IMDb ★ {show.imdbRating.toFixed(1)}
-                </span>
-              )}
-              {show.doubanRating != null && (
-                <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">
-                  豆瓣 ★ {show.doubanRating.toFixed(1)}
-                </span>
-              )}
-              <MediaTagsRow
-                genres={show.genres}
-                tmdbId={show.tmdbId}
-                imdbId={show.imdbId}
-                tvdbId={show.tvdbId}
-                mediaType="tv"
-              />
-            </div>
-            <MediaInfoBlock
-              directors={directors.map((d) => d.person.name)}
-              writers={writers.map((w) => w.person.name)}
-              date={show.firstAirDate}
-              dateLabel="首播"
-              countries={show.countries}
-            />
-          </div>
-        </div>
-      </div>
+            </>
+          }
+          genres={show.genres}
+          tmdbId={show.tmdbId}
+          imdbId={show.imdbId}
+          tvdbId={show.tvdbId}
+          mediaType="tv"
+          directors={directors.map((d) => d.person.name)}
+          writers={writers.map((w) => w.person.name)}
+          date={show.firstAirDate}
+          dateLabel="首播"
+          countries={show.countries}
+        />
+      }
+    >
+      <OverviewSection overview={show.overview} />
 
-      {/* ── Body ── */}
-      <div className="relative z-10 px-6 pt-6 pb-6">
-        {show.overview && (
-          <div className="mb-6">
-            <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-fg-secondary">
-              {show.overview}
-            </p>
-          </div>
-        )}
-
-        {/* Season + Episodes */}
-        {seasons.length > 0 && (
-          <section className="mb-8">
-            {/* Season selector — PillTabBar */}
-            <PillTabBar
-              tabs={seasons.map((sn) => {
-                const base = `第 ${sn.seasonNumber} 季`;
-                // Only append title if it's a real scraped name (not generic "Season X")
-                const hasRealTitle =
-                  sn.title && !/^season\s+\d+$/i.test(sn.title);
-                const parts: string[] = [base];
-                if (hasRealTitle) parts.push(sn.title!);
-                const episodeCount =
-                  sn.episodeCount ?? sn.episodes?.length ?? null;
-                if (episodeCount != null) parts.push(`${episodeCount} 集`);
-                return {
-                  key: String(sn.seasonNumber),
-                  label: parts.join(" · "),
-                  posterSrc: sn.posterPath
-                    ? posterThumbUrl(sn.posterPath, 92)
-                    : undefined,
-                };
-              })}
-              activeTab={String(
-                selectedSeason?.seasonNumber ?? seasons[0]?.seasonNumber,
-              )}
-              onTabChange={(key) => setActiveSeason(Number(key))}
-              sticky={false}
-            />
-
-            {/* Episode list */}
-            {selectedSeason && (
-              <div className="space-y-2">
-                {(selectedSeason.episodes ?? []).map((ep) => (
-                  <EpisodeRow
-                    key={ep.id}
-                    episode={ep}
-                    playMeta={{
-                      title: show.title,
-                      posterPath: show.posterPath,
-                      imdbId: show.imdbId,
-                      tmdbId: show.tmdbId,
-                    }}
-                  />
-                ))}
-                {(selectedSeason.episodes ?? []).length === 0 && (
-                  <p className="py-8 text-center text-sm text-fg-muted">
-                    暂无剧集数据
-                  </p>
-                )}
-              </div>
+      {/* Season + Episodes */}
+      {seasons.length > 0 && (
+        <section className="mb-8">
+          <PillTabBar
+            tabs={seasons.map((sn) => {
+              const base = `第 ${sn.seasonNumber} 季`;
+              const hasRealTitle =
+                sn.title && !/^season\s+\d+$/i.test(sn.title);
+              const parts: string[] = [base];
+              if (hasRealTitle) parts.push(sn.title!);
+              const episodeCount =
+                sn.episodeCount ?? sn.episodes?.length ?? null;
+              if (episodeCount != null) parts.push(`${episodeCount} 集`);
+              return {
+                key: String(sn.seasonNumber),
+                label: parts.join(" · "),
+                posterSrc: sn.posterPath
+                  ? posterThumbUrl(sn.posterPath, 92)
+                  : undefined,
+              };
+            })}
+            activeTab={String(
+              selectedSeason?.seasonNumber ?? seasons[0]?.seasonNumber,
             )}
-          </section>
-        )}
+            onTabChange={(key) => setActiveSeason(Number(key))}
+            sticky={false}
+          />
 
-        {/* Collections */}
-        {show.collections && show.collections.length > 0 && (
-          <section className="mb-8">
-            <SectionTitle>所属合集</SectionTitle>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {show.collections.map((col) => (
-                <div
-                  key={col.id}
-                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-[var(--glass-border)] p-2"
-                >
-                  {col.posterPath && (
-                    <img
-                      src={posterThumbUrl(col.posterPath, 300)}
-                      alt={col.name}
-                      className="h-12 w-8 flex-shrink-0 rounded object-cover"
-                    />
-                  )}
-                  <p className="truncate text-xs font-medium text-fg-primary">
-                    {col.name}
-                  </p>
-                </div>
+          {selectedSeason && (
+            <div className="space-y-2">
+              {(selectedSeason.episodes ?? []).map((ep) => (
+                <EpisodeRow
+                  key={ep.id}
+                  episode={ep}
+                  playMeta={{
+                    title: show.title,
+                    posterPath: show.posterPath,
+                    imdbId: show.imdbId,
+                    tmdbId: show.tmdbId,
+                  }}
+                />
               ))}
+              {(selectedSeason.episodes ?? []).length === 0 && (
+                <p className="py-8 text-center text-sm text-fg-muted">
+                  暂无剧集数据
+                </p>
+              )}
             </div>
-          </section>
-        )}
+          )}
+        </section>
+      )}
 
-        {/* Cast */}
-        <CastRow credits={show.credits ?? []} />
-
-        {/* Crew */}
-        <CrewRow credits={show.credits ?? []} />
-      </div>
-    </div>
+      <CollectionsSection collections={show.collections} />
+      <CastRow credits={show.credits ?? []} />
+      <CrewRow credits={show.credits ?? []} />
+    </MediaDetailLayout>
   );
 }

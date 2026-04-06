@@ -97,7 +97,7 @@ pub async fn stream_media_file(
         if tap_tx.is_some()
             && let Some(source_id) = target.source_id.as_deref()
                 && let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
-                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id.clone()))
+                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx)
                         .await;
                 }
 
@@ -133,7 +133,7 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, Some(file_id)).await
+    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
 }
 
 fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Option<String> {

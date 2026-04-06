@@ -97,28 +97,18 @@ pub async fn scrape(
     let api_key = tmdb::get_api_key(db).await?;
 
     // Pre-check: is this show already in the DB?
-    // If yes, skip the expensive TMDB search+detail (2 HTTP calls → 0).
+    // If yes, we still build the TMDB client so new seasons can be fetched on demand.
     let pre_existing = quick_find_existing(db, app_id, nfo, title, year).await?;
 
-    let mut tmdb_detail: Option<TmdbMediaDetail> = None;
-    let mut tmdb_client: Option<TmdbClient> = None;
-
-    if let Some(ref key) = api_key {
-        let client = tmdb::build_client(state, key);
-        if pre_existing.is_none() {
-            // New show — run full TMDB scrape (search + detail)
-            tmdb_detail = tmdb::scrape_tv(
-                &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
-            )
-            .await;
-        }
-        // Keep client so new seasons can call get_tv_season_detail when needed
-        tmdb_client = Some(client);
-    }
+    // The TMDB client is always built when an API key is available; scrape_tv()
+    // itself is now called INSIDE the per-show creation lock inside find_or_create_tv,
+    // ensuring only ONE worker performs the TMDB search+detail for a new show even
+    // when many episode files are processed concurrently.
+    let tmdb_client: Option<TmdbClient> = api_key.as_ref().map(|key| tmdb::build_client(state, key));
 
     find_or_create_tv(
         db, state, tmdb_client.as_ref(),
-        app_id, pre_existing, tmdb_detail.as_ref(), nfo.as_ref(),
+        app_id, pre_existing, nfo.as_ref(),
         title, year, season, episode,
         artwork, nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
     )
@@ -128,9 +118,11 @@ pub async fn scrape(
 /// Find or create a TV show, then create season/episode if we have numbers.
 ///
 /// `pre_existing` — result from `quick_find_existing`: `(show_id, tmdb_show_id)`.
-/// When provided the internal DB lookup is skipped (avoids a redundant query)
-/// and the stored `tmdb_show_id` is used for season fetching even when
-/// `tmdb_detail` is `None` (i.e. TMDB scrape was skipped for an existing show).
+/// When provided the internal DB lookup is skipped (avoids a redundant query).
+///
+/// TMDB scrape (`scrape_tv`) is called INSIDE the per-show creation lock so
+/// that only ONE concurrent worker performs the search+detail HTTP requests for
+/// a new show, even when many episode files are being processed simultaneously.
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_tv(
     db: &DatabaseConnection,
@@ -138,7 +130,6 @@ pub async fn find_or_create_tv(
     tmdb: Option<&TmdbClient>,
     app_id: Uuid,
     pre_existing: Option<(Uuid, Option<i64>)>,
-    tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
     parsed_title: &str,
     parsed_year: Option<i32>,
@@ -148,12 +139,9 @@ pub async fn find_or_create_tv(
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
 ) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
-    let tmdb_id_str = tmdb_detail
-        .map(|d| d.base.id.to_string())
-        .or_else(|| nfo.and_then(|n| n.tmdb_id.clone()));
-    let imdb_id_str = tmdb_detail
-        .and_then(|d| d.imdb_id.clone())
-        .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
+    // IDs from NFO — used for the pre-lock existence check.
+    let nfo_tmdb_id = nfo.and_then(|n| n.tmdb_id.as_deref());
+    let nfo_imdb_id = nfo.and_then(|n| n.imdb_id.as_deref());
 
     // Use pre_existing from caller when available (avoids a redundant DB query).
     // Fall back to a DB lookup only when scrape() couldn't pre-check (shouldn't
@@ -161,20 +149,17 @@ pub async fn find_or_create_tv(
     let resolved_existing = if let Some((id, _)) = pre_existing {
         Some(id)
     } else {
-        find_existing_tv_show(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
+        find_existing_tv_show(db, app_id, nfo_tmdb_id, nfo_imdb_id).await?
     };
 
-    let (tv_show_id, is_new) = if let Some(existing_id) = resolved_existing {
-        tv_shows::Entity::update_many()
-            .col_expr(tv_shows::Column::UpdatedAt, Expr::cust("NOW()"))
-            .col_expr(tv_shows::Column::ScrapedAt, Expr::cust("NOW()"))
-            .filter(tv_shows::Column::Id.eq(existing_id))
-            .exec(db).await?;
-        (existing_id, false)
+    let (tv_show_id, is_new, tmdb_detail) = if let Some(existing_id) = resolved_existing {
+        // Show already in DB — no TMDB fetch needed.
+        (existing_id, false, None)
     } else {
-        // Acquire a per-show lock to prevent concurrent workers from creating
-        // duplicate tv_show rows when tmdb_id/imdb_id are NULL (NULL values
-        // are treated as distinct in PostgreSQL unique constraints).
+        // Acquire a per-show lock to prevent concurrent workers from each making
+        // independent TMDB search+detail calls AND from creating duplicate rows.
+        // Only the first worker to hold this lock will run scrape_tv(); the rest
+        // wait, then find the show via find_tv_show_by_title and return early.
         let lock_key = format!("{}|{}", app_id, parsed_title.to_lowercase());
         let per_show_lock = {
             let mut locks = state.tv_show_creation_locks.lock().await;
@@ -187,17 +172,23 @@ pub async fn find_or_create_tv(
         let fresh_existing = find_tv_show_by_title(db, app_id, parsed_title, parsed_year).await?;
         if let Some(existing_id) = fresh_existing {
             info!("[file_scrape] TV dedup by title+year (concurrent lock): '{parsed_title}' → {existing_id}");
-            tv_shows::Entity::update_many()
-                .col_expr(tv_shows::Column::UpdatedAt, Expr::cust("NOW()"))
-                .filter(tv_shows::Column::Id.eq(existing_id))
-                .exec(db).await?;
-            (existing_id, false)
+            (existing_id, false, None)
         } else {
+            // Only ONE worker reaches here for a given show. Fetch TMDB now.
+            let fetched: Option<TmdbMediaDetail> = if let Some(client) = tmdb {
+                tmdb::scrape_tv(client, nfo, parsed_title, parsed_year, artwork, nfo_poster_tmdb_path, nfo_backdrop_tmdb_path).await
+            } else {
+                None
+            };
+            let tmdb_id_str = fetched.as_ref().map(|d| d.base.id.to_string())
+                .or_else(|| nfo.and_then(|n| n.tmdb_id.clone()));
+            let imdb_id_str = fetched.as_ref().and_then(|d| d.imdb_id.clone())
+                .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
             let id = create_tv_show_record(
-                db, app_id, tmdb_detail, nfo, parsed_title, parsed_year,
+                db, app_id, fetched.as_ref(), nfo, parsed_title, parsed_year,
                 tmdb_id_str.as_deref(), imdb_id_str.as_deref(),
             ).await?;
-            (id, true)
+            (id, true, fetched)
         }
     };
 
@@ -206,8 +197,8 @@ pub async fn find_or_create_tv(
         let (poster_path, backdrop_path) = upload_poster_and_backdrop(
             db, state, "tvShow", tv_show_id, artwork,
             nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
-            tmdb_detail.and_then(|d| d.base.poster_path.as_deref()),
-            tmdb_detail.and_then(|d| d.base.backdrop_path.as_deref()),
+            tmdb_detail.as_ref().and_then(|d| d.base.poster_path.as_deref()),
+            tmdb_detail.as_ref().and_then(|d| d.base.backdrop_path.as_deref()),
         ).await?;
 
         if poster_path.is_some() || backdrop_path.is_some() {
@@ -222,7 +213,7 @@ pub async fn find_or_create_tv(
         }
 
         // Genres (TMDB preferred, NFO fallback)
-        if let Some(detail) = tmdb_detail {
+        if let Some(ref detail) = tmdb_detail {
             if let Some(genres) = &detail.genres {
                 sync_genres(db, genres, None, Some(tv_show_id)).await?;
             }
@@ -236,7 +227,7 @@ pub async fn find_or_create_tv(
 
     // Compute cast + directors (needed after season creation for tv_season_cast linking)
     let pending_cast: Vec<CastMember> = if is_new {
-        if let Some(detail) = tmdb_detail {
+        if let Some(ref detail) = tmdb_detail {
             detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
         } else if let Some(nfo) = nfo {
             nfo.actors.iter().map(|a| CastMember {
@@ -265,10 +256,10 @@ pub async fn find_or_create_tv(
         // Prefer tmdb_id from the freshly-fetched detail; fall back to the
         // id stored in DB (via pre_existing) or the NFO — so new seasons can
         // still call get_tv_season_detail even when the show scrape was skipped.
-        let tmdb_show_id = tmdb_detail
+        let tmdb_show_id = tmdb_detail.as_ref()
             .map(|d| d.base.id)
             .or_else(|| pre_existing.and_then(|(_, sid)| sid))
-            .or_else(|| tmdb_id_str.as_deref().and_then(|s| s.parse::<i64>().ok()));
+            .or_else(|| nfo.and_then(|n| n.tmdb_id.as_deref()).and_then(|s| s.parse::<i64>().ok()));
         match create_season_and_episode(db, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
             Ok((sid, eid)) => (Some(sid), Some(eid)),
             Err(e) => { warn!("[file_scrape] Failed to create season/episode: {e}"); (None, None) }
@@ -390,8 +381,10 @@ async fn create_season_and_episode(
     db: &DatabaseConnection, tmdb: Option<&TmdbClient>, tmdb_show_id: Option<i64>,
     show_id: Uuid, season_number: i32, episode_number: i32, nfo: Option<&NfoInfo>,
 ) -> Result<(Uuid, Uuid), Box<dyn std::error::Error + Send + Sync>> {
-    // Check season existence BEFORE any TMDB call.
-    // For 24 episodes of the same season this saves 23 get_tv_season_detail requests.
+    // With group_key queue serialization (group_key = "{app_id}|{dir_path}"),
+    // all episodes in the same directory run sequentially. The season_exists
+    // check here is therefore not a concurrency race — only one worker processes
+    // this season directory at a time, so no lock is needed.
     let season_exists = seasons::Entity::find()
         .filter(seasons::Column::TvShowId.eq(show_id))
         .filter(seasons::Column::SeasonNumber.eq(season_number))

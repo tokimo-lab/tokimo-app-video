@@ -31,6 +31,32 @@ fn is_tv_type(lib_type: &str) -> bool {
     matches!(lib_type, "tv" | "anime")
 }
 
+/// True for movie/adult libraries that use TMDB and benefit from entity-level grouping.
+/// `custom` and `online_video` are excluded — they don't call TMDB and have no shared
+/// entity to deduplicate against.
+fn is_tmdb_movie_type(lib_type: &str) -> bool {
+    matches!(lib_type, "movie" | "adult")
+}
+
+/// If the last path component looks like a TV season subdirectory, return the parent
+/// as the show-level grouping key; otherwise return `dir_path` unchanged.
+///
+/// Recognised season patterns (case-insensitive):
+///   "Season 1", "S01", "Specials", "OVA", "Extra", "第1季", bare "01"–"99"
+fn infer_show_dir(dir_path: &str) -> &str {
+    use std::sync::OnceLock;
+    static SEASON_RE: OnceLock<Regex> = OnceLock::new();
+    let re = SEASON_RE.get_or_init(|| {
+        Regex::new(r"(?i)^(s\d+|season\s*\d*|specials?|ova|extras?|第\d+季|\d{1,2})$").unwrap()
+    });
+    if let Some(pos) = dir_path.rfind('/')
+        && re.is_match(&dir_path[pos + 1..])
+    {
+        return &dir_path[..pos];
+    }
+    dir_path
+}
+
 fn is_music_type(lib_type: &str) -> bool {
     lib_type == "music"
 }
@@ -541,6 +567,63 @@ impl AppSyncService {
     /// Batch size for flushing accumulated jobs to DB.
     const JOB_BATCH_FLUSH_SIZE: usize = 50;
 
+    /// Emit grouped jobs (novel dirs, TV shows, movie dirs) accumulated during the walk.
+    /// Returns the total number of jobs created.
+    #[allow(clippy::too_many_arguments)]
+    async fn flush_grouped_jobs<'a>(
+        db: &DatabaseConnection,
+        jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>, Option<String>)>,
+        tv_groups: HashMap<String, Vec<serde_json::Value>>,
+        movie_groups: HashMap<String, Vec<serde_json::Value>>,
+        novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>>,
+        app_id: Uuid,
+        source_id: Uuid,
+        lib_type: &'a str,
+    ) -> Result<u64, AppError> {
+        let mut total = 0u64;
+        let flush_size = Self::JOB_BATCH_FLUSH_SIZE;
+
+        for (dir_path, files) in &novel_dir_files {
+            let chapter_files: Vec<serde_json::Value> = files
+                .iter()
+                .map(|f| json!({ "filePath": f.file_path, "fileSize": f.file_size, "checksum": format!("{}:{}", f.file_size, f.mtime) }))
+                .collect();
+            let total_size: u64 = files.iter().map(|f| f.file_size).sum();
+            jobs_batch.push((
+                "novel_scrape",
+                json!({ "dirPath": dir_path, "chapterFiles": chapter_files, "totalSize": total_size, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type }),
+                None, None,
+            ));
+            if jobs_batch.len() >= flush_size {
+                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
+            }
+        }
+
+        for (show_dir, files) in tv_groups {
+            jobs_batch.push((
+                "tv_scrape",
+                json!({ "showDir": show_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
+                None, None,
+            ));
+            if jobs_batch.len() >= flush_size {
+                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
+            }
+        }
+
+        for (movie_dir, files) in movie_groups {
+            jobs_batch.push((
+                "movie_scrape",
+                json!({ "movieDir": movie_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
+                None, None,
+            ));
+            if jobs_batch.len() >= flush_size {
+                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
+            }
+        }
+
+        Ok(total)
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn sync_fs_source(
         db: &DatabaseConnection,
@@ -607,10 +690,17 @@ impl AppSyncService {
 
         // Consume files as they arrive — check DB + accumulate jobs incrementally
         let source_id = source.id;
+        let is_tmdb_movie = is_tmdb_movie_type(lib_type);
         let mut seen_paths = HashSet::new();
-        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
+        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<String>)> = Vec::new();
         let mut total_jobs = 0u64;
         let mut skipped = 0u64;
+
+        // Entity-level grouping buffers: one job per TV show, one job per movie dir.
+        // Files that still need processing (new or changed) are buffered here and
+        // emitted as a single batch job after the walk completes.
+        let mut tv_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+        let mut movie_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
 
         // For novels: buffer .txt files grouped by directory, emit one job per directory.
         // Non-txt novel files (epub/mobi/etc.) get individual jobs like before.
@@ -675,6 +765,30 @@ impl AppSyncService {
                 continue;
             }
 
+            // TV/Anime: buffer by show-level dir (collapse season subdirs to show dir).
+            if is_tv {
+                let show_dir = infer_show_dir(&video.dir_path).to_string();
+                tv_groups.entry(show_dir).or_default().push(json!({
+                    "filePath": video.file_path,
+                    "dirPath": video.dir_path,
+                    "fileSize": video.file_size,
+                    "checksum": checksum,
+                }));
+                continue;
+            }
+
+            // Movie/Adult: buffer by directory — one job per movie dir.
+            if is_tmdb_movie {
+                movie_groups.entry(video.dir_path.clone()).or_default().push(json!({
+                    "filePath": video.file_path,
+                    "dirPath": video.dir_path,
+                    "fileSize": video.file_size,
+                    "checksum": checksum,
+                }));
+                continue;
+            }
+
+            // All other types (custom, online_video, photo, novel non-txt): per-file job.
             let job_type = if is_novel { "novel_scrape" } else { "file_scrape" };
             jobs_batch.push((
                 job_type,
@@ -688,6 +802,7 @@ impl AppSyncService {
                     "libType": lib_type,
                 }),
                 None,
+                None,
             ));
 
             // Flush batch periodically
@@ -697,38 +812,18 @@ impl AppSyncService {
             }
         }
 
-        // Emit consolidated novel directory jobs (one per directory of .txt chapters)
-        for (dir_path, files) in &novel_dir_files {
-            let chapter_files: Vec<serde_json::Value> = files
-                .iter()
-                .map(|f| {
-                    json!({
-                        "filePath": f.file_path,
-                        "fileSize": f.file_size,
-                        "checksum": format!("{}:{}", f.file_size, f.mtime),
-                    })
-                })
-                .collect();
-            let total_size: u64 = files.iter().map(|f| f.file_size).sum();
-
-            jobs_batch.push((
-                "novel_scrape",
-                json!({
-                    "dirPath": dir_path,
-                    "chapterFiles": chapter_files,
-                    "totalSize": total_size,
-                    "appId": app_id.to_string(),
-                    "sourceId": source_id.to_string(),
-                    "libType": lib_type,
-                }),
-                None,
-            ));
-
-            if jobs_batch.len() >= Self::JOB_BATCH_FLUSH_SIZE {
-                total_jobs +=
-                    JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
-            }
-        }
+        // Emit entity-level TV/Movie/Novel jobs + flush remaining per-file jobs.
+        total_jobs += Self::flush_grouped_jobs(
+            db,
+            &mut jobs_batch,
+            tv_groups,
+            movie_groups,
+            novel_dir_files,
+            app_id,
+            source_id,
+            lib_type,
+        )
+        .await?;
 
         // Flush remaining jobs
         if !jobs_batch.is_empty() {

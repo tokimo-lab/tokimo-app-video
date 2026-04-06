@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftOutlined, Button, Modal, Spin } from "@tokiomo/components";
+import { Button, Modal, Spin } from "@tokiomo/components";
 import { useEffect, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
@@ -12,13 +12,15 @@ import {
 import type { MediaFileOutput } from "@/types";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import {
+  CollectionsSection,
+  MediaDetailLayout,
+  MediaDetailMeta,
+  OverviewSection,
+} from "./media-detail-layout";
+import {
   CastRow,
   CrewRow,
   FilesSection,
-  formatRuntime,
-  MediaInfoBlock,
-  MediaPoster,
-  MediaTagsRow,
   SectionTitle,
 } from "./media-detail-shared";
 
@@ -197,9 +199,15 @@ export default function MovieDetailPage() {
     }
   };
 
+  const yearDisplay =
+    movie.releaseDate || movie.year
+      ? isOnlineVideo && movie.releaseDate
+        ? movie.releaseDate
+        : movie.year
+      : null;
+
   return (
-    <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
-      {/* ── Resume prompt ── */}
+    <>
       <ResumePromptModal
         open={resumePrompt !== null}
         position={resumePrompt?.position ?? 0}
@@ -219,126 +227,69 @@ export default function MovieDetailPage() {
         }}
         onClose={() => setResumePrompt(null)}
       />
-      {/* ── Header ── */}
-      <div className="relative z-10 px-6 pt-6 pb-6">
-        <div className="mb-6">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => goBack()}>
-            返回
-          </Button>
-        </div>
-        <div className="flex items-start gap-6">
-          {/* Poster with play overlay */}
-          <div
-            className="relative hidden flex-shrink-0 md:block"
-            style={{ width: isOnlineVideo ? 320 : 160 }}
-          >
-            <MediaPoster
-              posterPath={movie.posterPath}
-              title={movie.title}
-              fallbackEmoji="🎬"
-              landscape={isOnlineVideo}
-            />
-            {firstFile && (
-              <button
-                type="button"
-                aria-label="播放"
-                className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
-                onClick={() => handlePlay(firstFile)}
-              >
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </span>
-              </button>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold leading-tight">
-                {movie.title}
-              </h1>
+      <MediaDetailLayout
+        onBack={goBack}
+        title={movie.title}
+        posterPath={movie.posterPath}
+        posterFallbackEmoji="🎬"
+        posterLandscape={isOnlineVideo}
+        posterOverlay={
+          firstFile ? (
+            <button
+              type="button"
+              aria-label="播放"
+              className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
+              onClick={() => handlePlay(firstFile)}
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
+                <svg
+                  className="h-7 w-7 text-white"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </button>
+          ) : undefined
+        }
+        headerContent={
+          <MediaDetailMeta
+            title={movie.title}
+            originalTitle={movie.originalTitle}
+            tagline={movie.tagline}
+            favoriteSlot={
               <FavoriteButton isFavorite={isFavorite} movieId={movie.id} />
-            </div>
-            {(movie.originalTitle && movie.originalTitle !== movie.title) ||
-            movie.tagline ? (
-              <p className="mt-0.5 truncate text-sm text-fg-muted">
-                {movie.originalTitle && movie.originalTitle !== movie.title
-                  ? movie.originalTitle
-                  : null}
-                {movie.originalTitle &&
-                  movie.originalTitle !== movie.title &&
-                  movie.tagline && <span className="mx-1">·</span>}
-                {movie.tagline ? (
-                  <span className="italic">{movie.tagline}</span>
-                ) : null}
-              </p>
-            ) : null}
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              {(movie.releaseDate || movie.year) && (
-                <span className="text-fg-secondary">
-                  {isOnlineVideo && movie.releaseDate
-                    ? movie.releaseDate
-                    : movie.year}
-                </span>
-              )}
-              {movie.runtime != null && (
-                <span className="text-fg-secondary">
-                  {movie.releaseDate || movie.year ? "· " : ""}
-                  {formatRuntime(movie.runtime)}
-                </span>
-              )}
-              {movie.contentRating && (
-                <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-fg-secondary">
-                  {movie.contentRating}
-                </span>
-              )}
-              {movie.tmdbRating != null && (
-                <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400">
-                  TMDB ★ {movie.tmdbRating.toFixed(1)}
-                </span>
-              )}
-              {movie.imdbRating != null && (
-                <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  IMDb ★ {movie.imdbRating.toFixed(1)}
-                </span>
-              )}
-              {movie.doubanRating != null && (
-                <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">
-                  豆瓣 ★ {movie.doubanRating.toFixed(1)}
-                </span>
-              )}
-              {movie.scrapedAt ? (
+            }
+            yearDisplay={yearDisplay}
+            runtime={movie.runtime}
+            contentRating={movie.contentRating}
+            tmdbRating={movie.tmdbRating}
+            imdbRating={movie.imdbRating}
+            doubanRating={movie.doubanRating}
+            extraBadges={
+              movie.scrapedAt ? (
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
                   ✨ 已刮削
                 </span>
               ) : (
                 <span className="text-xs text-orange-400">未刮削</span>
-              )}
-              <MediaTagsRow
-                genres={movie.genres}
-                tmdbId={movie.tmdbId}
-                imdbId={movie.imdbId}
-                mediaType="movie"
-              />
-            </div>
-            <MediaInfoBlock
-              directors={directors.map((d) => d.person.name)}
-              writers={writers.map((w) => w.person.name)}
-              date={isOnlineVideo ? undefined : movie.releaseDate}
-              dateLabel="发行"
-              countries={movie.countries}
-            />
+              )
+            }
+            genres={movie.genres}
+            tmdbId={movie.tmdbId}
+            imdbId={movie.imdbId}
+            mediaType="movie"
+            directors={directors.map((d) => d.person.name)}
+            writers={writers.map((w) => w.person.name)}
+            date={isOnlineVideo ? undefined : movie.releaseDate}
+            dateLabel="发行"
+            countries={movie.countries}
+          >
             {/* Online media metadata (uploader / source) */}
             {movie.metadata?.uploader && (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
-                {movie.metadata.uploader && (
-                  <span>👤 {movie.metadata.uploader}</span>
-                )}
+                <span>👤 {movie.metadata.uploader}</span>
                 {movie.metadata.sourceSite && (
                   <span>📺 {movie.metadata.sourceSite}</span>
                 )}
@@ -355,7 +306,7 @@ export default function MovieDetailPage() {
                 )}
               </div>
             )}
-            {/* Play button row */}
+            {/* Play button */}
             {firstFile && (
               <div className="mt-4 flex items-center gap-3">
                 <button
@@ -374,52 +325,16 @@ export default function MovieDetailPage() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Body ── */}
-      <div className="relative z-10 px-6 pt-6 pb-6">
-        {movie.overview && (
-          <div className="mb-8">
-            <SectionTitle>简介</SectionTitle>
-            <p className="text-sm leading-relaxed text-fg-secondary">
-              {movie.overview}
-            </p>
-          </div>
-        )}
-
-        {/* Collections */}
-        {movie.collections && movie.collections.length > 0 && (
-          <section className="mb-8">
-            <SectionTitle>所属合集</SectionTitle>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {movie.collections.map((col) => (
-                <div
-                  key={col.id}
-                  className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-[var(--glass-border)] p-2"
-                >
-                  {col.posterPath && (
-                    <img
-                      src={posterThumbUrl(col.posterPath, 300)}
-                      alt={col.name}
-                      className="h-12 w-8 flex-shrink-0 rounded object-cover"
-                    />
-                  )}
-                  <p className="truncate text-xs font-medium text-fg-primary">
-                    {col.name}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
+          </MediaDetailMeta>
+        }
+      >
+        <OverviewSection overview={movie.overview} />
+        <CollectionsSection collections={movie.collections} />
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
         <WatchHistorySection movieId={movie.id} />
-      </div>
-    </div>
+      </MediaDetailLayout>
+    </>
   );
 }

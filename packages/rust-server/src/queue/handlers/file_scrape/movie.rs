@@ -1,8 +1,5 @@
 //! Movie creation and lookup logic aligned with TS file-scrape.ts.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
 use rust_client_api::metadata_providers::tmdb::TmdbMediaDetail;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
@@ -26,7 +23,8 @@ pub struct MovieResult {
 }
 
 /// Single entry point called from mod.rs.
-/// Fetches TMDB detail if needed, then finds or creates the movie record.
+/// group_key serializes jobs by directory at the DB level; TMDB is only called
+/// when no matching movie record already exists.
 #[allow(clippy::too_many_arguments)]
 pub async fn scrape(
     db: &DatabaseConnection,
@@ -42,53 +40,36 @@ pub async fn scrape(
     parsed_title: &str,
     parsed_year: Option<i32>,
 ) -> Result<MovieResult, Box<dyn std::error::Error + Send + Sync>> {
-    let mut tmdb_detail: Option<TmdbMediaDetail> = None;
-
-    if lib_type.uses_tmdb()
-        && let Some(api_key) = tmdb::get_api_key(db).await? {
-            let client = tmdb::build_client(state, &api_key);
-            tmdb_detail = tmdb::scrape_movie(
-                &client, nfo, title, year, artwork, nfo_poster_tmdb, nfo_backdrop_tmdb,
-            )
-            .await;
-        }
-
-    let scraped =
-        tmdb_detail.is_some() || nfo.as_ref().is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient);
-
-    let result = find_or_create_movie(
+    find_or_create_movie(
         db, state, app_id, lib_type,
-        tmdb_detail.as_ref(), nfo.as_ref(),
-        parsed_title, parsed_year,
-        artwork, nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
+        nfo.as_ref(), parsed_title, parsed_year,
+        title, year, artwork,
+        nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
     )
-    .await?;
-
-    Ok(MovieResult { movie_id: result.movie_id, scraped })
+    .await
 }
 
-/// Compute a stable i64 advisory lock key from (`app_id`, title, year).
-fn movie_lock_key(app_id: Uuid, title: &str, year: Option<i32>) -> i64 {
-    let mut h = DefaultHasher::new();
-    app_id.hash(&mut h);
-    title.to_lowercase().hash(&mut h);
-    year.hash(&mut h);
-    h.finish() as i64
-}
-
-/// Find or create a movie record, fully aligned with TS logic.
-/// Uses a `PostgreSQL` advisory lock keyed on (`app_id`, title, year) to prevent
-/// concurrent workers from creating duplicate movie records when `tmdb_id` is NULL.
+/// Find or create a movie record with lazy TMDB resolution.
+///
+/// Steps:
+/// 1. Check DB by NFO external IDs — return immediately if found (no TMDB call).
+/// 2. Check DB by parsed title+year — return immediately if found (handles group_key
+///    siblings: second video file in the same movie directory, where the first job
+///    already created the record).
+/// 3. Call TMDB — only reached when the movie is genuinely new.
+/// 4. Re-check DB by TMDB-resolved IDs to handle rare cross-directory races.
+/// 5. Insert the new movie record.
 #[allow(clippy::too_many_arguments)]
 pub async fn find_or_create_movie(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     app_id: Uuid,
     lib_type: LibType,
-    tmdb_detail: Option<&TmdbMediaDetail>,
     nfo: Option<&NfoInfo>,
     parsed_title: &str,
     parsed_year: Option<i32>,
+    display_title: &str,
+    display_year: Option<i32>,
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
@@ -96,51 +77,70 @@ pub async fn find_or_create_movie(
     let should_use_tmdb = lib_type.uses_tmdb();
     let is_adult = lib_type.is_adult();
 
+    // Step 1: Fast path — check by external IDs from NFO (no network call needed).
+    let nfo_tmdb_id = nfo.and_then(|n| n.tmdb_id.as_deref());
+    let nfo_imdb_id = nfo.and_then(|n| n.imdb_id.as_deref());
+    if let Some(id) = find_existing_movie(db, app_id, nfo_tmdb_id, nfo_imdb_id).await? {
+        touch_movie(db, id).await?;
+        return Ok(MovieResult { movie_id: id, scraped: false });
+    }
+
+    // Step 2: Check by parsed title+year — handles the common case where a sibling job
+    // in the same group_key directory already created the movie record.
+    if let Some(id) = find_existing_movie_by_title(db, app_id, parsed_title, parsed_year).await? {
+        touch_movie(db, id).await?;
+        return Ok(MovieResult { movie_id: id, scraped: false });
+    }
+
+    // Step 3: Movie not in DB — call TMDB now.
+    let tmdb_detail = if should_use_tmdb {
+        if let Some(api_key) = tmdb::get_api_key(db).await? {
+            let client = tmdb::build_client(state, &api_key);
+            tmdb::scrape_movie(
+                &client, nfo, display_title, display_year, artwork,
+                nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
+            )
+            .await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let scraped =
+        tmdb_detail.is_some() || nfo.is_some_and(super::super::nfo_parser::NfoInfo::is_sufficient);
+
     let tmdb_id_str = tmdb_detail
+        .as_ref()
         .map(|d| d.base.id.to_string())
         .or_else(|| nfo.and_then(|n| n.tmdb_id.clone()));
     let imdb_id_str = tmdb_detail
+        .as_ref()
         .and_then(|d| d.imdb_id.clone())
         .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
 
-    // Acquire advisory lock to serialize concurrent movie creation for the same title+year.
-    // This prevents the race where multiple workers all find no existing movie and all insert.
-    let lock_key = movie_lock_key(app_id, parsed_title, parsed_year);
-    let txn = db.begin().await?;
-    txn.execute_unprepared(&format!("SELECT pg_advisory_xact_lock({lock_key})"))
-        .await?;
+    // Step 4: Re-check by TMDB-resolved IDs to handle rare cross-directory races
+    // (e.g. same movie appearing in two different libraries simultaneously).
+    if let Some(id) = find_existing_movie(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await? {
+        backfill_external_ids(db, id, tmdb_detail.as_ref(), tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+        touch_movie(db, id).await?;
+        return Ok(MovieResult { movie_id: id, scraped: false });
+    }
 
-    // Check existing by external IDs first, then fall back to title+year (same library)
-    let existing = find_existing_movie(&txn, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?
-        .or(find_existing_movie_by_title(&txn, app_id, parsed_title, parsed_year).await?);
+    // Step 5: Create the movie record.
+    let movie_id = create_movie_record(
+        db, app_id, is_adult, should_use_tmdb, tmdb_detail.as_ref(), nfo,
+        parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
+    )
+    .await?;
 
-    let movie_id = if let Some(existing_id) = existing {
-        // If this file brought new external IDs, backfill them onto the existing record
-        backfill_external_ids(&txn, existing_id, tmdb_detail, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
-        movies::Entity::update_many()
-            .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
-            .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
-            .filter(movies::Column::Id.eq(existing_id))
-            .exec(&txn)
-            .await?;
-        txn.commit().await?;
-        existing_id
-    } else {
-        let id = create_movie_record(
-            &txn, app_id, is_adult, should_use_tmdb, tmdb_detail, nfo,
-            parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
-        )
-        .await?;
-        txn.commit().await?;
-        id
-    };
-
-    // Upload artwork
+    // Upload artwork.
     let (poster_path, backdrop_path) = upload_poster_and_backdrop(
         db, state, "movie", movie_id, artwork,
         nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
-        tmdb_detail.and_then(|d| d.base.poster_path.as_deref()),
-        tmdb_detail.and_then(|d| d.base.backdrop_path.as_deref()),
+        tmdb_detail.as_ref().and_then(|d| d.base.poster_path.as_deref()),
+        tmdb_detail.as_ref().and_then(|d| d.base.backdrop_path.as_deref()),
     )
     .await?;
 
@@ -155,8 +155,8 @@ pub async fn find_or_create_movie(
         update.exec(db).await?;
     }
 
-    // Sync genres (TMDB preferred, NFO fallback)
-    if let Some(detail) = tmdb_detail {
+    // Sync genres (TMDB preferred, NFO fallback).
+    if let Some(detail) = tmdb_detail.as_ref() {
         if let Some(genres) = &detail.genres {
             sync_genres(db, genres, Some(movie_id), None).await?;
         }
@@ -165,10 +165,9 @@ pub async fn find_or_create_movie(
             sync_genres_from_names(db, &nfo.genres, Some(movie_id), None).await?;
         }
 
-    // Sync cast/people: unified approach (TMDB cast preferred, NFO actors fallback + NFO directors)
-    // Aligned with TS: single syncPeopleForMedia call with aggregated cast + directors
+    // Sync cast/people: unified approach (TMDB cast preferred, NFO actors fallback).
     {
-        let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail {
+        let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail.as_ref() {
             detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
         } else if let Some(nfo) = nfo {
             nfo.actors.iter().map(|a| CastMember {
@@ -184,10 +183,22 @@ pub async fn find_or_create_movie(
         sync_people_for_media(db, &cast, &directors, Some(movie_id), None, None).await?;
     }
 
-    // Upload extra art
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
 
-    Ok(MovieResult { movie_id, scraped: false })
+    Ok(MovieResult { movie_id, scraped })
+}
+
+async fn touch_movie(
+    db: &DatabaseConnection,
+    movie_id: Uuid,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    movies::Entity::update_many()
+        .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
+        .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
+        .filter(movies::Column::Id.eq(movie_id))
+        .exec(db)
+        .await?;
+    Ok(())
 }
 
 async fn find_existing_movie(
