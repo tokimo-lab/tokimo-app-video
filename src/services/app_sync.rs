@@ -572,7 +572,7 @@ impl AppSyncService {
     #[allow(clippy::too_many_arguments)]
     async fn flush_grouped_jobs<'a>(
         db: &DatabaseConnection,
-        jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>, Option<String>)>,
+        jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>)>,
         tv_groups: HashMap<String, Vec<serde_json::Value>>,
         movie_groups: HashMap<String, Vec<serde_json::Value>>,
         novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>>,
@@ -592,7 +592,7 @@ impl AppSyncService {
             jobs_batch.push((
                 "novel_scrape",
                 json!({ "dirPath": dir_path, "chapterFiles": chapter_files, "totalSize": total_size, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type }),
-                None, None,
+                None,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -603,7 +603,7 @@ impl AppSyncService {
             jobs_batch.push((
                 "tv_scrape",
                 json!({ "showDir": show_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
-                None, None,
+                None,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -614,7 +614,7 @@ impl AppSyncService {
             jobs_batch.push((
                 "movie_scrape",
                 json!({ "movieDir": movie_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
-                None, None,
+                None,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -692,7 +692,7 @@ impl AppSyncService {
         let source_id = source.id;
         let is_tmdb_movie = is_tmdb_movie_type(lib_type);
         let mut seen_paths = HashSet::new();
-        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<String>)> = Vec::new();
+        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
         let mut total_jobs = 0u64;
         let mut skipped = 0u64;
 
@@ -801,7 +801,6 @@ impl AppSyncService {
                     "sourceId": source_id.to_string(),
                     "libType": lib_type,
                 }),
-                None,
                 None,
             ));
 

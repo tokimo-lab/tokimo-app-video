@@ -381,10 +381,9 @@ async fn create_season_and_episode(
     db: &DatabaseConnection, tmdb: Option<&TmdbClient>, tmdb_show_id: Option<i64>,
     show_id: Uuid, season_number: i32, episode_number: i32, nfo: Option<&NfoInfo>,
 ) -> Result<(Uuid, Uuid), Box<dyn std::error::Error + Send + Sync>> {
-    // With group_key queue serialization (group_key = "{app_id}|{dir_path}"),
-    // all episodes in the same directory run sequentially. The season_exists
-    // check here is therefore not a concurrency race — only one worker processes
-    // this season directory at a time, so no lock is needed.
+    // All episodes in the same directory run sequentially within one job (one show
+    // dir = one tv_scrape job), so the season_exists check here is not a concurrency
+    // race — no lock is needed.
     let season_exists = seasons::Entity::find()
         .filter(seasons::Column::TvShowId.eq(show_id))
         .filter(seasons::Column::SeasonNumber.eq(season_number))
