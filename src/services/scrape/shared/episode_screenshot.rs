@@ -6,6 +6,13 @@
 //!
 //! VFS already handles local/remote uniformly via `to_read_at` (local files get
 //! a direct syscall fast-path internally), so we don't need to branch on source type.
+//!
+//! **Memory management:** Each FFmpeg decode context allocates ~100–200 MB through
+//! glibc ptmalloc (not Rust/jemalloc). These arenas are not promptly returned to the
+//! OS after the context is freed. Two mitigations are applied:
+//!   1. `screenshot_semaphore` limits concurrent captures to 4 — capping peak RSS.
+//!   2. `malloc_trim(0)` is called on the blocking thread after each capture to
+//!      reclaim as much glibc arena memory as possible before the permit is released.
 
 use std::sync::Arc;
 
@@ -87,8 +94,24 @@ async fn do_capture(
         let direct = DirectInput::from_read_at(ra, file_size, filename_hint.clone(), None);
         let opts = VideoScreenshotOptions { offset_secs: pos, ..opts_base.clone() };
 
-        match tokio::task::spawn_blocking(move || capture_video_screenshot_direct(direct, &opts))
+        // Acquire permit BEFORE entering the blocking thread so we bound how many
+        // concurrent FFmpeg decode contexts are alive at once.  The permit is held
+        // until the blocking thread finishes (including malloc_trim).
+        let _permit = state
+            .screenshot_semaphore
+            .acquire()
             .await
+            .map_err(|e| format!("screenshot semaphore closed: {e}"))?;
+
+        match tokio::task::spawn_blocking(move || {
+            let result = capture_video_screenshot_direct(direct, &opts);
+            // Return glibc arenas used by FFmpeg to the OS.  This call is cheap
+            // (~1 ms) and reclaims hundreds of MB that ptmalloc would otherwise
+            // hold in per-thread arenas indefinitely.
+            unsafe { libc::malloc_trim(0) };
+            result
+        })
+        .await
         {
             Ok(Ok(bytes)) => { screenshot_bytes = Some(bytes); break; }
             Ok(Err(e)) => warn!("[episode_screenshot] screenshot at {pos:.1}s failed: {e}"),
