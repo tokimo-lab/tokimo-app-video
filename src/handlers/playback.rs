@@ -21,7 +21,7 @@ use crate::db::models::playback::{
 };
 use crate::db::repos::media::PlaybackRepo;
 use crate::db::repos::subtitle_repo::SubtitleRepo;
-use crate::handlers::media::iso_reader;
+use super::iso_reader;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};

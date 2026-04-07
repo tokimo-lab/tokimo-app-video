@@ -1,10 +1,11 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use std::sync::Arc;
 
 use crate::AppState;
+use crate::handlers::app::get_play_url;
 
 use super::handlers;
 
@@ -82,5 +83,77 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
         .route(
             "/api/apps/video/{id}/recently-added",
             get(handlers::video_recently_added),
+        )
+        // ── File streaming & play-url ──────────────────────────────────────
+        .route(
+            "/api/video/files/{file_id}/stream",
+            get(handlers::file_stream::stream_media_file),
+        )
+        .route("/api/video/files/{id}/play-url", get(get_play_url))
+        // ── Subtitles ──────────────────────────────────────────────────────
+        .route(
+            "/api/apps/subtitles/file/{file_id}",
+            get(handlers::subtitle::get_file_subtitles),
+        )
+        .route(
+            "/api/apps/subtitles/search",
+            post(handlers::subtitle::search),
+        )
+        .route(
+            "/api/apps/subtitles/download",
+            post(handlers::subtitle::download),
+        )
+        .route(
+            "/api/apps/subtitles/{subtitle_id}",
+            delete(handlers::subtitle::delete_subtitle),
+        )
+        .route(
+            "/api/apps/subtitles/{subtitle_id}/events",
+            get(handlers::subtitle_events::get_subtitle_events),
+        )
+        .route(
+            "/api/apps/subtitles/{subtitle_id}/sse",
+            get(handlers::subtitle_events::subtitle_events_sse),
+        )
+        // ── HLS transcoding sessions ───────────────────────────────────────
+        .route("/api/hls/sessions", post(handlers::hls::create_session))
+        .route(
+            "/api/hls/{session_id}",
+            delete(handlers::hls::stop_session),
+        )
+        .route(
+            "/api/hls/by-file/{file_id}",
+            delete(handlers::hls::stop_sessions_for_file),
+        )
+        .route(
+            "/api/hls/{session_id}/playlist.m3u8",
+            get(handlers::hls::get_playlist),
+        )
+        .route(
+            "/api/hls/{session_id}/{segment}",
+            get(handlers::hls::get_segment),
+        )
+        // ── Playback (stream-url, watch history, progress) ────────────────
+        .route(
+            "/api/playback/stream-url/{file_id}",
+            post(handlers::playback::stream_url),
+        )
+        .route(
+            "/api/playback/stop-session/{file_id}",
+            delete(handlers::playback::stop_session_delete)
+                .post(handlers::playback::stop_session_beacon),
+        )
+        .route(
+            "/api/playback/resume-position",
+            get(handlers::playback::resume_position),
+        )
+        .route(
+            "/api/playback/watch-history",
+            get(handlers::playback::watch_history),
+        )
+        .route(
+            "/api/playback/state",
+            get(handlers::playback_state::get_playback_state)
+                .post(handlers::playback_state::save_playback_state),
         )
 }

@@ -224,7 +224,7 @@ export default function AddOnlineMediaModal({
       }
 
       Modal.confirm({
-        type: "warning",
+        variant: "warning",
         title: t(`${ns}.onlineMedia.duplicateTitle`, {
           defaultValue: "发现重复任务",
         }),

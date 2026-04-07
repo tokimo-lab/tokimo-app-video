@@ -1,6 +1,7 @@
 import { Empty, Spin } from "@tokiomo/components";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
+import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useWindowNav } from "@/system";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
@@ -16,6 +17,8 @@ const LoadingFallback = (
 export default function VideoApp() {
   const { LazyViewComponent, route, navigate } = useWindowNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
+  const [containerRef, containerWidth] = useContainerWidth();
+  const sidebarCollapsed = containerWidth > 0 && containerWidth < 720;
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const initialized = useRef(false);
 
@@ -58,13 +61,20 @@ export default function VideoApp() {
   const isDetailPage = route !== "/" && LazyViewComponent;
 
   return (
-    <div className="grid h-full" style={{ gridTemplateColumns: "200px 1fr" }}>
+    <div
+      ref={containerRef}
+      className="grid h-full"
+      style={{ gridTemplateColumns: `${sidebarCollapsed ? 48 : 200}px 1fr` }}
+    >
       <VideoSidebar
         categories={categories}
         activeId={activeCategoryId}
         onSelect={handleSelectCategory}
+        collapsed={sidebarCollapsed}
       />
-      <div className="min-w-0 flex-1 overflow-auto">
+      <div
+        className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
+      >
         {isDetailPage ? (
           <Suspense fallback={LoadingFallback}>
             <LazyViewComponent />

@@ -1,6 +1,14 @@
 pub mod crud;
 pub mod browse;
 pub mod sync;
+pub mod subtitle;
+pub mod subtitle_events;
+pub mod playback;
+pub mod playback_state;
+pub mod hls;
+pub mod file_stream;
+pub mod iso_reader;
+pub(super) mod udfread_ffi;
 
 use serde::Deserialize;
 use uuid::Uuid;
