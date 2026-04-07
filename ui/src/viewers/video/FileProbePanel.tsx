@@ -201,7 +201,7 @@ export function FileProbePanel({
   filePath,
   fileName,
 }: FileProbeProps) {
-  const { data, isLoading, error } = api.fileSystem.probe.useQuery(
+  const { data, isLoading, error } = api.vfs.probe.useQuery(
     { fileSystemId, path: filePath },
     { enabled: !!fileSystemId && !!filePath, staleTime: 5 * 60_000 },
   );

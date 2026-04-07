@@ -15,7 +15,7 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::db::entities::{file_systems, video_files};
+use crate::db::entities::{vfs, video_files};
 use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
@@ -117,9 +117,9 @@ pub async fn stream_url(
 
     let db = &state.db;
 
-    // Single JOIN query: video_files + file_systems (no second round-trip).
+    // Single JOIN query: video_files + vfs (no second round-trip).
     let (file, source) = match video_files::Entity::find_by_id(file_uuid)
-        .find_also_related(file_systems::Entity)
+        .find_also_related(vfs::Entity)
         .one(db)
         .await
     {

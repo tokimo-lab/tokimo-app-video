@@ -1,6 +1,6 @@
 /**
  * 资源整理弹窗
- * 从 FileSystemsPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
+ * 从 VfsConnectionsPage 打开，扫描文件 → TMDB 识别 → 选择目标 → 执行整理
  */
 
 import { useQueryClient } from "@tanstack/react-query";

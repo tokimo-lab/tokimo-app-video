@@ -7,7 +7,7 @@ use serde_json::{json, Value as JsonValue};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, file_systems, video_files};
+use crate::db::entities::{download_records, vfs, video_files};
 use crate::db::repos::job_repo::JobRepo;
 use crate::services::storage::{StorageProvider, UploadOptions};
 use crate::AppState;
@@ -102,10 +102,10 @@ pub async fn handle(
         .is_some_and(|s| s.generate_nfo);
 
     // Resolve default download source root path.
-    use crate::db::entities::app_file_systems;
-    let lib_sources = app_file_systems::Entity::find()
-        .filter(app_file_systems::Column::AppId.eq(lib_uuid))
-        .order_by_asc(app_file_systems::Column::SortOrder)
+    use crate::db::entities::app_vfs;
+    let lib_sources = app_vfs::Entity::find()
+        .filter(app_vfs::Column::AppId.eq(lib_uuid))
+        .order_by_asc(app_vfs::Column::SortOrder)
         .all(db)
         .await?;
     if lib_sources.is_empty() {
@@ -128,7 +128,7 @@ pub async fn handle(
     // Also detect whether the source is local (can be accessed via tokio::fs) or
     // requires VFS (SMB, SFTP, S3, etc.).
     let (fs_driver_root, fs_source_type) = if let Some(sid) = download_source_id {
-        let fs = file_systems::Entity::find_by_id(sid).one(db).await?;
+        let fs = vfs::Entity::find_by_id(sid).one(db).await?;
         let root = fs.as_ref().and_then(|f| {
             f.config.as_ref().and_then(|c| {
                 c.get("root")

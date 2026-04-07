@@ -12,14 +12,14 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, file_systems, app_file_systems, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
+    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
     movies, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::media::fs::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
+use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS `AppType`).
@@ -81,13 +81,13 @@ fn is_remote_fs_type(source_type: &str) -> bool {
     )
 }
 
-/// Convert an absolute `root_path` from `app_file_systems` to a VFS-relative path.
+/// Convert an absolute `root_path` from `app_vfs` to a VFS-relative path.
 ///
 /// For local sources the DB may store the full filesystem path
 /// (e.g. `/home/william/media/movie`) while the local driver's root is already
 /// `/home/william/media`. The VFS expects a path relative to the driver root
 /// (e.g. `/movie`), so we strip the driver root prefix.
-fn to_vfs_path(root_path: &str, source: &file_systems::Model) -> String {
+fn to_vfs_path(root_path: &str, source: &vfs::Model) -> String {
     if source.r#type != "local" {
         return root_path.to_string();
     }
@@ -360,7 +360,7 @@ impl AppSyncService {
         // 4. Process file system sources
         let fs_sources = AppRepo::get_sources(db, app_id).await?;
         for link in &fs_sources {
-            let source = file_systems::Entity::find_by_id(link.source_id)
+            let source = vfs::Entity::find_by_id(link.source_id)
                 .one(db)
                 .await?
                 .ok_or_else(|| {
@@ -402,8 +402,8 @@ impl AppSyncService {
         }
 
         // Collect source_ids for this library (used to clean orphaned media_files)
-        let source_ids: Vec<Uuid> = app_file_systems::Entity::find()
-            .filter(app_file_systems::Column::AppId.eq(app_id))
+        let source_ids: Vec<Uuid> = app_vfs::Entity::find()
+            .filter(app_vfs::Column::AppId.eq(app_id))
             .all(db)
             .await?
             .into_iter()
@@ -600,7 +600,7 @@ impl AppSyncService {
         jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>)>,
         tv_groups: HashMap<String, Vec<serde_json::Value>>,
         movie_groups: HashMap<String, Vec<serde_json::Value>>,
-        novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>>,
+        novel_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>>,
         app_id: Uuid,
         source_id: Uuid,
         lib_type: &'a str,
@@ -659,7 +659,7 @@ impl AppSyncService {
         is_movie: bool,
         is_tv: bool,
         is_music: bool,
-        source: &file_systems::Model,
+        source: &vfs::Model,
         root_path: &str,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
@@ -699,7 +699,7 @@ impl AppSyncService {
         let vfs_root = to_vfs_path(root_path, source);
 
         // Spawn concurrent walk as a background task, streaming results through channel
-        let (tx, mut rx) = mpsc::channel::<crate::handlers::media::fs::VideoFileInfo>(256);
+        let (tx, mut rx) = mpsc::channel::<crate::handlers::vfs::ops::VideoFileInfo>(256);
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
         let is_photo = is_photo_type(lib_type);
@@ -730,7 +730,7 @@ impl AppSyncService {
 
         // For novels: buffer .txt files grouped by directory, emit one job per directory.
         // Non-txt novel files (epub/mobi/etc.) get individual jobs like before.
-        let mut novel_dir_files: HashMap<String, Vec<crate::handlers::media::fs::VideoFileInfo>> =
+        let mut novel_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> =
             HashMap::new();
 
         // Pre-load existing photo paths for this source to skip already-indexed photos
@@ -1667,7 +1667,7 @@ impl AppSyncService {
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
         app_id: Uuid,
-        source: &file_systems::Model,
+        source: &vfs::Model,
         root_path: &str,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
@@ -1693,7 +1693,7 @@ impl AppSyncService {
         let vfs_root = to_vfs_path(root_path, source);
 
         // Walk audio files
-        let (tx, mut rx) = mpsc::channel::<crate::handlers::media::fs::VideoFileInfo>(256);
+        let (tx, mut rx) = mpsc::channel::<crate::handlers::vfs::ops::VideoFileInfo>(256);
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
         let walk_vfs = vfs.clone();
