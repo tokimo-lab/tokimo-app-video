@@ -22,7 +22,7 @@ use crate::db::models::playback::{
 use crate::db::repos::media::PlaybackRepo;
 use crate::db::repos::subtitle_repo::SubtitleRepo;
 use crate::handlers::media::iso_reader;
-use crate::handlers::media::local_media::resolve_local_path;
+use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use crate::scheduler::tasks::persist_playback_progress;
@@ -796,6 +796,22 @@ async fn create_hls_session_internal(
         .await
         .map_err(|e| e.clone())?;
 
+    // Register this HLS session in the unified StreamSessionManager.
+    // The bridge task forwards cancel() → hls_manager.stop_session_for_file(),
+    // covering browser-crash / cleanup_stale cases where explicit stop-session
+    // is never called. Explicit stop still goes through stop_sessions_by_file()
+    // which cancels the token (firing this bridge) then persists progress.
+    {
+        let file_id = file.id.to_string();
+        let cancel = state.stream_sessions.create_or_get(&file_id);
+        let hls_manager = Arc::clone(&state.hls_manager);
+        tokio::spawn(async move {
+            cancel.cancelled().await;
+            debug!("[StreamSession] HLS bridge fired for file_id={}", file_id);
+            hls_manager.stop_session_for_file(&file_id).await;
+        });
+    }
+
     Ok(format!("/api/hls/{}/playlist.m3u8", info.session_id))
 }
 
@@ -905,6 +921,7 @@ async fn build_subtitle_tap_impl(
         &state.tap_registry,
         tracks,
         tap_path,
+        &file_id,
         start_time_ms,
     )
 }
@@ -932,7 +949,17 @@ pub async fn stop_session_beacon(
 
 /// Shared logic: stop HLS sessions for a file and persist progress.
 async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
-    debug!("[Playback] stop-session request for file {}", file_id);
+    info!("[Playback] stop-session file_id={}", file_id);
+
+    // Cancel all in-flight stream tasks (VFS + tee tasks) for this file.
+    state.stream_sessions.cancel(file_id);
+
+    // Release the subtitle tap entry, freeing its internal data buffers immediately.
+    let released = state.tap_registry.release(file_id);
+    if released {
+        debug!("[Playback] tap registry released file_id={}", file_id);
+    }
+
     let snapshots = state.hls_manager.playback_snapshots().await;
     let file_snapshots: Vec<_> = snapshots
         .into_iter()

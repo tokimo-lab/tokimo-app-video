@@ -69,6 +69,11 @@ pub async fn get_playlist(
             .into_response();
     };
 
+    // Keep stream_sessions alive so cleanup_stale doesn't reap this file's session.
+    if let Some(file_id) = state.hls_manager.get_file_id(&session_id).await {
+        state.stream_sessions.touch(&file_id);
+    }
+
     let playlist = {
         let s = session.lock().await;
         s.vod_playlist.clone()
@@ -94,6 +99,11 @@ pub async fn get_segment(
         return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
             .into_response();
     };
+
+    // Keep stream_sessions alive so cleanup_stale doesn't reap this file's session.
+    if let Some(file_id) = state.hls_manager.get_file_id(&session_id).await {
+        state.stream_sessions.touch(&file_id);
+    }
 
     // Phase 1: briefly lock the session to set up (seek-restart if needed).
     // Returns a SegmentWaitHandle with cloned Arcs — no lock held during the wait.

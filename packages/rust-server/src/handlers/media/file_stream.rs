@@ -1,5 +1,4 @@
 use axum::{
-    body::Body,
     extract::{ConnectInfo, Path, Query, Request, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
@@ -7,8 +6,6 @@ use axum::{
 use serde::Deserialize;
 use sea_orm::DatabaseConnection;
 use std::{net::SocketAddr, sync::Arc};
-use tower::util::ServiceExt;
-use tower_http::services::ServeFile;
 
 use crate::{
     db::repos::{
@@ -24,11 +21,6 @@ use rust_subtitle::{
     tap_builder::build_stream_tap,
 };
 
-const LOCAL_MEDIA_STREAM_CHUNK_SIZE: usize = 1024 * 1024;
-const REMOTE_FS_SOURCE_TYPES: [&str; 10] = [
-    "smb", "nfs", "webdav", "ftp", "sftp", "s3",
-    "115cloud", "aliyundrive", "baidu_netdisk", "quark",
-];
 const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
 
 #[derive(Deserialize)]
@@ -38,6 +30,13 @@ pub(crate) struct StreamAccessQuery {
     probe_only: Option<bool>,
 }
 
+/// Stream a media file to the HTTP client.
+///
+/// All source types (local, SMB, SFTP, S3, cloud drives…) are served through the
+/// unified VFS layer. There is no special case for `source_type == "local"` —
+/// the local VFS driver handles range requests identically to remote drivers,
+/// and this path must pass through `stream_driver_file` anyway to support the
+/// subtitle tap and the session `CancellationToken`.
 pub async fn stream_media_file(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
@@ -77,13 +76,17 @@ pub async fn stream_media_file(
             Ok(rows) if !rows.is_empty() => {
                 let ffprobe_raw = rows[0].ffprobe_raw.clone();
                 let start_time_ms = extract_start_time_ms(&ffprobe_raw);
-                let subs: Vec<_> = rows.iter().map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record).collect();
+                let subs: Vec<_> = rows
+                    .iter()
+                    .map(crate::db::models::subtitle::FileSubtitleRow::to_embedded_record)
+                    .collect();
                 let tracks = resolve_subtitle_tracks(&ffprobe_raw, &subs);
                 build_stream_tap(
                     &state.subtitle_cache,
                     &state.tap_registry,
                     tracks,
                     &target.path,
+                    &file_id,
                     start_time_ms,
                 )
             }
@@ -91,41 +94,14 @@ pub async fn stream_media_file(
         }
     };
 
-    if target.source_type.as_deref() == Some("local") {
-        // When embedded subtitles need tapping, stream through VFS so chunks
-        // are fed to the subtitle extractor. Otherwise use ServeFile for efficiency.
-        if tap_tx.is_some()
-            && let Some(source_id) = target.source_id.as_deref()
-                && let Ok(vfs) = state.sources.ensure_vfs(source_id).await {
-                    return stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx)
-                        .await;
-                }
-
-        let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
-        let response = match ServeFile::new(&abs_path)
-            .with_buf_chunk_size(LOCAL_MEDIA_STREAM_CHUNK_SIZE)
-            .oneshot(request)
-            .await
-        {
-            Ok(response) => response,
-            Err(never) => match never {},
-        };
-        return response.map(Body::new).into_response();
-    }
-
-    let Some(source_type) = target.source_type.as_deref() else {
-        return err404::<()>("Filesystem-backed media file not found".into()).into_response();
-    };
-    if !REMOTE_FS_SOURCE_TYPES.contains(&source_type) {
-        return err_resp::<()>(
-            StatusCode::BAD_REQUEST,
-            format!("Unsupported filesystem source type: {source_type}"),
-        )
-        .into_response();
-    }
+    // Register (or reuse) a cancellation token for this file's stream session.
+    // All spawned stream tasks select on this token and abort immediately when
+    // the session is cancelled (browser close, explicit stop-session, etc.).
+    let cancel = state.stream_sessions.create_or_get(&file_id);
+    tracing::debug!("[StreamSession] DirectPlay session attached file_id={} path={}", file_id, target.path);
 
     let Some(source_id) = target.source_id.as_deref() else {
-        return err500::<()>("Filesystem source is missing source_id".into()).into_response();
+        return err500::<()>("Media file has no source_id".into()).into_response();
     };
 
     let vfs = match state.sources.ensure_vfs(source_id).await {
@@ -133,7 +109,7 @@ pub async fn stream_media_file(
         Err(err) => return err404::<()>(err).into_response(),
     };
 
-    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx).await
+    stream_driver_file(vfs, target.path, request.headers().clone(), tap_tx, cancel).await
 }
 
 fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Option<String> {
@@ -153,7 +129,6 @@ async fn validate_stream_access(
     access_token_header: Option<&axum::http::HeaderValue>,
     client_ip: std::net::IpAddr,
 ) -> Result<Option<String>, String> {
-    // Try to extract user_id from session cookie (best-effort, used for progress tracking).
     let user_id = if let Some(sid) = session_id_from_cookie(cookie_header) {
         AuthRepo::get_user_id_by_session(db, &sid).await.ok().flatten()
     } else {
@@ -168,38 +143,21 @@ async fn validate_stream_access(
         && AuthRepo::validate_internal_stream_token(db, token)
             .await
             .unwrap_or(false)
-        {
-            return Ok(user_id);
-        }
+    {
+        return Ok(user_id);
+    }
 
     if let Some(token) = access_token_header.and_then(|value| value.to_str().ok())
         && AuthRepo::validate_internal_stream_token(db, token)
             .await
             .unwrap_or(false)
-        {
-            return Ok(user_id);
-        }
+    {
+        return Ok(user_id);
+    }
 
     if user_id.is_some() {
-        // Session was already validated above when extracting user_id
         return Ok(user_id);
     }
 
     Err("Unauthorized".into())
-}
-
-/// Resolve the absolute local filesystem path by prepending the source's
-/// `root_folder_path` (or `root` / `path`) from its config JSON.
-pub(crate) fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) -> String {
-    let driver_root = config
-        .and_then(|c| {
-            c.get("root")
-                .or_else(|| c.get("root_folder_path"))
-                .or_else(|| c.get("path"))
-        })
-        .and_then(|v| v.as_str());
-    match driver_root {
-        Some(root) => format!("{}{}", root.trim_end_matches('/'), rel_path),
-        None => rel_path.to_string(),
-    }
 }
