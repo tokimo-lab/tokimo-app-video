@@ -25,7 +25,7 @@ const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct StreamAccessQuery {
+pub struct StreamAccessQuery {
     access_token: Option<String>,
     probe_only: Option<bool>,
 }

@@ -41,8 +41,8 @@ pub async fn handle(
         };
         (p.tmdb_id.clone(), p.name.clone())
     } else {
-        use crate::db::entities::movie_persons;
-        let Some(p) = movie_persons::Entity::find_by_id(person_uuid).one(db).await? else {
+        use crate::db::entities::video_persons;
+        let Some(p) = video_persons::Entity::find_by_id(person_uuid).one(db).await? else {
             warn!("[tmdb_person_scrape] Movie person {person_id} not found, skipping");
             return Ok(Some(json!({ "personId": person_id, "skipped": true })));
         };
@@ -103,7 +103,7 @@ pub async fn handle(
     let tv_show_id = payload.get("tvShowId").and_then(|v| v.as_str()).map(str::to_string);
     let _ = state.event_tx.send(crate::queue::AppEvent::PersonScraped {
         person_id: person_id.to_string(),
-        movie_id,
+        video_item_id: movie_id,
         tv_show_id,
     });
 
@@ -125,11 +125,11 @@ async fn persist_tmdb_id(
             .filter(tv_persons::Column::Id.eq(person_uuid))
             .exec(db).await?;
     } else {
-        use crate::db::entities::movie_persons;
-        movie_persons::Entity::update_many()
-            .col_expr(movie_persons::Column::TmdbId, Expr::value(tmdb_str))
-            .col_expr(movie_persons::Column::UpdatedAt, Expr::cust("NOW()"))
-            .filter(movie_persons::Column::Id.eq(person_uuid))
+        use crate::db::entities::video_persons;
+        video_persons::Entity::update_many()
+            .col_expr(video_persons::Column::TmdbId, Expr::value(tmdb_str))
+            .col_expr(video_persons::Column::UpdatedAt, Expr::cust("NOW()"))
+            .filter(video_persons::Column::Id.eq(person_uuid))
             .exec(db).await?;
     }
     Ok(())
@@ -189,10 +189,10 @@ async fn apply_person_detail(
         set_detail!(active);
         active.update(db).await?;
     } else {
-        use crate::db::entities::movie_persons;
-        let p = movie_persons::Entity::find_by_id(person_uuid).one(db).await?;
+        use crate::db::entities::video_persons;
+        let p = video_persons::Entity::find_by_id(person_uuid).one(db).await?;
         let Some(p) = p else { return Ok(()) };
-        let mut active: movie_persons::ActiveModel = p.into();
+        let mut active: video_persons::ActiveModel = p.into();
         set_detail!(active);
         active.update(db).await?;
     }

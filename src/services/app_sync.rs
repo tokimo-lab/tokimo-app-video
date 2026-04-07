@@ -13,10 +13,11 @@ use uuid::Uuid;
 
 use crate::db::entities::{
     episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
-    movies, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows,
+    video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
+use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
@@ -275,6 +276,113 @@ impl AppSyncService {
         result
     }
 
+    /// Execute sync for a video category.
+    ///
+    /// Similar to `execute_sync` but reads from `videos` table and parses
+    /// sources from JSON column instead of `app_vfs` junction table.
+    pub async fn execute_video_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        video_id: Uuid,
+        clear_data: bool,
+        _http_client: reqwest::Client,
+    ) -> Result<SyncResult, AppError> {
+        let video = VideoRepo::get_by_id(db, video_id)
+            .await?
+            .not_found("video not found")?;
+
+        let lib_type = &video.r#type;
+        let is_movie = is_movie_type(lib_type);
+        let is_tv = is_tv_type(lib_type);
+
+        info!(
+            "Starting video sync for \"{}\" (id={}, type={})",
+            video.name, video_id, lib_type
+        );
+
+        if video.sync_status == "syncing" && !clear_data {
+            warn!(
+                "Video \"{}\" is already syncing, skipping duplicate sync request",
+                video.name
+            );
+            return Err(AppError::Conflict("Video is already syncing".into()));
+        }
+
+        VideoRepo::update_sync_status(db, video_id, "syncing", None).await?;
+
+        let result = Self::do_video_sync(
+            db, sources, storage, &video, lib_type, is_movie, is_tv, clear_data,
+        )
+        .await;
+
+        match &result {
+            Ok(sync_result) => {
+                let now = Utc::now().fixed_offset();
+                VideoRepo::update_sync_status(db, video_id, "completed", Some(now)).await?;
+                info!(
+                    "Video sync completed: \"{}\" — {} jobs dispatched",
+                    video.name, sync_result.total_jobs
+                );
+            }
+            Err(err) => {
+                error!("Video sync failed for \"{}\": {}", video.name, err);
+                let _ = VideoRepo::update_sync_status(db, video_id, "failed", None).await;
+            }
+        }
+
+        result
+    }
+
+    /// Core video sync logic: parses sources from JSON and walks each.
+    #[allow(clippy::too_many_arguments)]
+    async fn do_video_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        video: &videos::Model,
+        lib_type: &str,
+        is_movie: bool,
+        is_tv: bool,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let video_id = video.id;
+
+        if clear_data {
+            Self::clear_library_data(db, video_id, lib_type).await?;
+        }
+
+        let mut total_jobs = 0u64;
+
+        // Parse sources from JSON column
+        let source_tuples = VideoRepo::parse_sources(&video.sources);
+        for (source_id, root_path, _is_default) in &source_tuples {
+            let source = vfs::Entity::find_by_id(*source_id)
+                .one(db)
+                .await?
+                .ok_or_else(|| {
+                    AppError::NotFound(format!("source {source_id} not found"))
+                })?;
+
+            let jobs = Self::sync_fs_source(
+                db,
+                sources,
+                storage,
+                video_id,
+                lib_type,
+                is_movie,
+                is_tv,
+                false, // is_music = false for video
+                &source,
+                root_path,
+            )
+            .await?;
+            total_jobs += jobs;
+        }
+
+        Ok(SyncResult { total_jobs })
+    }
+
     /// Enqueue batch AI processing jobs (face detect, OCR, CLIP, reverse geocode)
     /// for a photo library. Skips job types that already have a pending job.
     /// Respects per-app settings: `autoOcr`, `autoClip`, `autoFace`, `autoGeo`
@@ -402,7 +510,8 @@ impl AppSyncService {
         }
 
         // Collect source_ids for this library (used to clean orphaned media_files)
-        let source_ids: Vec<Uuid> = app_vfs::Entity::find()
+        // Try app_vfs first (for non-video apps), then videos.sources JSON (for video categories)
+        let mut source_ids: Vec<Uuid> = app_vfs::Entity::find()
             .filter(app_vfs::Column::AppId.eq(app_id))
             .all(db)
             .await?
@@ -410,11 +519,20 @@ impl AppSyncService {
             .map(|lfs| lfs.source_id)
             .collect();
 
+        if source_ids.is_empty()
+            && let Ok(Some(video)) = videos::Entity::find_by_id(app_id).one(db).await
+        {
+            source_ids = VideoRepo::parse_sources(&video.sources)
+                .into_iter()
+                .map(|(sid, _, _)| sid)
+                .collect();
+        }
+
         if is_movie_type(lib_type) {
             // Delete media_files linked to movies in this library BEFORE deleting
             // movies (otherwise FK SET NULL leaves orphan rows that block re-scrape).
-            let movie_ids: Vec<Uuid> = movies::Entity::find()
-                .filter(movies::Column::AppId.eq(app_id))
+            let movie_ids: Vec<Uuid> = video_items::Entity::find()
+                .filter(video_items::Column::VideoId.eq(app_id))
                 .all(db)
                 .await?
                 .into_iter()
@@ -422,15 +540,15 @@ impl AppSyncService {
                 .collect();
             if !movie_ids.is_empty() {
                 let mf_deleted = video_files::Entity::delete_many()
-                    .filter(video_files::Column::MovieId.is_in(movie_ids.clone()))
+                    .filter(video_files::Column::VideoItemId.is_in(movie_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
                 info!("  Deleted {mf_deleted} video files (linked to movies)");
             }
 
-            let deleted = movies::Entity::delete_many()
-                .filter(movies::Column::AppId.eq(app_id))
+            let deleted = video_items::Entity::delete_many()
+                .filter(video_items::Column::VideoId.eq(app_id))
                 .exec(db)
                 .await?
                 .rows_affected;
@@ -438,7 +556,7 @@ impl AppSyncService {
         } else if is_tv_type(lib_type) {
             // Delete media_files linked to episodes of tv shows in this library.
             let show_ids: Vec<Uuid> = tv_shows::Entity::find()
-                .filter(tv_shows::Column::AppId.eq(app_id))
+                .filter(tv_shows::Column::VideoId.eq(app_id))
                 .all(db)
                 .await?
                 .into_iter()
@@ -463,7 +581,7 @@ impl AppSyncService {
             }
 
             let deleted = tv_shows::Entity::delete_many()
-                .filter(tv_shows::Column::AppId.eq(app_id))
+                .filter(tv_shows::Column::VideoId.eq(app_id))
                 .exec(db)
                 .await?
                 .rows_affected;
@@ -550,7 +668,7 @@ impl AppSyncService {
         if !source_ids.is_empty() && (is_movie_type(lib_type) || is_tv_type(lib_type)) {
             let orphan_deleted = video_files::Entity::delete_many()
                 .filter(video_files::Column::SourceId.is_in(source_ids.clone()))
-                .filter(video_files::Column::MovieId.is_null())
+                .filter(video_files::Column::VideoItemId.is_null())
                 .filter(video_files::Column::EpisodeId.is_null())
                 .exec(db)
                 .await?
@@ -1940,7 +2058,7 @@ impl AppSyncService {
             .filter(video_files::Column::Path.eq(file_path));
 
         if is_movie {
-            query = query.filter(video_files::Column::MovieId.is_not_null());
+            query = query.filter(video_files::Column::VideoItemId.is_not_null());
         } else if is_tv {
             query = query.filter(video_files::Column::EpisodeId.is_not_null());
         }
@@ -1959,8 +2077,8 @@ impl AppSyncService {
         is_tv: bool,
     ) -> Result<bool, AppError> {
         if is_movie {
-            if let Some(movie_id) = file.movie_id {
-                let movie = movies::Entity::find_by_id(movie_id).one(db).await?;
+            if let Some(movie_id) = file.video_item_id {
+                let movie = video_items::Entity::find_by_id(movie_id).one(db).await?;
                 if let Some(movie) = movie {
                     return Ok(movie.poster_path.is_none());
                 }
@@ -1996,7 +2114,7 @@ impl AppSyncService {
 
         let mut active: video_files::ActiveModel = model.into();
         active.checksum = Set(Some(new_checksum.to_string()));
-        active.movie_id = Set(None);
+        active.video_item_id = Set(None);
         active.episode_id = Set(None);
         active.scanned_at = Set(None);
         active.updated_at = Set(Some(Utc::now().fixed_offset()));
@@ -2055,7 +2173,7 @@ impl AppSyncService {
             .filter(|f| stale_file_ids.contains(&f.id))
             .collect();
 
-        let movie_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.movie_id).collect();
+        let movie_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.video_item_id).collect();
         let episode_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.episode_id).collect();
 
         // Delete the stale video files
@@ -2067,11 +2185,11 @@ impl AppSyncService {
         // Cascade: delete orphan movies (no remaining files)
         for movie_id in &movie_ids {
             let remaining = video_files::Entity::find()
-                .filter(video_files::Column::MovieId.eq(*movie_id))
+                .filter(video_files::Column::VideoItemId.eq(*movie_id))
                 .count(db)
                 .await?;
             if remaining == 0 {
-                movies::Entity::delete_by_id(*movie_id).exec(db).await?;
+                video_items::Entity::delete_by_id(*movie_id).exec(db).await?;
             }
         }
 

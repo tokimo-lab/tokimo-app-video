@@ -43,7 +43,7 @@ async fn quick_find_existing(
         if let Some(tid) = nfo_tmdb_id { cond = cond.add(tv_shows::Column::TmdbId.eq(tid)); }
         if let Some(iid) = nfo_imdb_id { cond = cond.add(tv_shows::Column::ImdbId.eq(iid)); }
         if let Some(show) = tv_shows::Entity::find()
-            .filter(tv_shows::Column::AppId.eq(app_id))
+            .filter(tv_shows::Column::VideoId.eq(app_id))
             .filter(cond)
             .one(db).await?
         {
@@ -57,7 +57,7 @@ async fn quick_find_existing(
     //    subsequent episodes with a matching title skip the search entirely)
     if !title.is_empty() {
         let mut q = tv_shows::Entity::find()
-            .filter(tv_shows::Column::AppId.eq(app_id))
+            .filter(tv_shows::Column::VideoId.eq(app_id))
             .filter(tv_shows::Column::Title.eq(title));
         if let Some(y) = year {
             q = q.filter(tv_shows::Column::Year.eq(y));
@@ -285,7 +285,7 @@ async fn find_existing_tv_show(
     if let Some(tid) = tmdb_id { conditions = conditions.add(tv_shows::Column::TmdbId.eq(tid)); }
     if let Some(iid) = imdb_id { conditions = conditions.add(tv_shows::Column::ImdbId.eq(iid)); }
     let existing = tv_shows::Entity::find()
-        .filter(tv_shows::Column::AppId.eq(app_id))
+        .filter(tv_shows::Column::VideoId.eq(app_id))
         .filter(conditions)
         .one(db).await?;
     Ok(existing.map(|s| s.id))
@@ -297,7 +297,7 @@ async fn find_tv_show_by_title(
     title: &str, year: Option<i32>,
 ) -> Result<Option<Uuid>, Box<dyn std::error::Error + Send + Sync>> {
     let mut q = tv_shows::Entity::find()
-        .filter(tv_shows::Column::AppId.eq(app_id))
+        .filter(tv_shows::Column::VideoId.eq(app_id))
         .filter(tv_shows::Column::Title.eq(title));
     if let Some(y) = year {
         q = q.filter(tv_shows::Column::Year.eq(y));
@@ -341,7 +341,7 @@ async fn create_tv_show_record(
     let metadata_json = if metadata_map.is_empty() { None } else { Some(serde_json::Value::Object(metadata_map)) };
 
     let model = tv_shows::ActiveModel {
-        id: Set(show_id), app_id: Set(app_id),
+        id: Set(show_id), video_id: Set(app_id),
         title: Set(title.clone()), original_title: Set(original_title), sort_title: Set(None),
         year: Set(year), first_air_date: Set(first_air_date), last_air_date: Set(None),
         status: Set(tmdb_detail.and_then(|d| d.status.clone())),

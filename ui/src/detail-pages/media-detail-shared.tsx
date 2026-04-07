@@ -493,7 +493,7 @@ export function MediaFileCard({
   playMeta?: {
     title: string;
     posterPath?: string | null;
-    movieId?: string;
+    videoItemId?: string;
     episodeId?: string;
     imdbId?: string | null;
     tmdbId?: string | null;
@@ -617,7 +617,7 @@ export function FilesSection({
   playMeta?: {
     title: string;
     posterPath?: string | null;
-    movieId?: string;
+    videoItemId?: string;
     episodeId?: string;
     imdbId?: string | null;
     tmdbId?: string | null;

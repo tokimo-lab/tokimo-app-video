@@ -283,9 +283,9 @@ export default function PersonDetailModal({
                         className="group w-[100px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-surface-elevated text-left transition-shadow hover:shadow-md"
                         onClick={() => {
                           onClose();
-                          if (c?.movieId)
+                          if (c?.videoItemId)
                             navigate(
-                              `/movies/${c.movieId}`,
+                              `/movies/${c.videoItemId}`,
                               c?.mediaTitle ?? "Movie",
                             );
                           else if (c?.tvShowId)
@@ -523,9 +523,9 @@ export function PersonDetailPopoverContent({
                     type="button"
                     className="group w-[72px] flex-shrink-0 cursor-pointer overflow-hidden rounded-md bg-surface-elevated text-left transition-shadow hover:shadow-md"
                     onClick={() => {
-                      if (c?.movieId)
+                      if (c?.videoItemId)
                         navigate(
-                          `/movies/${c.movieId}`,
+                          `/movies/${c.videoItemId}`,
                           c?.mediaTitle ?? "Movie",
                         );
                       else if (c?.tvShowId)

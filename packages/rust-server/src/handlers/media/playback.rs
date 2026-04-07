@@ -83,16 +83,16 @@ pub struct StreamUrlBody {
 
 #[derive(Deserialize)]
 pub struct ResumePositionQuery {
-    #[serde(rename = "movieId")]
-    pub movie_id: Option<String>,
+    #[serde(rename = "videoItemId")]
+    pub video_item_id: Option<String>,
     #[serde(rename = "episodeId")]
     pub episode_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct WatchHistoryQuery {
-    #[serde(rename = "movieId")]
-    pub movie_id: Option<String>,
+    #[serde(rename = "videoItemId")]
+    pub video_item_id: Option<String>,
     #[serde(rename = "episodeId")]
     pub episode_id: Option<String>,
     pub limit: Option<u64>,
@@ -784,7 +784,7 @@ async fn create_hls_session_internal(
         deinterlace: vs.is_interlaced.unwrap_or(false),
         client_supports_hevc,
         user_id: Some(user_id.to_string()),
-        movie_id: file.movie_id.map(|u| u.to_string()),
+        video_item_id: file.video_item_id.map(|u| u.to_string()),
         episode_id: file.episode_id.map(|u| u.to_string()),
         iso_type: effective_iso_type.map(String::from),
         direct_input,
@@ -993,7 +993,7 @@ pub async fn resume_position(
             .into_response();
         }
     };
-    let movie_id = q.movie_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
+    let movie_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
 
     match PlaybackRepo::get_resume_position(&state.db, user_id, movie_id, episode_id).await {
@@ -1019,7 +1019,7 @@ pub async fn watch_history(
             .into_response();
         }
     };
-    let movie_id = q.movie_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
+    let movie_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let limit = q.limit.unwrap_or(20).clamp(1, 50);
 

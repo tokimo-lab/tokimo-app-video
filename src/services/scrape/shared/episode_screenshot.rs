@@ -44,6 +44,7 @@ pub async fn maybe_capture_episode_screenshot(
     }
 }
 
+#[allow(unsafe_code)]
 async fn do_capture(
     db: &DatabaseConnection,
     state: &Arc<AppState>,

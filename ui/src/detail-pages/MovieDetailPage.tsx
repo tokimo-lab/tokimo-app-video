@@ -24,33 +24,33 @@ import {
   SectionTitle,
 } from "./media-detail-shared";
 
-function WatchHistorySection({ movieId }: { movieId: string }) {
+function WatchHistorySection({ videoItemId }: { videoItemId: string }) {
   return (
     <section className="mb-8">
       <SectionTitle>观看记录</SectionTitle>
-      <WatchHistoryTable movieId={movieId} />
+      <WatchHistoryTable videoItemId={videoItemId} />
     </section>
   );
 }
 
 function FavoriteButton({
   isFavorite,
-  movieId,
+  videoItemId,
 }: {
   isFavorite: boolean;
-  movieId: string;
+  videoItemId: string;
 }) {
   const qc = useQueryClient();
   const toggle = api.app.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.app.getMovieDetail.invalidate(qc, { id: movieId }),
+      void api.app.getMovieDetail.invalidate(qc, { id: videoItemId }),
   });
   return (
     <button
       type="button"
       title={isFavorite ? "取消收藏" : "收藏"}
       className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
-      onClick={() => toggle.mutate({ type: "movie", id: movieId })}
+      onClick={() => toggle.mutate({ type: "movie", id: videoItemId })}
     >
       {isFavorite ? "♥" : "♡"}
     </button>
@@ -113,19 +113,19 @@ function ResumePromptModal({
 
 export default function MovieDetailPage() {
   const { params, goBack } = useWindowNav();
-  const movieId = params.movieId;
+  const videoItemId = params.videoItemId;
   const qc = useQueryClient();
 
   const { data: movie, isLoading } = api.app.getMovieDetail.useQuery(
-    { id: movieId! },
-    { enabled: !!movieId },
+    { id: videoItemId! },
+    { enabled: !!videoItemId },
   );
 
   const { play } = usePlayer();
 
   const resumeQuery = api.playback.resumePosition.useQuery(
-    { movieId: movieId! },
-    { enabled: !!movieId },
+    { videoItemId: videoItemId! },
+    { enabled: !!videoItemId },
   );
 
   const [resumePrompt, setResumePrompt] = useState<{
@@ -148,10 +148,10 @@ export default function MovieDetailPage() {
   useAppEvent((event) => {
     if (
       event.type === "person_scraped" &&
-      event.movieId === movieId &&
-      movieId
+      event.videoItemId === videoItemId &&
+      videoItemId
     ) {
-      api.app.getMovieDetail.invalidate(qc, { id: movieId });
+      api.app.getMovieDetail.invalidate(qc, { id: videoItemId });
     }
   });
 
@@ -185,7 +185,7 @@ export default function MovieDetailPage() {
   const playMeta = {
     title: movie.title,
     posterPath: movie.posterPath,
-    movieId: movie.id,
+    videoItemId: movie.id,
     imdbId: movie.imdbId,
     tmdbId: movie.tmdbId,
   };
@@ -259,7 +259,7 @@ export default function MovieDetailPage() {
             originalTitle={movie.originalTitle}
             tagline={movie.tagline}
             favoriteSlot={
-              <FavoriteButton isFavorite={isFavorite} movieId={movie.id} />
+              <FavoriteButton isFavorite={isFavorite} videoItemId={movie.id} />
             }
             yearDisplay={yearDisplay}
             runtime={movie.runtime}
@@ -333,7 +333,7 @@ export default function MovieDetailPage() {
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
-        <WatchHistorySection movieId={movie.id} />
+        <WatchHistorySection videoItemId={movie.id} />
       </MediaDetailLayout>
     </>
   );

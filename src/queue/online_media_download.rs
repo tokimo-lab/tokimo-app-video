@@ -944,7 +944,7 @@ async fn create_media_file_for_output(
         scanned_at: Set(None),
         created_at: Set(Some(now)),
         updated_at: Set(Some(now)),
-        movie_id: Set(None),
+        video_item_id: Set(None),
         episode_id: Set(None),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, movies};
+use crate::db::entities::{download_records, video_items};
 use crate::AppState;
 
 use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
@@ -20,7 +20,7 @@ use crate::queue::handlers::common::is_unique_violation;
 use crate::queue::handlers::nfo_parser::NfoInfo;
 
 pub struct OnlineVideoResult {
-    pub movie_id: Uuid,
+    pub video_item_id: Uuid,
 }
 
 /// Fetch matching `download_record` for an `online_video` file by directory name.
@@ -97,20 +97,20 @@ pub async fn find_or_create_online_video(
         // Backfill metadata/year/overview if not yet populated (e.g. prior scan had no download_record match)
         let needs_metadata = nfo.is_some() || online_record.is_some();
         if needs_metadata {
-            let current = movies::Entity::find_by_id(id).one(db).await?;
+            let current = video_items::Entity::find_by_id(id).one(db).await?;
             if let Some(ref m) = current {
                 let missing_metadata = m.metadata.is_none();
                 let missing_year = m.year.is_none();
                 let missing_overview = m.overview.is_none();
                 if missing_metadata || missing_year || missing_overview {
-                    let mut update = movies::Entity::update_many()
-                        .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
-                        .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
-                        .filter(movies::Column::Id.eq(id));
+                    let mut update = video_items::Entity::update_many()
+                        .col_expr(video_items::Column::UpdatedAt, Expr::cust("NOW()"))
+                        .col_expr(video_items::Column::ScrapedAt, Expr::cust("NOW()"))
+                        .filter(video_items::Column::Id.eq(id));
 
                     if missing_metadata
                         && let Some(mj) = build_metadata_json(nfo, online_record) {
-                            update = update.col_expr(movies::Column::Metadata, Expr::value(mj));
+                            update = update.col_expr(video_items::Column::Metadata, Expr::value(mj));
                         }
                     if missing_year {
                         let snapshot_date = online_record
@@ -129,11 +129,11 @@ pub async fn find_or_create_online_video(
                             });
                         if let Some(d) = snapshot_date {
                             update = update.col_expr(
-                                movies::Column::Year,
+                                video_items::Column::Year,
                                 Expr::value(d.year()),
                             );
                             update = update.col_expr(
-                                movies::Column::ReleaseDate,
+                                video_items::Column::ReleaseDate,
                                 Expr::value(d),
                             );
                         }
@@ -153,7 +153,7 @@ pub async fn find_or_create_online_video(
                             });
                         if let Some(ov) = overview {
                             update = update.col_expr(
-                                movies::Column::Overview,
+                                video_items::Column::Overview,
                                 Expr::value(ov),
                             );
                         }
@@ -169,10 +169,10 @@ pub async fn find_or_create_online_video(
             }
         }
 
-        movies::Entity::update_many()
-            .col_expr(movies::Column::UpdatedAt, Expr::cust("NOW()"))
-            .col_expr(movies::Column::ScrapedAt, Expr::cust("NOW()"))
-            .filter(movies::Column::Id.eq(id))
+        video_items::Entity::update_many()
+            .col_expr(video_items::Column::UpdatedAt, Expr::cust("NOW()"))
+            .col_expr(video_items::Column::ScrapedAt, Expr::cust("NOW()"))
+            .filter(video_items::Column::Id.eq(id))
             .exec(&txn)
             .await?;
         txn.commit().await?;
@@ -197,9 +197,9 @@ async fn find_existing(
     if title.is_empty() {
         return Ok(None);
     }
-    Ok(movies::Entity::find()
-        .filter(movies::Column::AppId.eq(app_id))
-        .filter(movies::Column::Title.eq(title))
+    Ok(video_items::Entity::find()
+        .filter(video_items::Column::VideoId.eq(app_id))
+        .filter(video_items::Column::Title.eq(title))
         .one(db)
         .await?
         .map(|m| m.id))
@@ -278,9 +278,9 @@ async fn create_record(
 
     let metadata_json = build_metadata_json(nfo, online_record);
 
-    let model = movies::ActiveModel {
+    let model = video_items::ActiveModel {
         id: Set(movie_id),
-        app_id: Set(app_id),
+        video_id: Set(app_id),
         title: Set(title.to_string()),
         original_title: Set(original_title),
         sort_title: Set(None),
@@ -314,7 +314,7 @@ async fn create_record(
         updated_at: Set(Some(now)),
     };
 
-    match movies::Entity::insert(model).exec(db).await {
+    match video_items::Entity::insert(model).exec(db).await {
         Ok(_) => {
             info!("[online_video] Created movie: {title}");
             Ok(movie_id)
@@ -426,19 +426,19 @@ async fn upload_artwork_and_finish(
     }
 
     if poster_path.is_some() || backdrop_path.is_some() {
-        let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(movie_id));
+        let mut update = video_items::Entity::update_many().filter(video_items::Column::Id.eq(movie_id));
         if let Some(pp) = &poster_path {
-            update = update.col_expr(movies::Column::PosterPath, Expr::value(pp.as_str()));
+            update = update.col_expr(video_items::Column::PosterPath, Expr::value(pp.as_str()));
         }
         if let Some(bp) = &backdrop_path {
-            update = update.col_expr(movies::Column::BackdropPath, Expr::value(bp.as_str()));
+            update = update.col_expr(video_items::Column::BackdropPath, Expr::value(bp.as_str()));
         }
         update.exec(db).await?;
     }
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
 
-    Ok(OnlineVideoResult { movie_id })
+    Ok(OnlineVideoResult { video_item_id: movie_id })
 }
 
 /// Download a remote thumbnail URL and upload to local storage as poster.

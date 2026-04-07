@@ -6,7 +6,7 @@ import { api } from "@/generated/rust-api";
 dayjs.extend(relativeTime);
 
 interface WatchHistoryTableProps {
-  movieId?: string;
+  videoItemId?: string;
   episodeId?: string;
 }
 
@@ -28,12 +28,12 @@ function progressPercent(item: {
 }
 
 export function WatchHistoryTable({
-  movieId,
+  videoItemId,
   episodeId,
 }: WatchHistoryTableProps) {
   const { data, isLoading } = api.playback.watchHistory.useQuery(
-    { movieId, episodeId, limit: 20 },
-    { enabled: !!(movieId || episodeId) },
+    { videoItemId, episodeId, limit: 20 },
+    { enabled: !!(videoItemId || episodeId) },
   );
 
   if (isLoading) {

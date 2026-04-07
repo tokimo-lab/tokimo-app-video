@@ -152,7 +152,7 @@ pub async fn upload_poster_and_backdrop(
     tmdb_backdrop_path: Option<&str>,
 ) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error + Send + Sync>> {
     let id_str = entity_id.to_string();
-    let folder = if entity == "movie" { "movies" } else { "tvshows" };
+    let folder = if entity == "movie" { "video_items" } else { "tvshows" };
     let mut poster_storage_path: Option<String> = None;
     let mut backdrop_storage_path: Option<String> = None;
 
@@ -191,7 +191,7 @@ pub async fn upload_extra_art(
     extra_art: &[ExtraArtBuf],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (folder, id_str) = if let Some(mid) = movie_id {
-        ("movies", mid.to_string())
+        ("video_items", mid.to_string())
     } else if let Some(tid) = tv_show_id {
         ("tvshows", tid.to_string())
     } else {
@@ -204,7 +204,7 @@ pub async fn upload_extra_art(
 
         let model = media_arts::ActiveModel {
             id: Set(Uuid::new_v4()),
-            movie_id: Set(movie_id),
+            video_item_id: Set(movie_id),
             tv_show_id: Set(tv_show_id),
             season_id: Set(None),
             album_id: Set(None),

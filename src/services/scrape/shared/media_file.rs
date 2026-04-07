@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{episodes, video_files, movies, tv_shows};
+use crate::db::entities::{episodes, video_files, video_items, tv_shows};
 use crate::queue::handlers::common;
 use crate::AppState;
 
@@ -38,12 +38,12 @@ pub async fn create_or_update(
 ) -> Result<Uuid, BoxError> {
     // Match orphan (no association) OR same-library file
     let or_conditions = {
-        let mut conds = vec!["(video_files.movie_id IS NULL AND video_files.episode_id IS NULL)".to_string()];
+        let mut conds = vec!["(video_files.video_item_id IS NULL AND video_files.episode_id IS NULL)".to_string()];
         if movie_id.is_some() {
-            conds.push(format!("EXISTS (SELECT 1 FROM movies m WHERE m.id = video_files.movie_id AND m.app_id = '{app_uuid}')"));
+            conds.push(format!("EXISTS (SELECT 1 FROM video_items m WHERE m.id = video_files.video_item_id AND m.video_id = '{app_uuid}')"));
         }
         if episode_id.is_some() {
-            conds.push(format!("EXISTS (SELECT 1 FROM episodes e JOIN tv_shows ts ON e.tv_show_id = ts.id WHERE e.id = video_files.episode_id AND ts.app_id = '{app_uuid}')"));
+            conds.push(format!("EXISTS (SELECT 1 FROM episodes e JOIN tv_shows ts ON e.tv_show_id = ts.id WHERE e.id = video_files.episode_id AND ts.video_id = '{app_uuid}')"));
         }
         conds.join(" OR ")
     };
@@ -59,7 +59,7 @@ pub async fn create_or_update(
         let mut update =
             video_files::Entity::update_many().filter(video_files::Column::Id.eq(existing.id));
         if movie_id.is_some() {
-            update = update.col_expr(video_files::Column::MovieId, Expr::value(movie_id));
+            update = update.col_expr(video_files::Column::VideoItemId, Expr::value(movie_id));
         }
         if episode_id.is_some() {
             update = update.col_expr(video_files::Column::EpisodeId, Expr::value(episode_id));
@@ -131,7 +131,7 @@ pub async fn create_or_update(
         scanned_at: Set(Some(now)),
         created_at: Set(Some(now)),
         updated_at: Set(Some(now)),
-        movie_id: Set(movie_id),
+        video_item_id: Set(movie_id),
         episode_id: Set(episode_id),
         ffprobe_raw: Set(None),
         iso_meta: Set(None),
@@ -154,7 +154,7 @@ pub async fn create_or_update(
             let mut update = video_files::Entity::update_many()
                 .filter(video_files::Column::Id.eq(existing.id));
             if movie_id.is_some() {
-                update = update.col_expr(video_files::Column::MovieId, Expr::value(movie_id));
+                update = update.col_expr(video_files::Column::VideoItemId, Expr::value(movie_id));
             }
             if episode_id.is_some() {
                 update =
@@ -188,8 +188,8 @@ pub async fn try_nfo_patch(
     let mut entity_tv_show_id: Option<Uuid> = None;
 
     if lib_type.is_movie_family() {
-        if let Some(mid) = indexed.movie_id
-            && let Ok(Some(movie)) = movies::Entity::find_by_id(mid).one(db).await {
+        if let Some(mid) = indexed.video_item_id
+            && let Ok(Some(movie)) = video_items::Entity::find_by_id(mid).one(db).await {
                 needs_tmdb_id = movie.tmdb_id.is_none();
                 needs_poster = movie.poster_path.is_none();
                 entity_movie_id = Some(mid);
@@ -276,12 +276,12 @@ async fn patch_movie(
     if needs_tmdb_id
         && let Some(nfo) = nfo
             && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some()) {
-                let mut update = movies::Entity::update_many().filter(movies::Column::Id.eq(mid));
+                let mut update = video_items::Entity::update_many().filter(video_items::Column::Id.eq(mid));
                 if let Some(ref tid) = nfo.tmdb_id {
-                    update = update.col_expr(movies::Column::TmdbId, Expr::value(tid.as_str()));
+                    update = update.col_expr(video_items::Column::TmdbId, Expr::value(tid.as_str()));
                 }
                 if let Some(ref iid) = nfo.imdb_id {
-                    update = update.col_expr(movies::Column::ImdbId, Expr::value(iid.as_str()));
+                    update = update.col_expr(video_items::Column::ImdbId, Expr::value(iid.as_str()));
                 }
                 let _ = update.exec(db).await;
                 info!(
@@ -295,9 +295,9 @@ async fn patch_movie(
             let ext = image_storage_ext(pf);
             let key = format!("library-images/movies/{mid}/poster.{ext}");
             if let Ok(sp) = artwork::upload_image_buffer(&state.storage, buf, &key).await {
-                let _ = movies::Entity::update_many()
-                    .col_expr(movies::Column::PosterPath, Expr::value(sp.as_str()))
-                    .filter(movies::Column::Id.eq(mid))
+                let _ = video_items::Entity::update_many()
+                    .col_expr(video_items::Column::PosterPath, Expr::value(sp.as_str()))
+                    .filter(video_items::Column::Id.eq(mid))
                     .exec(db)
                     .await;
                 info!("[nfo_patch] movie {mid}: uploaded poster {pf}");
