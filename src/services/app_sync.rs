@@ -1173,6 +1173,7 @@ impl AppSyncService {
     }
 
     /// Find or create a `MusicArtist` record by name.
+    #[allow(dead_code)]
     async fn find_or_create_music_artist(
         db: &DatabaseConnection,
         name: &str,
@@ -1281,6 +1282,7 @@ impl AppSyncService {
     }
 
     /// Ensure an "artist" link exists between a music artist and an album.
+    #[allow(dead_code)]
     async fn ensure_artist_credit(
         db: &DatabaseConnection,
         album_id: Uuid,
