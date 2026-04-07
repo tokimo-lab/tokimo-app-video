@@ -109,7 +109,7 @@ async fn do_capture(
             // Return glibc arenas used by FFmpeg to the OS.  This call is cheap
             // (~1 ms) and reclaims hundreds of MB that ptmalloc would otherwise
             // hold in per-thread arenas indefinitely.
-            unsafe { libc::malloc_trim(0) };
+            #[allow(unsafe_code)] unsafe { libc::malloc_trim(0) };
             result
         })
         .await
