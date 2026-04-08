@@ -87,7 +87,7 @@ export default function OrganizeDialog({
   const [hideOrganized, setHideOrganized] = useState(false);
 
   // 应用列表（为 target 选择器提供选项）
-  const foldersQuery = api.app.list.useQuery();
+  const foldersQuery = api.video.list.useQuery();
   const mediaFolders = foldersQuery.data ?? [];
 
   // 全局成人模式开关

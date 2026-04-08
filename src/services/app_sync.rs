@@ -1,4 +1,3 @@
-use crate::db::ApiDateTimeExt;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -12,11 +11,10 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, book_files, apps,books,
+    episodes, vfs, music_album_artists, music_artists, video_files, music_files, book_files, books,
     video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos, musics,
 };
 use crate::db::repos::job_repo::JobRepo;
-use crate::db::repos::media::AppRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::MusicRepo;
 use crate::db::repos::book_repo::BookRepo;
@@ -176,112 +174,9 @@ struct AlbumGroup {
 pub struct AppSyncService;
 
 impl AppSyncService {
-    /// Get sync status for a single library.
-    pub async fn get_sync_status(
-        db: &DatabaseConnection,
-        app_id: Uuid,
-    ) -> Result<SyncStatusOutput, AppError> {
-        let (status, last_sync_at) = AppRepo::get_sync_status(db, app_id)
-            .await?
-            .not_found(format!("app {app_id} not found"))?;
-
-        Ok(SyncStatusOutput {
-            app_id: app_id.to_string(),
-            status,
-            last_sync_at: last_sync_at.to_api_datetime(),
-        })
-    }
-
-    /// Get sync statuses for all libraries.
-    pub async fn get_all_sync_statuses(
-        db: &DatabaseConnection,
-    ) -> Result<Vec<SyncStatusOutput>, AppError> {
-        let libraries = AppRepo::list_all(db).await?;
-        Ok(libraries
-            .into_iter()
-            .map(|lib| SyncStatusOutput {
-                app_id: lib.id.to_string(),
-                status: lib.sync_status,
-                last_sync_at: lib.last_sync_at.to_api_datetime(),
-            })
-            .collect())
-    }
-
-    /// Execute full app sync.
-    ///
-    /// Walks file-system sources and writes pending `file_scrape` job records.
-    /// A separate TS worker polls the `jobs` table and dispatches into `BullMQ`.
-    pub async fn execute_sync(
-        db: &DatabaseConnection,
-        sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        app_id: Uuid,
-        clear_data: bool,
-        http_client: reqwest::Client,
-    ) -> Result<SyncResult, AppError> {
-        // 1. Fetch library
-        let library = AppRepo::get_by_id(db, app_id)
-            .await?
-            .not_found("app not found")?;
-
-        let lib_type = &library.r#type;
-        let is_movie = is_movie_type(lib_type);
-        let is_tv = is_tv_type(lib_type);
-        let is_music = is_music_type(lib_type);
-
-        info!(
-            "Starting sync for library \"{}\" (id={}, type={})",
-            library.name, app_id, lib_type
-        );
-
-        // 2. Guard against concurrent syncs for the same library
-        if library.sync_status == "syncing" && !clear_data {
-            warn!(
-                "Library \"{}\" is already syncing, skipping duplicate sync request",
-                library.name
-            );
-            return Err(AppError::Conflict(
-                "Library is already syncing".into(),
-            ));
-        }
-
-        // 3. Update sync status to "syncing"
-        AppRepo::update_sync_status(db, app_id, "syncing", None).await?;
-
-        // Wrap the actual work so we can catch errors and set status to "failed".
-        let result = Self::do_sync(
-            db, sources, storage, &library, lib_type, is_movie, is_tv, is_music, clear_data, http_client,
-        )
-        .await;
-
-        match &result {
-            Ok(sync_result) => {
-                let now = Utc::now().fixed_offset();
-                AppRepo::update_sync_status(db, app_id, "completed", Some(now))
-                    .await?;
-                info!(
-                    "Sync completed: \"{}\" — {} jobs dispatched",
-                    library.name, sync_result.total_jobs
-                );
-
-                // Auto-enqueue AI processing jobs for photo libraries
-                if is_photo_type(lib_type) && sync_result.total_jobs > 0 {
-                    Self::enqueue_photo_ai_jobs(db, app_id).await;
-                }
-            }
-            Err(err) => {
-                error!("Sync failed for library \"{}\": {}", library.name, err);
-                let _ = AppRepo::update_sync_status(db, app_id, "failed", None).await;
-            }
-        }
-
-        result
-    }
-
     /// Execute sync for a video category.
     ///
-    /// Similar to `execute_sync` but reads from `videos` table and parses
-    /// sources from JSON column instead of `app_vfs` junction table.
+    /// Reads from `videos` table and parses sources from JSON column.
     pub async fn execute_video_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -569,117 +464,6 @@ impl AppSyncService {
         Ok(SyncResult { total_jobs })
     }
 
-    /// Enqueue batch AI processing jobs (face detect, OCR, CLIP, reverse geocode)
-    /// for a photo library. Skips job types that already have a pending job.
-    /// Respects per-app settings: `autoOcr`, `autoClip`, `autoFace`, `autoGeo`
-    /// (all default to `true` when absent).
-    pub async fn enqueue_photo_ai_jobs(db: &DatabaseConnection, app_id: Uuid) {
-        // Read per-app AI flags from app.settings JSONB
-        let app_settings = match apps::Entity::find_by_id(app_id).one(db).await {
-            Ok(Some(app)) => app.settings.unwrap_or_else(|| json!({})),
-            Ok(None) => {
-                warn!("[auto_ai] App {app_id} not found, skipping AI jobs");
-                return;
-            }
-            Err(e) => {
-                warn!("[auto_ai] Failed to load app {app_id}: {e}");
-                return;
-            }
-        };
-
-        let auto_flag = |key: &str| -> bool {
-            app_settings.get(key).and_then(sea_orm::JsonValue::as_bool).unwrap_or(true)
-        };
-
-        let ai_job_types: Vec<&str> = [
-            ("photo_face_detect", auto_flag("autoFace")),
-            ("photo_ocr", auto_flag("autoOcr")),
-            ("photo_clip", auto_flag("autoClip")),
-            ("photo_reverse_geocode", auto_flag("autoGeo")),
-        ]
-        .into_iter()
-        .filter(|(job_type, enabled)| {
-            if !enabled {
-                info!("[auto_ai] Skipping {job_type}: disabled in app settings");
-            }
-            *enabled
-        })
-        .map(|(job_type, _)| job_type)
-        .collect();
-
-        let payload = json!({ "appId": app_id.to_string() });
-
-        for job_type in ai_job_types {
-            match JobRepo::count_pending(db, job_type).await {
-                Ok(n) if n > 0 => {
-                    info!("[auto_ai] Skipping {job_type}: {n} pending job(s) already exist");
-                }
-                Ok(_) => {
-                    match JobRepo::create_job(db, job_type, payload.clone(), None).await {
-                        Ok(_) => info!("[auto_ai] Enqueued {job_type} for app {app_id}"),
-                        Err(e) => warn!("[auto_ai] Failed to enqueue {job_type}: {e}"),
-                    }
-                }
-                Err(e) => {
-                    warn!("[auto_ai] Failed to check pending {job_type}: {e}");
-                }
-            }
-        }
-    }
-
-    // ── core sync logic ─────────────────────────────────────────────────
-
-    #[allow(clippy::too_many_arguments)]
-    async fn do_sync(
-        db: &DatabaseConnection,
-        sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        library: &apps::Model,
-        lib_type: &str,
-        is_movie: bool,
-        is_tv: bool,
-        is_music: bool,
-        clear_data: bool,
-        _http_client: reqwest::Client,
-    ) -> Result<SyncResult, AppError> {
-        let app_id = library.id;
-
-        // 3. Optional data clear
-        if clear_data {
-            Self::clear_library_data(db, app_id, lib_type).await?;
-        }
-
-        let mut total_jobs = 0u64;
-
-        // 4. Process file system sources
-        let fs_sources = AppRepo::get_sources(db, app_id).await?;
-        for link in &fs_sources {
-            let source = vfs::Entity::find_by_id(link.source_id)
-                .one(db)
-                .await?
-                .ok_or_else(|| {
-                    AppError::NotFound(format!("source {} not found", link.source_id))
-                })?;
-
-            let jobs = Self::sync_fs_source(
-                db,
-                sources,
-                storage,
-                app_id,
-                lib_type,
-                is_movie,
-                is_tv,
-                is_music,
-                &source,
-                &link.root_path,
-            )
-            .await?;
-            total_jobs += jobs;
-        }
-
-        Ok(SyncResult { total_jobs })
-    }
-
     // ── clear library data ──────────────────────────────────────────────
 
     async fn clear_library_data(
@@ -696,14 +480,7 @@ impl AppSyncService {
         }
 
         // Collect source_ids for this library (used to clean orphaned media_files)
-        // Try app_vfs first (for non-video apps), then videos.sources JSON (for video categories)
-        let mut source_ids: Vec<Uuid> = app_vfs::Entity::find()
-            .filter(app_vfs::Column::AppId.eq(app_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|lfs| lfs.source_id)
-            .collect();
+        let mut source_ids: Vec<Uuid> = Vec::new();
 
         if source_ids.is_empty()
             && let Ok(Some(video)) = videos::Entity::find_by_id(app_id).one(db).await
@@ -886,8 +663,6 @@ impl AppSyncService {
             }
         }
 
-        // Reset last_sync_at
-        AppRepo::update_sync_status(db, app_id, "syncing", None).await?;
         Ok(())
     }
 

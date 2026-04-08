@@ -83,13 +83,24 @@ pub async fn handle(
 
     let record_uuid = Uuid::parse_str(record_id)?;
 
-    // Validate app exists.
-    use crate::db::entities::apps;
+    // Resolve target library from videos / musics / books tables.
+    use crate::db::entities::{videos, musics, books};
+    use crate::db::repos::media::VideoRepo;
     let lib_uuid = Uuid::parse_str(target_app_id)?;
-    let target_app = apps::Entity::find_by_id(lib_uuid)
-        .one(db)
-        .await?;
-    let Some(target_app) = target_app else {
+
+    struct LibInfo {
+        r#type: String,
+        settings: Option<serde_json::Value>,
+        sources: serde_json::Value,
+    }
+
+    let lib_info = if let Some(v) = videos::Entity::find_by_id(lib_uuid).one(db).await? {
+        LibInfo { r#type: v.r#type, settings: v.settings, sources: v.sources }
+    } else if let Some(m) = musics::Entity::find_by_id(lib_uuid).one(db).await? {
+        LibInfo { r#type: "music".into(), settings: m.settings, sources: m.sources }
+    } else if let Some(b) = books::Entity::find_by_id(lib_uuid).one(db).await? {
+        LibInfo { r#type: "book".into(), settings: b.settings, sources: b.sources }
+    } else {
         return Err("目标应用不存在".into());
     };
 
@@ -101,27 +112,19 @@ pub async fn handle(
         .as_ref()
         .is_some_and(|s| s.generate_nfo);
 
-    // Resolve default download source root path.
-    use crate::db::entities::app_vfs;
-    let lib_sources = app_vfs::Entity::find()
-        .filter(app_vfs::Column::AppId.eq(lib_uuid))
-        .order_by_asc(app_vfs::Column::SortOrder)
-        .all(db)
-        .await?;
-    if lib_sources.is_empty() {
+    // Resolve default download source root path from sources JSON.
+    let parsed_sources = VideoRepo::parse_sources(&lib_info.sources);
+    if parsed_sources.is_empty() {
         let err_msg = "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径";
         update_record_failed(db, record_uuid, err_msg).await;
         let run_id = record_uuid.to_string();
         append_download_log(&state.storage, &record_uuid, &run_id, "error", err_msg, None).await;
         return Err("该应用未配置文件系统源".into());
     }
-    let default_source = lib_sources
-        .iter()
-        .find(|s| s.is_default_download)
-        .or(lib_sources.first());
-    let download_source_id = default_source.map(|s| s.source_id);
+    let default_source = parsed_sources.iter().find(|s| s.2).or(parsed_sources.first());
+    let download_source_id = default_source.map(|s| s.0);
     let organize_target_path = default_source
-        .map(|s| s.root_path.clone())
+        .map(|s| s.1.clone())
         .unwrap_or_default();
 
     // Fetch file system config (root_folder_path) for computing relative paths.
@@ -171,11 +174,11 @@ pub async fn handle(
     let media_title = payload.get("mediaTitle").and_then(|v| v.as_str());
     let media_year = payload.get("mediaYear").and_then(|v| v.as_str());
 
-    let app_type = &target_app.r#type;
+    let app_type = &lib_info.r#type;
     let is_audio_only = download_format == "audio_only"
         || (download_format != "video" && app_type == "music");
 
-    let settings = target_app.settings.clone().unwrap_or(json!({}));
+    let settings = lib_info.settings.clone().unwrap_or(json!({}));
     let link_mode = settings
         .get("linkMode")
         .and_then(|v| v.as_str())
@@ -509,7 +512,7 @@ pub async fn handle(
                 // Dispatch file_scrape jobs so downloaded files get indexed into the
                 // library (creates Movie/Episode records + media_file + ffprobe).
                 if let Some(source_id) = download_source_id {
-                    let lib_type = &target_app.r#type;
+                    let lib_type = &lib_info.r#type;
 
                     if let Some(ref copy_result) = vfs_copy_result {
                         // VFS source: use uploaded VFS paths.

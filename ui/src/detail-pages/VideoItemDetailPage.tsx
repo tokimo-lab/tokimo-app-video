@@ -41,9 +41,9 @@ function FavoriteButton({
   videoItemId: string;
 }) {
   const qc = useQueryClient();
-  const toggle = api.app.toggleFavorite.useMutation({
+  const toggle = api.video.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.app.getVideoItemDetail.invalidate(qc, { id: videoItemId }),
+      void api.video.getVideoItemDetail.invalidate(qc, { id: videoItemId }),
   });
   return (
     <button
@@ -116,7 +116,7 @@ export default function VideoItemDetailPage() {
   const videoItemId = params.videoItemId;
   const qc = useQueryClient();
 
-  const { data: movie, isLoading } = api.app.getVideoItemDetail.useQuery(
+  const { data: movie, isLoading } = api.video.getVideoItemDetail.useQuery(
     { id: videoItemId! },
     { enabled: !!videoItemId },
   );
@@ -159,7 +159,7 @@ export default function VideoItemDetailPage() {
       event.videoItemId === videoItemId &&
       videoItemId
     ) {
-      api.app.getVideoItemDetail.invalidate(qc, { id: videoItemId });
+      api.video.getVideoItemDetail.invalidate(qc, { id: videoItemId });
     }
   });
 

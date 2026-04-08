@@ -55,7 +55,7 @@ export default function PersonDetailModal({
   const { navigate } = useWindowNav();
   const [bioExpanded, setBioExpanded] = useState(false);
 
-  const { data: person, isLoading } = api.app.getPersonDetail.useQuery(
+  const { data: person, isLoading } = api.video.getPersonDetail.useQuery(
     { id: personId! },
     { enabled: !!personId },
   );
@@ -372,7 +372,7 @@ export function PersonDetailPopoverContent({
 }) {
   const { navigate } = useWindowNav();
 
-  const { data: person, isLoading } = api.app.getPersonDetail.useQuery(
+  const { data: person, isLoading } = api.video.getPersonDetail.useQuery(
     { id: personId },
     { enabled: !!personId },
   );

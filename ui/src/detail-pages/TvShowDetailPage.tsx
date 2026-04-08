@@ -27,9 +27,9 @@ function FavoriteButton({
   tvShowId: string;
 }) {
   const qc = useQueryClient();
-  const toggle = api.app.toggleFavorite.useMutation({
+  const toggle = api.video.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.app.getTvShowDetail.invalidate(qc, { id: tvShowId }),
+      void api.video.getTvShowDetail.invalidate(qc, { id: tvShowId }),
   });
   return (
     <button
@@ -163,7 +163,7 @@ export default function TvShowDetailPage() {
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
 
-  const { data: show, isLoading } = api.app.getTvShowDetail.useQuery(
+  const { data: show, isLoading } = api.video.getTvShowDetail.useQuery(
     { id: tvId! },
     { enabled: !!tvId },
   );

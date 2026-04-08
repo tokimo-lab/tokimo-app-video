@@ -41,7 +41,7 @@ pub async fn fetch_online_record(
         return Ok(None);
     }
     let record = download_records::Entity::find()
-        .filter(download_records::Column::TargetAppId.eq(app_id))
+        .filter(download_records::Column::TargetVideoId.eq(app_id))
         .filter(download_records::Column::SourceOrigin.eq("online_media"))
         .filter(
             Condition::any()

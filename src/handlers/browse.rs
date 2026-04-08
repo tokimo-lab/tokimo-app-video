@@ -150,3 +150,13 @@ pub async fn get_video_person_detail(
         .not_found(format!("person {id} not found"))?;
     Ok(ok(detail))
 }
+
+/// GET /api/video/files/{id}/play-url
+pub async fn get_play_url(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let uid = parse_uuid(&id)?;
+    let url = MediaContentRepo::get_play_url(&state.db, uid).await?;
+    Ok(ok(serde_json::json!({ "url": url })))
+}

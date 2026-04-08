@@ -5,9 +5,8 @@ use axum::{
 use std::sync::Arc;
 
 use crate::AppState;
-use crate::handlers::app::get_play_url;
-
 use super::handlers;
+use super::handlers::get_play_url;
 
 pub fn build_video_app_routes() -> Router<Arc<AppState>> {
     Router::new()
