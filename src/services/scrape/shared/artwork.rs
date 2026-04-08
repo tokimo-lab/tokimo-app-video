@@ -208,7 +208,7 @@ pub async fn upload_extra_art(
             tv_show_id: Set(tv_show_id),
             season_id: Set(None),
             album_id: Set(None),
-            novel_id: Set(None),
+            book_id: Set(None),
             art_type: Set(art.art_type.clone()),
             url: Set(storage_path),
             width: Set(None),

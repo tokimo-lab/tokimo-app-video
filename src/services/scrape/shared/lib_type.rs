@@ -9,7 +9,7 @@ pub enum LibType {
     Tv,
     Anime,
     Music,
-    Novel,
+    Book,
     Photo,
 }
 
@@ -23,7 +23,7 @@ impl LibType {
             "tv" => Ok(Self::Tv),
             "anime" => Ok(Self::Anime),
             "music" => Ok(Self::Music),
-            "novel" => Ok(Self::Novel),
+            "book" => Ok(Self::Book),
             "photo" => Ok(Self::Photo),
             other => Err(format!("Unknown lib_type: {other}")),
         }
@@ -39,7 +39,7 @@ impl LibType {
             Self::Tv => "tv",
             Self::Anime => "anime",
             Self::Music => "music",
-            Self::Novel => "novel",
+            Self::Book => "book",
             Self::Photo => "photo",
         }
     }

@@ -12,17 +12,17 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps, novels,
+    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, book_files, apps,books,
     video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos, musics,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::MusicRepo;
-use crate::db::repos::novel_repo::NovelRepo;
+use crate::db::repos::book_repo::BookRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
+use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, BOOK_EXTENSIONS, PHOTO_EXTENSIONS};
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS `AppType`).
@@ -64,8 +64,8 @@ fn is_music_type(lib_type: &str) -> bool {
     lib_type == "music"
 }
 
-fn is_novel_type(lib_type: &str) -> bool {
-    lib_type == "novel"
+fn is_book_type(lib_type: &str) -> bool {
+    lib_type == "book"
 }
 
 fn is_photo_type(lib_type: &str) -> bool {
@@ -383,75 +383,75 @@ impl AppSyncService {
         result
     }
 
-    /// Execute sync for a novel container.
+    /// Execute sync for a book container.
     ///
-    /// Similar to `execute_music_sync` but reads from `novels` table.
-    pub async fn execute_novel_sync(
+    /// Similar to `execute_music_sync` but reads from `books` table.
+    pub async fn execute_book_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        novel_id: Uuid,
+        book_id: Uuid,
         clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        let novel = NovelRepo::get_container_by_id(db, novel_id)
+        let book = BookRepo::get_container_by_id(db, book_id)
             .await?
-            .not_found("novel library not found")?;
+            .not_found("book library not found")?;
 
-        let lib_type = &novel.r#type;
+        let lib_type = &book.r#type;
 
         info!(
-            "Starting novel sync for \"{}\" (id={}, type={})",
-            novel.name, novel_id, lib_type
+            "Starting book sync for \"{}\" (id={}, type={})",
+            book.name, book_id, lib_type
         );
 
-        if novel.sync_status == "syncing" && !clear_data {
+        if book.sync_status == "syncing" && !clear_data {
             warn!(
-                "Novel library \"{}\" is already syncing, skipping duplicate sync request",
-                novel.name
+                "Book library \"{}\" is already syncing, skipping duplicate sync request",
+                book.name
             );
-            return Err(AppError::Conflict("Novel library is already syncing".into()));
+            return Err(AppError::Conflict("Book library is already syncing".into()));
         }
 
-        NovelRepo::update_sync_status(db, novel_id, "syncing", None).await?;
+        BookRepo::update_sync_status(db, book_id, "syncing", None).await?;
 
-        let result = Self::do_novel_sync(db, sources, storage, &novel, clear_data).await;
+        let result = Self::do_book_sync(db, sources, storage, &book, clear_data).await;
 
         match &result {
             Ok(sync_result) => {
                 let now = Utc::now().fixed_offset();
-                NovelRepo::update_sync_status(db, novel_id, "completed", Some(now)).await?;
+                BookRepo::update_sync_status(db, book_id, "completed", Some(now)).await?;
                 info!(
-                    "Novel sync completed: \"{}\" — {} jobs dispatched",
-                    novel.name, sync_result.total_jobs
+                    "Book sync completed: \"{}\" — {} jobs dispatched",
+                    book.name, sync_result.total_jobs
                 );
             }
             Err(err) => {
-                error!("Novel sync failed for \"{}\": {}", novel.name, err);
-                let _ = NovelRepo::update_sync_status(db, novel_id, "failed", None).await;
+                error!("Book sync failed for \"{}\": {}", book.name, err);
+                let _ = BookRepo::update_sync_status(db, book_id, "failed", None).await;
             }
         }
 
         result
     }
 
-    /// Core novel sync logic: parses sources from JSON and walks each.
-    async fn do_novel_sync(
+    /// Core book sync logic: parses sources from JSON and walks each.
+    async fn do_book_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        novel: &novels::Model,
+        book: &books::Model,
         clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        let novel_id = novel.id;
-        let lib_type = &novel.r#type;
+        let book_id = book.id;
+        let lib_type = &book.r#type;
 
         if clear_data {
-            Self::clear_library_data(db, novel_id, lib_type).await?;
+            Self::clear_library_data(db, book_id, lib_type).await?;
         }
 
-        let source_tuples = NovelRepo::parse_sources(&novel.sources);
+        let source_tuples = BookRepo::parse_sources(&book.sources);
         if source_tuples.is_empty() {
-            info!("  No sources configured for novel library, skipping");
+            info!("  No sources configured for book library, skipping");
             return Ok(SyncResult { total_jobs: 0 });
         }
 
@@ -465,7 +465,7 @@ impl AppSyncService {
             };
 
             let jobs = Self::sync_fs_source(
-                db, sources, storage, novel_id, lib_type,
+                db, sources, storage, book_id, lib_type,
                 false, false, false, // is_movie, is_tv, is_music = false
                 &source, root_path,
             ).await?;
@@ -779,45 +779,45 @@ impl AppSyncService {
                 .await?
                 .rows_affected;
             info!("  Deleted {deleted} music albums");
-        } else if is_novel_type(lib_type) {
-            use crate::db::entities::{novel_chapters, novel_items, novel_volumes};
+        } else if is_book_type(lib_type) {
+            use crate::db::entities::{book_chapters, book_items, book_volumes};
 
-            let novel_ids: Vec<Uuid> = novel_items::Entity::find()
-                .filter(novel_items::Column::NovelId.eq(app_id))
+            let book_ids: Vec<Uuid> = book_items::Entity::find()
+                .filter(book_items::Column::BookId.eq(app_id))
                 .all(db)
                 .await?
                 .into_iter()
                 .map(|n| n.id)
                 .collect();
-            if !novel_ids.is_empty() {
-                let ch_deleted = novel_chapters::Entity::delete_many()
-                    .filter(novel_chapters::Column::NovelId.is_in(novel_ids.clone()))
+            if !book_ids.is_empty() {
+                let ch_deleted = book_chapters::Entity::delete_many()
+                    .filter(book_chapters::Column::BookId.is_in(book_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {ch_deleted} novel chapters");
+                info!("  Deleted {ch_deleted} book chapters");
 
-                let vol_deleted = novel_volumes::Entity::delete_many()
-                    .filter(novel_volumes::Column::NovelId.is_in(novel_ids.clone()))
+                let vol_deleted = book_volumes::Entity::delete_many()
+                    .filter(book_volumes::Column::BookId.is_in(book_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {vol_deleted} novel volumes");
+                info!("  Deleted {vol_deleted} book volumes");
 
-                let mf_deleted = novel_files::Entity::delete_many()
-                    .filter(novel_files::Column::NovelId.is_in(novel_ids.clone()))
+                let mf_deleted = book_files::Entity::delete_many()
+                    .filter(book_files::Column::BookId.is_in(book_ids.clone()))
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {mf_deleted} novel files (linked to novel items)");
+                info!("  Deleted {mf_deleted} book files (linked to book items)");
             }
 
-            let deleted = novel_items::Entity::delete_many()
-                .filter(novel_items::Column::NovelId.eq(app_id))
+            let deleted = book_items::Entity::delete_many()
+                .filter(book_items::Column::BookId.eq(app_id))
                 .exec(db)
                 .await?
                 .rows_affected;
-            info!("  Deleted {deleted} novel items");
+            info!("  Deleted {deleted} book items");
         } else if is_photo_type(lib_type) {
             // Delete photo_persons first (faces will cascade from photos, but persons
             // are only linked to appId and won't be cleaned up by photo deletion).
@@ -874,15 +874,15 @@ impl AppSyncService {
                 info!("  Deleted {orphan_deleted} orphaned music files");
             }
         }
-        if !source_ids.is_empty() && is_novel_type(lib_type) {
-            let orphan_deleted = novel_files::Entity::delete_many()
-                .filter(novel_files::Column::SourceId.is_in(source_ids.clone()))
-                .filter(novel_files::Column::NovelId.is_null())
+        if !source_ids.is_empty() && is_book_type(lib_type) {
+            let orphan_deleted = book_files::Entity::delete_many()
+                .filter(book_files::Column::SourceId.is_in(source_ids.clone()))
+                .filter(book_files::Column::BookId.is_null())
                 .exec(db)
                 .await?
                 .rows_affected;
             if orphan_deleted > 0 {
-                info!("  Deleted {orphan_deleted} orphaned novel files");
+                info!("  Deleted {orphan_deleted} orphaned book files");
             }
         }
 
@@ -896,7 +896,7 @@ impl AppSyncService {
     /// Batch size for flushing accumulated jobs to DB.
     const JOB_BATCH_FLUSH_SIZE: usize = 50;
 
-    /// Emit grouped jobs (novel dirs, TV shows, movie dirs) accumulated during the walk.
+    /// Emit grouped jobs (book dirs, TV shows, movie dirs) accumulated during the walk.
     /// Returns the total number of jobs created.
     #[allow(clippy::too_many_arguments)]
     async fn flush_grouped_jobs<'a>(
@@ -904,7 +904,7 @@ impl AppSyncService {
         jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>)>,
         tv_groups: HashMap<String, Vec<serde_json::Value>>,
         movie_groups: HashMap<String, Vec<serde_json::Value>>,
-        novel_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>>,
+        book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>>,
         app_id: Uuid,
         source_id: Uuid,
         lib_type: &'a str,
@@ -912,14 +912,14 @@ impl AppSyncService {
         let mut total = 0u64;
         let flush_size = Self::JOB_BATCH_FLUSH_SIZE;
 
-        for (dir_path, files) in &novel_dir_files {
+        for (dir_path, files) in &book_dir_files {
             let chapter_files: Vec<serde_json::Value> = files
                 .iter()
                 .map(|f| json!({ "filePath": f.file_path, "fileSize": f.file_size, "checksum": format!("{}:{}", f.file_size, f.mtime) }))
                 .collect();
             let total_size: u64 = files.iter().map(|f| f.file_size).sum();
             jobs_batch.push((
-                "novel_scrape",
+                "book_scrape",
                 json!({ "dirPath": dir_path, "chapterFiles": chapter_files, "totalSize": total_size, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type }),
                 None,
             ));
@@ -968,9 +968,9 @@ impl AppSyncService {
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
 
-        if is_novel_type(lib_type) {
+        if is_book_type(lib_type) {
             info!(
-                "Novel app sync: walking file system source \"{}\" for novel files",
+                "Book app sync: walking file system source \"{}\" for book files",
                 source.name
             );
         }
@@ -1007,12 +1007,12 @@ impl AppSyncService {
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
         let is_photo = is_photo_type(lib_type);
-        let is_novel = is_novel_type(lib_type);
+        let is_book = is_book_type(lib_type);
         let walk_handle = tokio::spawn(async move {
             if is_photo {
                 walk_files_streaming(vfs, &walk_root, &walk_source_id, &PHOTO_EXTENSIONS, tx).await
-            } else if is_novel {
-                walk_files_streaming(vfs, &walk_root, &walk_source_id, &NOVEL_EXTENSIONS, tx).await
+            } else if is_book {
+                walk_files_streaming(vfs, &walk_root, &walk_source_id, &BOOK_EXTENSIONS, tx).await
             } else {
                 walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await
             }
@@ -1032,9 +1032,9 @@ impl AppSyncService {
         let mut tv_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
         let mut movie_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
 
-        // For novels: buffer .txt files grouped by directory, emit one job per directory.
-        // Non-txt novel files (epub/mobi/etc.) get individual jobs like before.
-        let mut novel_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> =
+        // For books: buffer .txt files grouped by directory, emit one job per directory.
+        // Non-txt book files (epub/mobi/etc.) get individual jobs like before.
+        let mut book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> =
             HashMap::new();
 
         // Pre-load existing photo paths for this source to skip already-indexed photos
@@ -1065,7 +1065,7 @@ impl AppSyncService {
             }
 
             // Video/TV/Movie libraries: check video_files table with checksum.
-            if !is_photo && !is_novel {
+            if !is_photo && !is_book {
                 let existing =
                     Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv)
                         .await?;
@@ -1086,9 +1086,9 @@ impl AppSyncService {
                 }
             }
 
-            // Novel .txt files: group by parent directory for chapter-based novels
-            if is_novel && video.file_path.to_lowercase().ends_with(".txt") {
-                novel_dir_files
+            // Book .txt files: group by parent directory for chapter-based books
+            if is_book && video.file_path.to_lowercase().ends_with(".txt") {
+                book_dir_files
                     .entry(video.dir_path.clone())
                     .or_default()
                     .push(video);
@@ -1118,8 +1118,8 @@ impl AppSyncService {
                 continue;
             }
 
-            // All other types (custom, online_video, photo, novel non-txt): per-file job.
-            let job_type = if is_novel { "novel_scrape" } else { "file_scrape" };
+            // All other types (custom, online_video, photo, book non-txt): per-file job.
+            let job_type = if is_book { "book_scrape" } else { "file_scrape" };
             jobs_batch.push((
                 job_type,
                 json!({
@@ -1141,13 +1141,13 @@ impl AppSyncService {
             }
         }
 
-        // Emit entity-level TV/Movie/Novel jobs + flush remaining per-file jobs.
+        // Emit entity-level TV/Movie/Book jobs + flush remaining per-file jobs.
         total_jobs += Self::flush_grouped_jobs(
             db,
             &mut jobs_batch,
             tv_groups,
             movie_groups,
-            novel_dir_files,
+            book_dir_files,
             app_id,
             source_id,
             lib_type,
