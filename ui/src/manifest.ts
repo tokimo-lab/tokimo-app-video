@@ -19,4 +19,9 @@ export const manifest: AppManifest = {
     "/movies/:videoItemId": () => import("../media/pages/VideoItemDetailPage"),
     "/tv/:tvShowId": () => import("../media/pages/TvShowDetailPage"),
   },
+
+  userSettings: {
+    order: 10,
+    libraryDomain: "video",
+  },
 };

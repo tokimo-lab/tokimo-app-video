@@ -2,7 +2,7 @@
  * EpisodeListMenu — TV series episode picker overlay for the video player.
  *
  * Shows a "EP XX/XX" button in the player toolbar. Clicking opens a frosted-glass
- * panel with scrollable episode list (thumbnails + titles). Clicking an episode
+ * panel anchored to the bottom-right (above the toolbar). Clicking an episode
  * switches playback. Auto-scrolls to the currently playing episode on open.
  *
  * Also provides prev/next episode navigation buttons and auto-play-next on ended.
@@ -16,6 +16,7 @@ import type { EpisodeOutput, MediaFileOutput } from "@/types";
 import {
   PlayerControlTooltip,
   useDismissOnOutsidePointerDown,
+  useDropdownPortalPos,
 } from "./player-controls-shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ interface EpisodeWithSeason extends EpisodeOutput {
 
 export const EpisodeListMenu = memo(function EpisodeListMenu() {
   const { item, play } = usePlayer();
-  const { containerRef: playerContainerRef, onEndedRef } = useVideoUiState();
+  const { onEndedRef } = useVideoUiState();
   const [open, setOpen] = useState(false);
   const portalRef = useRef<HTMLDivElement | null>(null);
   const dismissRef = useDismissOnOutsidePointerDown(
@@ -37,6 +38,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
     [],
     [portalRef],
   );
+  const portalPos = useDropdownPortalPos(dismissRef, open);
 
   const tvShowId = item?.tvShowId;
   const episodeId = item?.episodeId;
@@ -103,7 +105,6 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
   const displayIdx = currentIdx >= 0 ? currentIdx + 1 : 1;
   const hasPrev = currentIdx > 0;
   const hasNext = currentIdx >= 0 && currentIdx < total - 1;
-  const portalTarget = playerContainerRef.current;
 
   return (
     <div ref={dismissRef} className="relative flex items-center gap-0.5">
@@ -173,22 +174,23 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
         </button>
       </PlayerControlTooltip>
 
-      {/* Episode list panel — portaled inside the video player container */}
+      {/* Episode list panel — fixed, anchored bottom-right above toolbar */}
       {open &&
-        portalTarget &&
+        portalPos &&
         createPortal(
           <EpisodeListPanel
             ref={portalRef}
             episodes={allEpisodes}
             currentEpisodeId={episodeId}
             tvShow={tvShow!}
+            portalPos={portalPos}
             onSelect={(ep) => {
               playEpisode(ep);
               setOpen(false);
             }}
             onClose={() => setOpen(false)}
           />,
-          portalTarget,
+          document.body,
         )}
     </div>
   );
@@ -196,13 +198,14 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
 
 EpisodeListMenu.displayName = "EpisodeListMenu";
 
-// ── Episode list panel (frosted glass overlay) ────────────────────────────────
+// ── Episode list panel (frosted glass dropdown) ───────────────────────────────
 
 const EpisodeListPanel = memo(function EpisodeListPanel({
   ref,
   episodes,
   currentEpisodeId,
   tvShow,
+  portalPos,
   onSelect,
   onClose,
 }: {
@@ -210,10 +213,10 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
   episodes: EpisodeWithSeason[];
   currentEpisodeId: string;
   tvShow: { title: string; seasons?: { seasonNumber: number }[] };
+  portalPos: { right: number; bottom: number };
   onSelect: (ep: EpisodeWithSeason) => void;
   onClose: () => void;
 }) {
-  const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   const hasMultipleSeasons = (tvShow.seasons?.length ?? 0) > 1;
 
@@ -240,62 +243,60 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     : [[0, episodes] as const];
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: player overlay backdrop
-    // biome-ignore lint/a11y/useKeyWithClickEvents: player overlay backdrop
     <div
       ref={ref}
-      className="player-popup-in absolute inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+      className="player-popup-in fixed z-[99999] flex w-[22rem] flex-col overflow-hidden rounded-lg bg-black/65 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl"
+      style={{
+        right: portalPos.right,
+        bottom: portalPos.bottom,
+        maxHeight: "min(400px, 60vh)",
       }}
     >
-      <div className="flex max-h-[70%] w-full max-w-[22rem] flex-col overflow-hidden rounded-2xl bg-black/60 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <h3 className="text-sm font-medium text-white">剧集列表</h3>
-          <button
-            type="button"
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white"
-            onClick={onClose}
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-4 py-2.5">
+        <h3 className="text-xs font-medium text-white/70">剧集列表</h3>
+        <button
+          type="button"
+          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
+          onClick={onClose}
+        >
+          <svg
+            className="h-3 w-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
           >
-            <svg
-              className="h-3.5 w-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
-        {/* Episode list */}
-        <div ref={listRef} className="overflow-y-auto p-2">
-          {seasonGroups.map(([seasonNum, eps]) => (
-            <div key={seasonNum}>
-              {hasMultipleSeasons && (
-                <div className="px-3 py-2 text-xs font-medium text-white/50">
-                  第 {seasonNum} 季
-                </div>
-              )}
-              {eps.map((ep) => {
-                const isCurrent = ep.id === currentEpisodeId;
-                const hasFile = (ep.files?.length ?? 0) > 0;
-                return (
-                  <EpisodeItem
-                    key={ep.id}
-                    ref={isCurrent ? activeRef : undefined}
-                    episode={ep}
-                    isCurrent={isCurrent}
-                    hasFile={hasFile}
-                    onClick={() => onSelect(ep)}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
+      {/* Episode list */}
+      <div className="overflow-y-auto p-1.5">
+        {seasonGroups.map(([seasonNum, eps]) => (
+          <div key={seasonNum}>
+            {hasMultipleSeasons && (
+              <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-white/40">
+                第 {seasonNum} 季
+              </div>
+            )}
+            {eps.map((ep) => {
+              const isCurrent = ep.id === currentEpisodeId;
+              const hasFile = (ep.files?.length ?? 0) > 0;
+              return (
+                <EpisodeItem
+                  key={ep.id}
+                  ref={isCurrent ? activeRef : undefined}
+                  episode={ep}
+                  isCurrent={isCurrent}
+                  hasFile={hasFile}
+                  onClick={() => onSelect(ep)}
+                />
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
