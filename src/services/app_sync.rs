@@ -12,13 +12,14 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
+    episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps, novels,
     video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos, musics,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::MusicRepo;
+use crate::db::repos::novel_repo::NovelRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
@@ -380,6 +381,98 @@ impl AppSyncService {
         }
 
         result
+    }
+
+    /// Execute sync for a novel container.
+    ///
+    /// Similar to `execute_music_sync` but reads from `novels` table.
+    pub async fn execute_novel_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        novel_id: Uuid,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let novel = NovelRepo::get_container_by_id(db, novel_id)
+            .await?
+            .not_found("novel library not found")?;
+
+        let lib_type = &novel.r#type;
+
+        info!(
+            "Starting novel sync for \"{}\" (id={}, type={})",
+            novel.name, novel_id, lib_type
+        );
+
+        if novel.sync_status == "syncing" && !clear_data {
+            warn!(
+                "Novel library \"{}\" is already syncing, skipping duplicate sync request",
+                novel.name
+            );
+            return Err(AppError::Conflict("Novel library is already syncing".into()));
+        }
+
+        NovelRepo::update_sync_status(db, novel_id, "syncing", None).await?;
+
+        let result = Self::do_novel_sync(db, sources, storage, &novel, clear_data).await;
+
+        match &result {
+            Ok(sync_result) => {
+                let now = Utc::now().fixed_offset();
+                NovelRepo::update_sync_status(db, novel_id, "completed", Some(now)).await?;
+                info!(
+                    "Novel sync completed: \"{}\" — {} jobs dispatched",
+                    novel.name, sync_result.total_jobs
+                );
+            }
+            Err(err) => {
+                error!("Novel sync failed for \"{}\": {}", novel.name, err);
+                let _ = NovelRepo::update_sync_status(db, novel_id, "failed", None).await;
+            }
+        }
+
+        result
+    }
+
+    /// Core novel sync logic: parses sources from JSON and walks each.
+    async fn do_novel_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        novel: &novels::Model,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let novel_id = novel.id;
+        let lib_type = &novel.r#type;
+
+        if clear_data {
+            Self::clear_library_data(db, novel_id, lib_type).await?;
+        }
+
+        let source_tuples = NovelRepo::parse_sources(&novel.sources);
+        if source_tuples.is_empty() {
+            info!("  No sources configured for novel library, skipping");
+            return Ok(SyncResult { total_jobs: 0 });
+        }
+
+        let mut total_jobs = 0u64;
+
+        for (source_id, root_path, _is_default) in &source_tuples {
+            let source = vfs::Entity::find_by_id(*source_id).one(db).await?;
+            let Some(source) = source else {
+                warn!("  Source {source_id} not found, skipping");
+                continue;
+            };
+
+            let jobs = Self::sync_fs_source(
+                db, sources, storage, novel_id, lib_type,
+                false, false, false, // is_movie, is_tv, is_music = false
+                &source, root_path,
+            ).await?;
+            total_jobs += jobs;
+        }
+
+        Ok(SyncResult { total_jobs })
     }
 
     /// Core music sync logic: parses sources from JSON and walks each.
