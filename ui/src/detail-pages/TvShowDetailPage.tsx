@@ -52,6 +52,7 @@ function EpisodeRow({
     title: string;
     posterPath?: string | null;
     episodeId?: string;
+    tvShowId?: string;
     imdbId?: string | null;
     tmdbId?: string | null;
   };
@@ -291,6 +292,7 @@ export default function TvShowDetailPage() {
                   playMeta={{
                     title: show.title,
                     posterPath: show.posterPath,
+                    tvShowId: show.id,
                     imdbId: show.imdbId,
                     tmdbId: show.tmdbId,
                   }}
