@@ -464,8 +464,6 @@ pub async fn stream_url(
                 user_id: uid,
                 session_id: session_uuid,
                 file_id: file_uuid,
-                video_item_id: file.video_item_id,
-                episode_id: file.episode_id,
                 client_name: Some("Tokimo Web".to_string()),
                 user_agent: ua,
                 play_method: play_method.to_string(),
@@ -881,10 +879,10 @@ async fn create_hls_session_internal(
         deinterlace: vs.is_interlaced.unwrap_or(false),
         client_supports_hevc,
         user_id: Some(user_id.to_string()),
-        video_item_id: file.video_item_id.map(|u| u.to_string()),
-        episode_id: file.episode_id.map(|u| u.to_string()),
         iso_type: effective_iso_type.map(String::from),
         direct_input,
+        video_item_id: None,
+        episode_id: None,
     };
 
     let info = state

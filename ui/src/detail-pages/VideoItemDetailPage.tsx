@@ -112,7 +112,7 @@ function ResumePromptModal({
 }
 
 export default function VideoItemDetailPage() {
-  const { params, goBack } = useWindowNav();
+  const { params, goBack, updateMetadata } = useWindowNav();
   const videoItemId = params.videoItemId;
   const qc = useQueryClient();
 
@@ -143,6 +143,14 @@ export default function VideoItemDetailPage() {
       setBackgroundArt(null);
     };
   }, [artPath, setBackgroundArt]);
+
+  useEffect(() => {
+    const iconUrl = posterThumbUrl(movie?.posterPath, 48) ?? undefined;
+    if (iconUrl) updateMetadata({ windowIconUrl: iconUrl });
+    return () => {
+      updateMetadata({ windowIconUrl: undefined });
+    };
+  }, [movie?.posterPath, updateMetadata]);
 
   // ── WS: refresh movie detail after each person is scraped ──
   useAppEvent((event) => {
