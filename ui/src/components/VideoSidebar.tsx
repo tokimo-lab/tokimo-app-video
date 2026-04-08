@@ -1,30 +1,23 @@
-import { AppSidebar } from "@tokiomo/components";
-import { Settings } from "lucide-react";
+import { AppSidebar, Tooltip } from "@tokiomo/components";
+import { Plus, Settings } from "lucide-react";
 import type { VideoOutput } from "@/generated/rust-api";
 import { AppIcon } from "@/shared/components/icons";
-import { useWindowActions } from "@/system";
 
 export default function VideoSidebar({
   categories,
   activeId,
   onSelect,
   collapsed,
+  onCreateClick,
+  onSettingsClick,
 }: {
   categories: VideoOutput[];
   activeId: string | null;
   onSelect: (id: string) => void;
   collapsed?: boolean;
+  onCreateClick: () => void;
+  onSettingsClick: () => void;
 }) {
-  const { openWindow } = useWindowActions();
-
-  const openSettings = () =>
-    openWindow({
-      type: "system",
-      title: "系统设置",
-      route: "/video-settings",
-      metadata: { pageId: "system-settings" },
-    });
-
   const sections = [
     {
       items: categories.map((cat) => ({
@@ -41,22 +34,59 @@ export default function VideoSidebar({
     },
   ];
 
+  const collapsedFooter = (
+    <div className="flex flex-col items-center gap-1">
+      <Tooltip title="新建视频库" placement="right">
+        <button
+          type="button"
+          onClick={onCreateClick}
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-fg-muted transition-all hover:bg-black/[0.08] hover:text-fg-secondary dark:hover:bg-white/[0.08]"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      <Tooltip title="视频库设置" placement="right">
+        <button
+          type="button"
+          onClick={onSettingsClick}
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-fg-muted transition-all hover:bg-black/[0.08] hover:text-fg-secondary dark:hover:bg-white/[0.08]"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+
+  const fullFooter = (
+    <div className="flex items-center gap-1">
+      <Tooltip title="新建视频库">
+        <button
+          type="button"
+          onClick={onCreateClick}
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted transition-all hover:bg-black/[0.08] hover:text-fg-secondary dark:hover:bg-white/[0.08]"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      <Tooltip title="视频库设置">
+        <button
+          type="button"
+          onClick={onSettingsClick}
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-fg-muted transition-all hover:bg-black/[0.08] hover:text-fg-secondary dark:hover:bg-white/[0.08]"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+
   return (
     <AppSidebar
       sections={sections}
       activeKey={activeId ?? undefined}
       onSelect={onSelect}
       collapsed={collapsed}
-      footer={
-        <button
-          type="button"
-          onClick={openSettings}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-fg-muted transition-colors hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
-        >
-          <Settings size={14} className="shrink-0 opacity-60" />
-          <span>Tokimo Video 设置</span>
-        </button>
-      }
+      footer={collapsed ? collapsedFooter : fullFooter}
     />
   );
 }

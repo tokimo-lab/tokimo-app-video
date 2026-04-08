@@ -23,5 +23,30 @@ export const manifest: AppManifest = {
   userSettings: {
     order: 10,
     libraryDomain: "video",
+    sections: [
+      {
+        key: "display",
+        label: "settings.library.display",
+        fields: [
+          {
+            key: "defaultSort",
+            type: "select",
+            label: "settings.library.defaultSort",
+            defaultValue: "addedAt",
+            options: [
+              { label: "settings.library.sortAddedAt", value: "addedAt" },
+              { label: "settings.library.sortTitleAsc", value: "title_asc" },
+              {
+                label: "settings.library.sortTitleDesc",
+                value: "title_desc",
+              },
+              { label: "settings.library.sortYearDesc", value: "year_desc" },
+              { label: "settings.library.sortYearAsc", value: "year_asc" },
+              { label: "settings.library.sortRating", value: "rating" },
+            ],
+          },
+        ],
+      },
+    ],
   },
 };
