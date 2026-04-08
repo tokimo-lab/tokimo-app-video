@@ -1,7 +1,7 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
 use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
@@ -9,7 +9,7 @@ use rust_subtitle::{
     resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -19,7 +19,8 @@ use crate::db::entities::{vfs, video_files};
 use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
-use crate::db::repos::media::{MusicRepo, PlaybackRepo};
+use crate::db::repos::media::{MusicRepo, PlaybackRepo, PlaybackSessionRepo};
+use crate::db::repos::media::playback_session_repo::CreatePlaybackSessionInput;
 use crate::db::repos::subtitle_repo::SubtitleRepo;
 use super::iso_reader;
 use crate::handlers::media::utils::resolve_local_path;
@@ -39,7 +40,7 @@ fn default_sdr() -> Vec<String> {
     vec!["SDR".to_string()]
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamUrlBody {
     #[serde(default)]
@@ -105,6 +106,7 @@ pub async fn stream_url(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
     AuthUser(auth): AuthUser,
+    headers: HeaderMap,
     Json(body): Json<StreamUrlBody>,
 ) -> Response {
     let file_uuid: Uuid = match file_id.parse() {
@@ -417,6 +419,80 @@ pub async fn stream_url(
             reason_remux = %eff_remux_reason.unwrap_or(""),
             ""
         );
+    }
+
+    // Record the active playback session.
+    {
+        let user_uuid = auth.user_id.parse::<Uuid>().ok();
+        let session_uuid = auth.session_id.parse::<Uuid>().ok();
+        if let Some(uid) = user_uuid {
+            let db_clone = state.db.clone();
+            let ua = headers
+                .get("user-agent")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string);
+
+            let transcode_video_codec = if should_transcode_video {
+                let client_prefers_hevc =
+                    client_profile.supported_vc.iter().any(|c| c == "hevc");
+                Some(if client_prefers_hevc { "hevc".to_string() } else { "h264".to_string() })
+            } else {
+                None
+            };
+
+            let media_streams = {
+                let mut streams = serde_json::json!({});
+                if let Some(v) = file.video_streams.as_ref() {
+                    streams["video"] = v.clone();
+                }
+                if let Some(a) = file.audio_streams.as_ref() {
+                    streams["audio"] = a.clone();
+                }
+                streams
+            };
+
+            let transcode_reasons = serde_json::json!({
+                "video": video_reason,
+                "audio": audio_reason,
+                "container": container_reason,
+                "codecTag": codec_tag_reason,
+            });
+
+            let caps = serde_json::to_value(&body).ok();
+
+            let input = CreatePlaybackSessionInput {
+                user_id: uid,
+                session_id: session_uuid,
+                file_id: file_uuid,
+                video_item_id: file.video_item_id,
+                episode_id: file.episode_id,
+                client_name: Some("Tokimo Web".to_string()),
+                user_agent: ua,
+                play_method: play_method.to_string(),
+                source_container: std::path::Path::new(&file.path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(str::to_lowercase),
+                source_video_codec: file.video_codec.clone(),
+                source_video_profile: file.video_profile.clone(),
+                source_hdr_type: file.hdr_type.clone(),
+                source_width: file.video_width,
+                source_height: file.video_height,
+                source_duration: file.duration,
+                source_file_size: file.size,
+                transcode_video_codec,
+                transcode_audio_codec: target_audio_codec.clone(),
+                transcode_reasons: Some(transcode_reasons),
+                media_streams_raw: Some(media_streams),
+                client_capabilities: caps,
+            };
+
+            tokio::spawn(async move {
+                if let Err(e) = PlaybackSessionRepo::create(&db_clone, input).await {
+                    warn!("[Playback] failed to record playback session: {e}");
+                }
+            });
+        }
     }
 
     if needs_hls {
@@ -994,6 +1070,13 @@ async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
                 snap.session_id, e
             );
         }
+    }
+
+    // Mark active playback sessions as stopped.
+    if let Ok(file_uuid) = file_id.parse::<Uuid>()
+        && let Err(e) = PlaybackSessionRepo::stop_by_file(&state.db, file_uuid).await
+    {
+        warn!("[Playback] failed to stop playback session for file {file_id}: {e}");
     }
 }
 
