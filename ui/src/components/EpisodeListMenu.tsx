@@ -4,23 +4,34 @@
  * Shows a "EP XX/XX" button in the player toolbar. Clicking opens a frosted-glass
  * panel with scrollable episode list (thumbnails + titles). Clicking an episode
  * switches playback. Auto-scrolls to the currently playing episode on open.
+ *
+ * Also provides prev/next episode navigation buttons and auto-play-next on ended.
  */
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
-import { usePlayer } from "@/system";
+import { usePlayer, useVideoUiState } from "@/system";
 import type { EpisodeOutput, MediaFileOutput } from "@/types";
 import {
   PlayerControlTooltip,
   useDismissOnOutsidePointerDown,
 } from "./player-controls-shared";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface EpisodeWithSeason extends EpisodeOutput {
+  seasonNumber: number;
+}
+
+// ── Main button + panel controller ────────────────────────────────────────────
+
 export const EpisodeListMenu = memo(function EpisodeListMenu() {
   const { item, play } = usePlayer();
+  const { containerRef: playerContainerRef, onEndedRef } = useVideoUiState();
   const [open, setOpen] = useState(false);
   const portalRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useDismissOnOutsidePointerDown(
+  const dismissRef = useDismissOnOutsidePointerDown(
     open,
     () => setOpen(false),
     [],
@@ -35,25 +46,87 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
     { enabled: !!tvShowId },
   );
 
-  // Flatten all episodes across seasons
-  const allEpisodes =
-    tvShow?.seasons?.flatMap((s) =>
-      (s.episodes ?? []).map((ep) => ({
-        ...ep,
-        seasonNumber: s.seasonNumber,
-      })),
-    ) ?? [];
+  const allEpisodes = useMemo(
+    () =>
+      tvShow?.seasons?.flatMap((s) =>
+        (s.episodes ?? []).map((ep) => ({
+          ...ep,
+          seasonNumber: s.seasonNumber,
+        })),
+      ) ?? [],
+    [tvShow],
+  );
 
   const currentIdx = allEpisodes.findIndex((ep) => ep.id === episodeId);
   const total = allEpisodes.length;
 
-  // Don't render if not a TV episode or no episodes loaded
+  const playEpisode = useCallback(
+    (ep: EpisodeWithSeason) => {
+      const file = ep.files?.[0];
+      if (!file) return;
+      play(file as MediaFileOutput, {
+        title: ep.title ?? `第 ${ep.episodeNumber} 集`,
+        posterPath: tvShow?.posterPath,
+        tvShowId,
+        episodeId: ep.id,
+        imdbId: tvShow?.imdbId,
+        tmdbId: tvShow?.tmdbId,
+      });
+    },
+    [play, tvShow, tvShowId],
+  );
+
+  const playNext = useCallback(() => {
+    if (currentIdx < 0 || currentIdx >= total - 1) return;
+    const next = allEpisodes[currentIdx + 1];
+    if (next) playEpisode(next);
+  }, [currentIdx, total, allEpisodes, playEpisode]);
+
+  const playPrev = useCallback(() => {
+    if (currentIdx <= 0) return;
+    const prev = allEpisodes[currentIdx - 1];
+    if (prev) playEpisode(prev);
+  }, [currentIdx, allEpisodes, playEpisode]);
+
+  // Auto-play next episode when current one ends
+  useEffect(() => {
+    onEndedRef.current = () => {
+      playNext();
+    };
+    return () => {
+      onEndedRef.current = null;
+    };
+  }, [onEndedRef, playNext]);
+
   if (!tvShowId || !episodeId || total === 0) return null;
 
   const displayIdx = currentIdx >= 0 ? currentIdx + 1 : 1;
+  const hasPrev = currentIdx > 0;
+  const hasNext = currentIdx >= 0 && currentIdx < total - 1;
+  const portalTarget = playerContainerRef.current;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={dismissRef} className="relative flex items-center gap-0.5">
+      {/* Prev episode */}
+      <PlayerControlTooltip title="上一集">
+        <button
+          type="button"
+          disabled={!hasPrev}
+          onClick={() => playPrev()}
+          className={`flex h-8 w-8 items-center justify-center rounded ${
+            hasPrev
+              ? "cursor-pointer text-white/80 hover:bg-white/10 hover:text-white"
+              : "cursor-default text-white/25"
+          }`}
+          aria-label="上一集"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+          </svg>
+        </button>
+      </PlayerControlTooltip>
+
+      {/* Episode list toggle */}
       <PlayerControlTooltip title="剧集列表">
         <button
           type="button"
@@ -80,7 +153,29 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
           </span>
         </button>
       </PlayerControlTooltip>
+
+      {/* Next episode */}
+      <PlayerControlTooltip title="下一集">
+        <button
+          type="button"
+          disabled={!hasNext}
+          onClick={() => playNext()}
+          className={`flex h-8 w-8 items-center justify-center rounded ${
+            hasNext
+              ? "cursor-pointer text-white/80 hover:bg-white/10 hover:text-white"
+              : "cursor-default text-white/25"
+          }`}
+          aria-label="下一集"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+          </svg>
+        </button>
+      </PlayerControlTooltip>
+
+      {/* Episode list panel — portaled inside the video player container */}
       {open &&
+        portalTarget &&
         createPortal(
           <EpisodeListPanel
             ref={portalRef}
@@ -88,21 +183,12 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
             currentEpisodeId={episodeId}
             tvShow={tvShow!}
             onSelect={(ep) => {
-              const file = ep.files?.[0];
-              if (!file) return;
-              play(file as MediaFileOutput, {
-                title: ep.title ?? `第 ${ep.episodeNumber} 集`,
-                posterPath: tvShow?.posterPath,
-                tvShowId: tvShowId,
-                episodeId: ep.id,
-                imdbId: tvShow?.imdbId,
-                tmdbId: tvShow?.tmdbId,
-              });
+              playEpisode(ep);
               setOpen(false);
             }}
             onClose={() => setOpen(false)}
           />,
-          document.body,
+          portalTarget,
         )}
     </div>
   );
@@ -111,10 +197,6 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
 EpisodeListMenu.displayName = "EpisodeListMenu";
 
 // ── Episode list panel (frosted glass overlay) ────────────────────────────────
-
-interface EpisodeWithSeason extends EpisodeOutput {
-  seasonNumber: number;
-}
 
 const EpisodeListPanel = memo(function EpisodeListPanel({
   ref,
@@ -135,7 +217,6 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
   const activeRef = useRef<HTMLButtonElement>(null);
   const hasMultipleSeasons = (tvShow.seasons?.length ?? 0) > 1;
 
-  // Auto-scroll to current episode on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       activeRef.current?.scrollIntoView({
@@ -146,7 +227,6 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     return () => clearTimeout(timer);
   }, []);
 
-  // Close on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -155,7 +235,6 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Group by season for multi-season shows
   const seasonGroups = hasMultipleSeasons
     ? groupBySeason(episodes)
     : [[0, episodes] as const];
@@ -165,12 +244,12 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     // biome-ignore lint/a11y/useKeyWithClickEvents: player overlay backdrop
     <div
       ref={ref}
-      className="player-popup-in fixed inset-0 z-[99999] flex items-center justify-center"
+      className="player-popup-in absolute inset-0 z-50 flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[80vh] w-full max-w-[28rem] flex-col overflow-hidden rounded-2xl bg-black/60 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl">
+      <div className="flex max-h-[70%] w-full max-w-[22rem] flex-col overflow-hidden rounded-2xl bg-black/60 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <h3 className="text-sm font-medium text-white">剧集列表</h3>
