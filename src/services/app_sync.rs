@@ -687,10 +687,10 @@ impl AppSyncService {
                 .rows_affected;
             info!("  Deleted {deleted} music albums");
         } else if is_novel_type(lib_type) {
-            use crate::db::entities::{novel_chapters, novel_volumes, novels};
+            use crate::db::entities::{novel_chapters, novel_items, novel_volumes};
 
-            let novel_ids: Vec<Uuid> = novels::Entity::find()
-                .filter(novels::Column::AppId.eq(app_id))
+            let novel_ids: Vec<Uuid> = novel_items::Entity::find()
+                .filter(novel_items::Column::NovelId.eq(app_id))
                 .all(db)
                 .await?
                 .into_iter()
@@ -716,15 +716,15 @@ impl AppSyncService {
                     .exec(db)
                     .await?
                     .rows_affected;
-                info!("  Deleted {mf_deleted} novel files (linked to novels)");
+                info!("  Deleted {mf_deleted} novel files (linked to novel items)");
             }
 
-            let deleted = novels::Entity::delete_many()
-                .filter(novels::Column::AppId.eq(app_id))
+            let deleted = novel_items::Entity::delete_many()
+                .filter(novel_items::Column::NovelId.eq(app_id))
                 .exec(db)
                 .await?
                 .rows_affected;
-            info!("  Deleted {deleted} novels");
+            info!("  Deleted {deleted} novel items");
         } else if is_photo_type(lib_type) {
             // Delete photo_persons first (faces will cascade from photos, but persons
             // are only linked to appId and won't be cleaned up by photo deletion).
