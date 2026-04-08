@@ -159,7 +159,7 @@ function EpisodeRow({
 }
 
 export default function TvShowDetailPage() {
-  const { params, goBack, updateMetadata } = useWindowNav();
+  const { params, goBack } = useWindowNav();
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
 
@@ -181,14 +181,6 @@ export default function TvShowDetailPage() {
       setBackgroundArt(null);
     };
   }, [show?.backdropPath, setBackgroundArt]);
-
-  useEffect(() => {
-    const iconUrl = posterThumbUrl(show?.posterPath, 48) ?? undefined;
-    if (iconUrl) updateMetadata({ windowIconUrl: iconUrl });
-    return () => {
-      updateMetadata({ windowIconUrl: undefined });
-    };
-  }, [show?.posterPath, updateMetadata]);
 
   if (isLoading) {
     return (
