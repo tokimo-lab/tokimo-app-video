@@ -15,7 +15,7 @@ const LoadingFallback = (
 );
 
 export default function VideoApp() {
-  const { LazyViewComponent, route, navigate } = useWindowNav();
+  const { LazyViewComponent, route, navigate, updateTitle } = useWindowNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
   const sidebarCollapsed = containerWidth > 0 && containerWidth < 720;
@@ -32,6 +32,15 @@ export default function VideoApp() {
         : categories[0].id;
     setActiveCategoryId(id);
   }, [categories]);
+
+  const activeCategory = categories?.find((c) => c.id === activeCategoryId);
+
+  // Keep window title in sync with the active library when on the root route
+  useEffect(() => {
+    if (route === "/" && activeCategory) {
+      updateTitle(`TokimoVideo · ${activeCategory.name}`);
+    }
+  }, [route, activeCategory, updateTitle]);
 
   const handleSelectCategory = (id: string) => {
     setActiveCategoryId(id);
@@ -57,7 +66,6 @@ export default function VideoApp() {
     );
   }
 
-  const activeCategory = categories.find((c) => c.id === activeCategoryId);
   const isDetailPage = route !== "/" && LazyViewComponent;
 
   return (

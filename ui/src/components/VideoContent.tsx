@@ -262,9 +262,12 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
   const handleItemClick = useCallback(
     (item: MediaItem) => {
       if (isTv) {
-        navigate(`/tv/${item.id}`, item.title ?? "TV Show");
+        navigate(`/tv/${item.id}`, `TokimoVideo · ${item.title ?? "TV Show"}`);
       } else {
-        navigate(`/movies/${item.id}`, item.title ?? "Movie");
+        navigate(
+          `/movies/${item.id}`,
+          `TokimoVideo · ${item.title ?? "Movie"}`,
+        );
       }
     },
     [isTv, navigate],
