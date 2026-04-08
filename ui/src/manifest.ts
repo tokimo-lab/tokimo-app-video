@@ -16,7 +16,7 @@ export const manifest: AppManifest = {
   menuBar: () => import("./components/VideoMenuBar"),
   views: {
     "/": () => import("./components/VideoApp"),
-    "/movies/:videoItemId": () => import("../media/pages/MovieDetailPage"),
+    "/movies/:videoItemId": () => import("../media/pages/VideoItemDetailPage"),
     "/tv/:tvShowId": () => import("../media/pages/TvShowDetailPage"),
   },
 };

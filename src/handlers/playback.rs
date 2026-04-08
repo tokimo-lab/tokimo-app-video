@@ -19,7 +19,7 @@ use crate::db::entities::{vfs, video_files};
 use crate::db::models::playback::{
     AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
 };
-use crate::db::repos::media::PlaybackRepo;
+use crate::db::repos::media::{MusicRepo, PlaybackRepo};
 use crate::db::repos::subtitle_repo::SubtitleRepo;
 use super::iso_reader;
 use crate::handlers::media::utils::resolve_local_path;
@@ -118,19 +118,40 @@ pub async fn stream_url(
     let db = &state.db;
 
     // Single JOIN query: video_files + vfs (no second round-trip).
-    let (file, source) = match video_files::Entity::find_by_id(file_uuid)
+    // Fall back to music_files if not found in video_files.
+    let video_row = match video_files::Entity::find_by_id(file_uuid)
         .find_also_related(vfs::Entity)
         .one(db)
         .await
     {
-        Ok(Some(pair)) => pair,
-        Ok(None) => {
-            return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into())
-                .into_response();
-        }
+        Ok(row) => row,
         Err(e) => {
             return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
                 .into_response();
+        }
+    };
+
+    let Some((file, source)) = video_row else {
+        // Not a video file — try music files and return direct stream URL.
+        match MusicRepo::load_stream_target(db, &file_id).await {
+            Ok(Some(_)) => {
+                let url = format!("/api/apps/music/files/{file_id}/stream");
+                return ok(StreamUrlDto { url }).into_response();
+            }
+            Ok(None) => {
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::NOT_FOUND,
+                    "File not found".into(),
+                )
+                .into_response();
+            }
+            Err(e) => {
+                return err_resp::<StreamUrlDto>(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    e.to_string(),
+                )
+                .into_response();
+            }
         }
     };
 
@@ -993,10 +1014,10 @@ pub async fn resume_position(
             .into_response();
         }
     };
-    let movie_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
+    let video_item_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
 
-    match PlaybackRepo::get_resume_position(&state.db, user_id, movie_id, episode_id).await {
+    match PlaybackRepo::get_resume_position(&state.db, user_id, video_item_id, episode_id).await {
         Ok(dto) => ok(dto).into_response(),
         Err(e) => e.into_response(),
     }
@@ -1019,11 +1040,11 @@ pub async fn watch_history(
             .into_response();
         }
     };
-    let movie_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
+    let video_item_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let limit = q.limit.unwrap_or(20).clamp(1, 50);
 
-    match PlaybackRepo::get_watch_history(&state.db, user_id, movie_id, episode_id, limit).await {
+    match PlaybackRepo::get_watch_history(&state.db, user_id, video_item_id, episode_id, limit).await {
         Ok(items) => ok(items).into_response(),
         Err(e) => e.into_response(),
     }

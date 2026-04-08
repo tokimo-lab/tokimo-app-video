@@ -13,11 +13,12 @@ use uuid::Uuid;
 
 use crate::db::entities::{
     episodes, vfs, app_vfs, music_album_artists, music_artists, video_files, music_files, novel_files, apps,
-    video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos,
+    video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos, musics,
 };
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::AppRepo;
 use crate::db::repos::media::VideoRepo;
+use crate::db::repos::media::MusicRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, NOVEL_EXTENSIONS, PHOTO_EXTENSIONS};
@@ -334,6 +335,98 @@ impl AppSyncService {
         result
     }
 
+    /// Sync a music library. Reads sources from JSON column in `musics` table.
+    pub async fn execute_music_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        music_id: Uuid,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let music = MusicRepo::get_by_id(db, music_id)
+            .await?
+            .not_found("music library not found")?;
+
+        info!(
+            "Starting music sync for \"{}\" (id={}, type={})",
+            music.name, music_id, music.r#type
+        );
+
+        if music.sync_status == "syncing" && !clear_data {
+            warn!(
+                "Music library \"{}\" is already syncing, skipping duplicate sync request",
+                music.name
+            );
+            return Err(AppError::Conflict("Music library is already syncing".into()));
+        }
+
+        MusicRepo::update_sync_status(db, music_id, "syncing", None).await?;
+
+        let result = Self::do_music_sync(db, sources, storage, &music, clear_data).await;
+
+        match &result {
+            Ok(sync_result) => {
+                let now = Utc::now().fixed_offset();
+                MusicRepo::update_sync_status(db, music_id, "completed", Some(now)).await?;
+                info!(
+                    "Music sync completed: \"{}\" — {} jobs dispatched",
+                    music.name, sync_result.total_jobs
+                );
+            }
+            Err(err) => {
+                error!("Music sync failed for \"{}\": {}", music.name, err);
+                let _ = MusicRepo::update_sync_status(db, music_id, "failed", None).await;
+            }
+        }
+
+        result
+    }
+
+    /// Core music sync logic: parses sources from JSON and walks each.
+    async fn do_music_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        music: &musics::Model,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let music_id = music.id;
+
+        if clear_data {
+            info!(
+                "  Clearing existing albums for music library \"{}\"",
+                music.name
+            );
+            let deleted = music_albums::Entity::delete_many()
+                .filter(music_albums::Column::MusicId.eq(music_id))
+                .exec(db)
+                .await?
+                .rows_affected;
+            info!("  Deleted {deleted} music albums");
+        }
+
+        let source_tuples = MusicRepo::parse_sources(&music.sources);
+        if source_tuples.is_empty() {
+            info!("  No sources configured for music library, skipping");
+            return Ok(SyncResult { total_jobs: 0 });
+        }
+
+        let mut total_jobs = 0u64;
+
+        for (source_id, root_path, _is_default) in &source_tuples {
+            let source = vfs::Entity::find_by_id(*source_id).one(db).await?;
+            let Some(source) = source else {
+                warn!("  Source {source_id} not found, skipping");
+                continue;
+            };
+
+            let jobs = Self::sync_music_source(db, sources, storage, music_id, &source, root_path).await?;
+            total_jobs += jobs;
+        }
+
+        Ok(SyncResult { total_jobs })
+    }
+
     /// Core video sync logic: parses sources from JSON and walks each.
     #[allow(clippy::too_many_arguments)]
     async fn do_video_sync(
@@ -588,7 +681,7 @@ impl AppSyncService {
             info!("  Deleted {deleted} tv shows (cascade: seasons + episodes)");
         } else if is_music_type(lib_type) {
             let deleted = music_albums::Entity::delete_many()
-                .filter(music_albums::Column::AppId.eq(app_id))
+                .filter(music_albums::Column::MusicId.eq(app_id))
                 .exec(db)
                 .await?
                 .rows_affected;
@@ -1342,7 +1435,7 @@ impl AppSyncService {
     ) -> Result<Uuid, AppError> {
         // Find existing albums with matching title in this library
         let candidates = music_albums::Entity::find()
-            .filter(music_albums::Column::AppId.eq(app_id))
+            .filter(music_albums::Column::MusicId.eq(app_id))
             .filter(music_albums::Column::Title.eq(&group.album_title))
             .find_with_related(music_album_artists::Entity)
             .all(db)
@@ -1385,7 +1478,7 @@ impl AppSyncService {
         let now = Utc::now().fixed_offset();
         let active = music_albums::ActiveModel {
             id: Set(id),
-            app_id: Set(app_id),
+            music_id: Set(app_id),
             title: Set(group.album_title.clone()),
             sort_title: Set(Some(sort_title)),
             year: Set(group.year),

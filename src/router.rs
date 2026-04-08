@@ -38,8 +38,8 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
         )
         // Content detail (no category scope)
         .route(
-            "/api/apps/video/movie/{id}",
-            get(handlers::get_video_movie_detail),
+            "/api/apps/video/item/{id}",
+            get(handlers::get_video_item_detail),
         )
         .route(
             "/api/apps/video/tv/{id}",
@@ -69,8 +69,8 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
             get(handlers::get_video_sync_progress),
         )
         .route(
-            "/api/apps/video/{id}/movies",
-            get(handlers::list_video_movies),
+            "/api/apps/video/{id}/items",
+            get(handlers::list_video_items),
         )
         .route(
             "/api/apps/video/{id}/tv-shows",

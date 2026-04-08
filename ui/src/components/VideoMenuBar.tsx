@@ -21,7 +21,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
   const syncMutation = api.video.sync.useMutation({
     onSuccess: () => {
       message.success("同步已开始");
-      api.video.listMovies.invalidate(qc);
+      api.video.listVideoItems.invalidate(qc);
       api.video.listTvShows.invalidate(qc);
       api.video.getRecentlyAdded.invalidate(qc);
     },
@@ -53,7 +53,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
               icon: <RefreshCw size={14} />,
               onClick: () => {
                 api.video.list.invalidate(qc);
-                api.video.listMovies.invalidate(qc);
+                api.video.listVideoItems.invalidate(qc);
                 api.video.listTvShows.invalidate(qc);
                 api.video.getRecentlyAdded.invalidate(qc);
               },

@@ -43,7 +43,7 @@ function FavoriteButton({
   const qc = useQueryClient();
   const toggle = api.app.toggleFavorite.useMutation({
     onSuccess: () =>
-      void api.app.getMovieDetail.invalidate(qc, { id: videoItemId }),
+      void api.app.getVideoItemDetail.invalidate(qc, { id: videoItemId }),
   });
   return (
     <button
@@ -111,12 +111,12 @@ function ResumePromptModal({
   );
 }
 
-export default function MovieDetailPage() {
+export default function VideoItemDetailPage() {
   const { params, goBack } = useWindowNav();
   const videoItemId = params.videoItemId;
   const qc = useQueryClient();
 
-  const { data: movie, isLoading } = api.app.getMovieDetail.useQuery(
+  const { data: movie, isLoading } = api.app.getVideoItemDetail.useQuery(
     { id: videoItemId! },
     { enabled: !!videoItemId },
   );
@@ -151,7 +151,7 @@ export default function MovieDetailPage() {
       event.videoItemId === videoItemId &&
       videoItemId
     ) {
-      api.app.getMovieDetail.invalidate(qc, { id: videoItemId });
+      api.app.getVideoItemDetail.invalidate(qc, { id: videoItemId });
     }
   });
 

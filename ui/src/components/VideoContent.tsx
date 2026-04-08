@@ -186,7 +186,7 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
   );
   const recentItems = (recentQuery.data ?? []) as unknown as MediaItem[];
 
-  const moviesQuery = api.video.listMovies.useQuery(
+  const moviesQuery = api.video.listVideoItems.useQuery(
     { id, page, pageSize, ...sortParams, genreId },
     { enabled: !!id && !isTv && pageSize > 0 },
   );

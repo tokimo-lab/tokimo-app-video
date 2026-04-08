@@ -16,8 +16,8 @@ use super::{
     VideoToggleFavoriteInput,
 };
 
-/// GET /api/apps/video/{id}/movies
-pub async fn list_video_movies(
+/// GET /api/apps/video/{id}/items
+pub async fn list_video_items(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Query(q): Query<VideoListMediaQuery>,
@@ -26,7 +26,7 @@ pub async fn list_video_movies(
     let page = q.page.unwrap_or(1);
     let page_size = q.page_size.unwrap_or(20);
     let genre_id = q.genre_id.as_deref().map(parse_uuid).transpose()?;
-    let (items, total) = MediaContentRepo::list_movies(
+    let (items, total) = MediaContentRepo::list_video_items(
         &state.db,
         ListMediaInput {
             video_id: uid,
@@ -104,15 +104,15 @@ pub async fn video_toggle_favorite(
     Ok(ok(serde_json::json!({ "isFavorite": is_fav })))
 }
 
-/// GET /api/apps/video/movie/{id}
-pub async fn get_video_movie_detail(
+/// GET /api/apps/video/item/{id}
+pub async fn get_video_item_detail(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let uid = parse_uuid(&id)?;
-    let detail = MediaContentRepo::get_movie_detail(&state.db, uid)
+    let detail = MediaContentRepo::get_video_item_detail(&state.db, uid)
         .await?
-        .not_found(format!("movie {id} not found"))?;
+        .not_found(format!("video item {id} not found"))?;
     Ok(ok(detail))
 }
 

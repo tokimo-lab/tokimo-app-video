@@ -164,7 +164,7 @@ pub(crate) async fn to_video_output(
     // Count items (movies + tv shows)
     use crate::db::entities::{video_items, tv_shows};
     use sea_orm::*;
-    let movie_count = video_items::Entity::find()
+    let video_item_count = video_items::Entity::find()
         .filter(video_items::Column::VideoId.eq(video_id))
         .count(db)
         .await? as i64;
@@ -187,7 +187,7 @@ pub(crate) async fn to_video_output(
         settings: model.settings,
         sync_status: model.sync_status,
         last_sync_at: model.last_sync_at.to_api_datetime(),
-        item_count: movie_count + tv_count,
+        item_count: video_item_count + tv_count,
         sources,
         created_at: model.created_at.to_api_datetime_or_default(),
         updated_at: model.updated_at.to_api_datetime_or_default(),

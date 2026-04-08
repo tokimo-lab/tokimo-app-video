@@ -27,7 +27,7 @@ export default function MediaMenuBar({ children }: { children: ReactNode }) {
   const syncMutation = api.app.sync.useMutation({
     onSuccess: () => {
       message.success("同步已开始");
-      api.app.listMovies.invalidate(qc);
+      api.app.listVideoItems.invalidate(qc);
       api.app.listTvShows.invalidate(qc);
       api.app.getRecentlyAdded.invalidate(qc);
     },
@@ -51,7 +51,7 @@ export default function MediaMenuBar({ children }: { children: ReactNode }) {
         label: "刷新",
         icon: <RefreshCw size={14} />,
         onClick: () => {
-          api.app.listMovies.invalidate(qc);
+          api.app.listVideoItems.invalidate(qc);
           api.app.listTvShows.invalidate(qc);
           api.app.getRecentlyAdded.invalidate(qc);
         },
