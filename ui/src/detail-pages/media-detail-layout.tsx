@@ -142,7 +142,7 @@ export function MediaDetailMeta({
           </span>
         )}
         {contentRating && (
-          <span className="rounded border border-[var(--glass-border)] px-1.5 py-0.5 text-xs text-fg-secondary">
+          <span className="rounded border border-border-base px-1.5 py-0.5 text-xs text-fg-secondary">
             {contentRating}
           </span>
         )}
@@ -209,7 +209,7 @@ export function CollectionsSection({
         {collections.map((col) => (
           <div
             key={col.id}
-            className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-[var(--glass-border)] p-2"
+            className="flex w-[200px] flex-shrink-0 items-center gap-2.5 rounded-lg border border-border-base p-2"
           >
             {col.posterPath && (
               <img

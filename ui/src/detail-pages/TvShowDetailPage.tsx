@@ -61,7 +61,7 @@ function EpisodeRow({
   const { play } = usePlayer();
   const firstFile = episode.files?.[0];
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--glass-border)]">
+    <div className="overflow-hidden rounded-lg border border-border-base">
       {/* biome-ignore lint/a11y/noStaticElementInteractions: desktop-only UI, can't nest <button> */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: desktop-only UI */}
       <div
@@ -134,7 +134,7 @@ function EpisodeRow({
       </div>
 
       {open && (
-        <div className="border-t border-[var(--glass-border)] p-3">
+        <div className="border-t border-border-base p-3">
           {episode.overview && (
             <p className="mb-3 text-sm text-fg-muted">{episode.overview}</p>
           )}

@@ -94,7 +94,7 @@ function ResumePromptModal({
       <div className="flex flex-col">
         <button
           type="button"
-          className="w-full cursor-pointer border-b border-[var(--glass-border)] bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
+          className="w-full cursor-pointer border-b border-border-base bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
           onClick={onRestart}
         >
           从头开始

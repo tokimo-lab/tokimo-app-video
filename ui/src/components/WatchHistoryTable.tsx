@@ -54,7 +54,7 @@ export function WatchHistoryTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--border-base)] text-left text-xs text-fg-muted">
+          <tr className="border-b border-border-base text-left text-xs text-fg-muted">
             <th className="py-2 pr-4 font-medium">时间</th>
             <th className="py-2 pr-4 font-medium">播放位置</th>
             <th className="py-2 pr-4 font-medium">进度</th>
@@ -68,7 +68,7 @@ export function WatchHistoryTable({
             return (
               <tr
                 key={item.id}
-                className="border-b border-[var(--border-base)]/50 last:border-0"
+                className="border-b border-border-base/50 last:border-0"
               >
                 <td className="py-2 pr-4">
                   <span

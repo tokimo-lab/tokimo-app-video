@@ -509,7 +509,7 @@ export function MediaFileCard({
       popupClassName="z-[9999] overflow-hidden border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[720px] p-3 bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
       content={<FileDetailsTooltipContent file={file} />}
     >
-      <div className="group relative cursor-pointer rounded-lg border border-[var(--glass-border)] bg-white/40 p-3 backdrop-blur-sm transition-all hover:border-black/10 hover:bg-white/70 hover:shadow-sm dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08]">
+      <div className="group relative cursor-pointer rounded-lg border border-border-base bg-white/40 p-3 backdrop-blur-sm transition-all hover:border-black/10 hover:bg-white/70 hover:shadow-sm dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08]">
         <div className="mb-3 flex items-start justify-between gap-3 pointer-events-none">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-baseline gap-1.5">
