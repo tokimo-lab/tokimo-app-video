@@ -49,10 +49,17 @@ export default function VideoApp() {
     () => openLibraryEditor(),
     [openLibraryEditor],
   );
-  const handleSettings = useCallback(
-    () => openLibraryEditor(),
-    [openLibraryEditor],
-  );
+
+  const handleSettings = useCallback(() => {
+    openModalWindow({
+      component: () => import("@/apps/settings/admin/VideoSettingsPage"),
+      parentWindowId: windowId,
+      title: "TokimoVideo 设置",
+      width: 800,
+      height: 560,
+      noMinimize: true,
+    });
+  }, [openModalWindow, windowId]);
 
   useEffect(() => {
     if (!categories?.length || initialized.current) return;
