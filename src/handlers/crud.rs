@@ -54,6 +54,7 @@ pub async fn create_video(
     let mut needs_update = false;
     let mut update_fields = UpdateVideoFields {
         name: None,
+        r#type: None,
         description: body.description.clone(),
         icon: body.icon.clone(),
         color: body.color.as_ref().map(|c| if c.is_empty() { None } else { Some(c.clone()) }),
@@ -112,6 +113,7 @@ pub async fn update_video(
 
     let mut update_fields = UpdateVideoFields {
         name: body.name,
+        r#type: body.r#type,
         description: body.description,
         icon: body.icon,
         color: body.color.map(|c| if c.is_empty() { None } else { Some(c) }),
