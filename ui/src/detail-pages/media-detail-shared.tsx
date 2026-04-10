@@ -7,7 +7,7 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
-import { cn, HorizontalScroll, Popover, Tag } from "@tokiomo/components";
+import { cn, Popover, ScrollArea, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -362,7 +362,11 @@ export function CastRow({ credits }: { credits: CreditOutput[] }) {
     // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
     <section className="mb-8" onMouseLeave={leave}>
       <SectionTitle>演员</SectionTitle>
-      <HorizontalScroll innerClassName="gap-3 px-0.5 pb-2 pt-0.5">
+      <ScrollArea
+        direction="horizontal"
+        hideScrollbar
+        innerClassName="gap-3 px-0.5 pb-2 pt-0.5"
+      >
         {actors.map((c) => (
           <PersonCard
             key={c.id}
@@ -377,7 +381,7 @@ export function CastRow({ credits }: { credits: CreditOutput[] }) {
             }
           />
         ))}
-      </HorizontalScroll>
+      </ScrollArea>
       {mounted && hovered && (
         <PersonPanel
           hovered={hovered}
@@ -413,7 +417,11 @@ export function CrewRow({ credits }: { credits: CreditOutput[] }) {
     // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
     <section className="mb-8" onMouseLeave={leave}>
       <SectionTitle>幕后</SectionTitle>
-      <HorizontalScroll innerClassName="gap-3 px-0.5 pb-2 pt-0.5">
+      <ScrollArea
+        direction="horizontal"
+        hideScrollbar
+        innerClassName="gap-3 px-0.5 pb-2 pt-0.5"
+      >
         {crew.map((c) => (
           <PersonCard
             key={c.id}
@@ -428,7 +436,7 @@ export function CrewRow({ credits }: { credits: CreditOutput[] }) {
             }
           />
         ))}
-      </HorizontalScroll>
+      </ScrollArea>
       {mounted && hovered && (
         <PersonPanel
           hovered={hovered}

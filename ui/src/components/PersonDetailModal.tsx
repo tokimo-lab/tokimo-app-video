@@ -1,4 +1,4 @@
-import { HorizontalScroll, Modal, Spin } from "@tokiomo/components";
+import { Modal, ScrollArea, Spin } from "@tokiomo/components";
 import { ExternalLink, Film } from "lucide-react";
 import { useState } from "react";
 import {
@@ -270,7 +270,11 @@ export default function PersonDetailModal({
                     ({withMedia.length})
                   </span>
                 </SectionTitle>
-                <HorizontalScroll innerClassName="gap-3 px-0.5 pb-2 pt-0.5">
+                <ScrollArea
+                  direction="horizontal"
+                  hideScrollbar
+                  innerClassName="gap-3 px-0.5 pb-2 pt-0.5"
+                >
                   {withMedia.map((c) => {
                     const posterSrc = resolveMediaImage(
                       null,
@@ -327,7 +331,7 @@ export default function PersonDetailModal({
                       </button>
                     );
                   })}
-                </HorizontalScroll>
+                </ScrollArea>
               </section>
             );
           })}
@@ -514,7 +518,11 @@ export function PersonDetailPopoverContent({
                 ({withMedia.length})
               </span>
             </p>
-            <HorizontalScroll innerClassName="gap-2 pb-1">
+            <ScrollArea
+              direction="horizontal"
+              hideScrollbar
+              innerClassName="gap-2 pb-1"
+            >
               {withMedia.map((c) => {
                 const posterSrc = resolveMediaImage(null, c?.mediaPosterPath);
                 return (
@@ -562,7 +570,7 @@ export function PersonDetailPopoverContent({
                   </button>
                 );
               })}
-            </HorizontalScroll>
+            </ScrollArea>
           </section>
         );
       })}
