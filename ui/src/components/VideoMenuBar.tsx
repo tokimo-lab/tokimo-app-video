@@ -1,14 +1,24 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Checkbox, Modal } from "@tokiomo/components";
-import { FolderSync, RefreshCw } from "lucide-react";
+import { FolderSync, Plus, RefreshCw, Scan } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
 import type { MenuBarConfig } from "@/system";
-import { useMenuBar, useMessage } from "@/system";
+import {
+  useMenuBar,
+  useMessage,
+  useWindowActions,
+  useWindowId,
+} from "@/system";
+import type { TaskMetadata } from "@/system/window/window-types";
+import { useActiveLibrary } from "./ActiveLibraryContext";
 
 export default function VideoMenuBar({ children }: { children: ReactNode }) {
   const message = useMessage();
   const qc = useQueryClient();
+  const windowId = useWindowId();
+  const { openModalWindow } = useWindowActions();
+  const activeLibrary = useActiveLibrary();
 
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncClearData, setSyncClearData] = useState(false);
@@ -28,6 +38,14 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
     onError: (e) => message.error(e.message || "同步失败"),
   });
 
+  const scrapePersonsMutation = api.video.scrapePersons.useMutation({
+    onSuccess: (data: { queued: number }) =>
+      message.success(`已派发 ${data.queued} 个演员刮削任务`),
+    onError: (error: Error) => message.error(error.message || "刮削失败"),
+  });
+
+  const isOnlineVideo = activeLibrary.type === "online_video";
+
   const menuBarConfig: MenuBarConfig | null = useMemo(() => {
     const syncItems = categories.map((cat) => ({
       key: `sync-${cat.id}`,
@@ -40,6 +58,47 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
         setSyncModalOpen(true);
       },
     }));
+
+    const extraItems: Array<{
+      key: string;
+      label: string;
+      icon: ReactNode;
+      disabled?: boolean;
+      onClick: () => void;
+    }> = [];
+
+    if (isOnlineVideo) {
+      extraItems.push({
+        key: "add-online",
+        label: "添加网片",
+        icon: <Plus size={14} />,
+        onClick: () => {
+          openModalWindow({
+            component: () =>
+              import("@/apps/video/components/AddOnlineMediaWindow"),
+            parentWindowId: windowId,
+            title: "添加在线媒体",
+            width: 680,
+            height: 520,
+            noResize: true,
+            noMinimize: true,
+            metadata: activeLibrary.id
+              ? ({
+                  defaultLibraryId: activeLibrary.id,
+                } as Record<string, unknown> as TaskMetadata)
+              : undefined,
+          });
+        },
+      });
+    } else if (activeLibrary.id) {
+      extraItems.push({
+        key: "scrape-persons",
+        label: "刮削演员",
+        icon: <Scan size={14} />,
+        disabled: scrapePersonsMutation.isPending,
+        onClick: () => scrapePersonsMutation.mutate({ id: activeLibrary.id! }),
+      });
+    }
 
     return {
       menus: [
@@ -58,6 +117,9 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
                 api.video.getRecentlyAdded.invalidate(qc);
               },
             },
+            ...(extraItems.length > 0
+              ? [{ type: "divider" as const }, ...extraItems]
+              : []),
             ...(syncItems.length > 0
               ? [{ type: "divider" as const }, ...syncItems]
               : []),
@@ -65,7 +127,15 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
         },
       ],
     };
-  }, [categories, qc]);
+  }, [
+    categories,
+    qc,
+    isOnlineVideo,
+    activeLibrary.id,
+    windowId,
+    openModalWindow,
+    scrapePersonsMutation,
+  ]);
 
   useMenuBar(menuBarConfig);
 

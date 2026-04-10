@@ -1,10 +1,18 @@
 import { Spin } from "@tokiomo/components";
 import { Film, Plus } from "lucide-react";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useWindowActions, useWindowId, useWindowNav } from "@/system";
 import type { TaskMetadata } from "@/system/window/window-types";
+import { ActiveLibraryProvider } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
 
@@ -74,6 +82,14 @@ export default function VideoApp() {
 
   const activeCategory = categories?.find((c) => c.id === activeCategoryId);
 
+  const activeLibraryValue = useMemo(
+    () => ({
+      id: activeCategory?.id ?? null,
+      type: activeCategory?.type ?? null,
+    }),
+    [activeCategory?.id, activeCategory?.type],
+  );
+
   // Keep window title in sync with the active library when on the root route
   useEffect(() => {
     if (route === "/" && activeCategory) {
@@ -99,7 +115,7 @@ export default function VideoApp() {
 
   if (!categories?.length) {
     return (
-      <>
+      <ActiveLibraryProvider value={activeLibraryValue}>
         <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
             <Film className="h-8 w-8" />
@@ -121,14 +137,14 @@ export default function VideoApp() {
             新建视频库
           </button>
         </div>
-      </>
+      </ActiveLibraryProvider>
     );
   }
 
   const isDetailPage = route !== "/" && LazyViewComponent;
 
   return (
-    <>
+    <ActiveLibraryProvider value={activeLibraryValue}>
       <div
         ref={containerRef}
         className="grid h-full"
@@ -155,6 +171,6 @@ export default function VideoApp() {
           )}
         </div>
       </div>
-    </>
+    </ActiveLibraryProvider>
   );
 }
