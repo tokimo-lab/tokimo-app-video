@@ -1,11 +1,11 @@
 import { Spin } from "@tokiomo/components";
 import { Film, Plus } from "lucide-react";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
-import { useWindowNav } from "@/system";
+import { useWindowActions, useWindowId, useWindowNav } from "@/system";
+import type { TaskMetadata } from "@/system/window/window-types";
 import VideoContent from "./VideoContent";
-import VideoSettingsModal from "./VideoSettingsModal";
 import VideoSidebar from "./VideoSidebar";
 
 const STORAGE_KEY = "video-active-category";
@@ -22,8 +22,37 @@ export default function VideoApp() {
   const [containerRef, containerWidth] = useContainerWidth();
   const sidebarCollapsed = containerWidth > 0 && containerWidth < 720;
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const initialized = useRef(false);
+
+  const windowId = useWindowId();
+  const { openModalWindow } = useWindowActions();
+
+  const openLibraryEditor = useCallback(
+    (videoId?: string) => {
+      openModalWindow({
+        component: () => import("@/apps/settings/admin/VideoLibraryWindow"),
+        parentWindowId: windowId,
+        title: videoId ? "编辑视频库" : "新建视频库",
+        width: 680,
+        height: 620,
+        noResize: true,
+        noMinimize: true,
+        metadata: videoId
+          ? ({ videoId } as Record<string, unknown> as TaskMetadata)
+          : undefined,
+      });
+    },
+    [openModalWindow, windowId],
+  );
+
+  const handleCreate = useCallback(
+    () => openLibraryEditor(),
+    [openLibraryEditor],
+  );
+  const handleSettings = useCallback(
+    () => openLibraryEditor(),
+    [openLibraryEditor],
+  );
 
   useEffect(() => {
     if (!categories?.length || initialized.current) return;
@@ -78,17 +107,13 @@ export default function VideoApp() {
           </div>
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
+            onClick={handleCreate}
             className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
           >
             <Plus className="h-4 w-4" />
             新建视频库
           </button>
         </div>
-        <VideoSettingsModal
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-        />
       </>
     );
   }
@@ -107,8 +132,8 @@ export default function VideoApp() {
           activeId={activeCategoryId}
           onSelect={handleSelectCategory}
           collapsed={sidebarCollapsed}
-          onCreateClick={() => setSettingsOpen(true)}
-          onSettingsClick={() => setSettingsOpen(true)}
+          onCreateClick={handleCreate}
+          onSettingsClick={handleSettings}
         />
         <div
           className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
@@ -123,10 +148,6 @@ export default function VideoApp() {
           )}
         </div>
       </div>
-      <VideoSettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-      />
     </>
   );
 }
