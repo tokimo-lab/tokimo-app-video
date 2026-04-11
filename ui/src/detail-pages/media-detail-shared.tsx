@@ -365,7 +365,7 @@ export function CastRow({ credits }: { credits: CreditOutput[] }) {
       <ScrollArea
         direction="horizontal"
         hideScrollbar
-        innerClassName="gap-3 px-0.5 pb-2 pt-0.5"
+        innerClassName="flex gap-3 px-0.5 pb-2 pt-0.5"
       >
         {actors.map((c) => (
           <PersonCard
@@ -420,7 +420,7 @@ export function CrewRow({ credits }: { credits: CreditOutput[] }) {
       <ScrollArea
         direction="horizontal"
         hideScrollbar
-        innerClassName="gap-3 px-0.5 pb-2 pt-0.5"
+        innerClassName="flex gap-3 px-0.5 pb-2 pt-0.5"
       >
         {crew.map((c) => (
           <PersonCard
