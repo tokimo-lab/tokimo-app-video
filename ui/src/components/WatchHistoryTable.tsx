@@ -2,6 +2,7 @@ import { Spin } from "@tokiomo/components";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { api } from "@/generated/rust-api";
+import { useDateFormat } from "@/system";
 
 dayjs.extend(relativeTime);
 
@@ -31,6 +32,7 @@ export function WatchHistoryTable({
   videoItemId,
   episodeId,
 }: WatchHistoryTableProps) {
+  const { formatLong } = useDateFormat();
   const { data, isLoading } = api.playback.watchHistory.useQuery(
     { videoItemId, episodeId, limit: 20 },
     { enabled: !!(videoItemId || episodeId) },
@@ -71,9 +73,7 @@ export function WatchHistoryTable({
                 className="border-b border-border-base/50 last:border-0"
               >
                 <td className="py-2 pr-4">
-                  <span
-                    title={dayjs(item.startedAt).format("YYYY-MM-DD HH:mm:ss")}
-                  >
+                  <span title={formatLong(item.startedAt)}>
                     {dayjs(item.startedAt).fromNow()}
                   </span>
                 </td>
