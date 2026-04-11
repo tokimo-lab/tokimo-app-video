@@ -1,11 +1,11 @@
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Spin } from "@tokiomo/components";
 import { Film, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
+import { useSyncProgress } from "@/shared/hooks/use-sync-progress";
 import { useWindowActions, useWindowId, useWindowNav } from "@/system";
-import { useJobEvents } from "@/system/events/useJobEvents";
 import type { TaskMetadata } from "@/system/window/window-types";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
@@ -95,55 +95,21 @@ export default function VideoApp() {
     }
   };
 
-  // ── Sync progress tracking ──
+  // ── Sync progress tracking (WS-driven + fallback polling) ──
   const queryClient = useQueryClient();
 
-  const syncProgressQueries = useQueries({
-    queries: (categories ?? []).map((cat) => ({
-      queryKey: api.video.getSyncProgress.queryKey({ id: cat.id }),
-      queryFn: () => api.video.getSyncProgress.fetch({ id: cat.id }),
-      enabled: cat.syncStatus === "syncing",
-      refetchInterval: 3000,
-      staleTime: 2000,
-    })),
-  });
-
-  const syncProgress: Record<string, { isActive: boolean; pct: number }> = {};
-  for (let i = 0; i < (categories ?? []).length; i++) {
-    const cat = categories![i];
-    const q = syncProgressQueries[i];
-    if (q?.data) {
-      const d = q.data;
-      const total = d.completed + d.running + d.pending + d.failed;
-      const pct = total > 0 ? Math.round((d.completed / total) * 100) : 0;
-      const isActive = d.status === "syncing" || d.running > 0 || d.pending > 0;
-      if (isActive) {
-        syncProgress[cat.id] = { isActive, pct };
-      }
-    } else if (cat.syncStatus === "syncing") {
-      syncProgress[cat.id] = { isActive: true, pct: 0 };
-    }
-  }
-
-  useJobEvents({
-    onEvent: (event) => {
-      if (event.type === "job_update") {
-        const payload = event.job.payload as Record<string, unknown>;
-        const appId = payload?.appId as string | undefined;
-        if (appId && (categories ?? []).some((c) => c.id === appId)) {
-          queryClient.invalidateQueries({
-            queryKey: api.video.getSyncProgress.queryKey({ id: appId }),
-          });
-          if (
-            event.job.status === "completed" ||
-            event.job.status === "failed"
-          ) {
-            api.video.list.invalidate(queryClient);
-            api.video.listVideoItems.invalidate(queryClient);
-            api.video.listTvShows.invalidate(queryClient);
-          }
-        }
-      }
+  const syncProgress = useSyncProgress({
+    libraries: categories,
+    progressQueryKey: (id) => api.video.getSyncProgress.queryKey({ id }),
+    fetchProgress: (id) => api.video.getSyncProgress.fetch({ id }),
+    onContentRefresh: () => {
+      api.video.listVideoItems.invalidate(queryClient);
+      api.video.listTvShows.invalidate(queryClient);
+      api.video.getRecentlyAdded.invalidate(queryClient);
+      api.video.listGenres.invalidate(queryClient);
+    },
+    onLibraryRefresh: () => {
+      api.video.list.invalidate(queryClient);
     },
   });
 

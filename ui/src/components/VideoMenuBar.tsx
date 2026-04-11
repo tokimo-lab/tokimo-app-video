@@ -35,6 +35,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
       api.video.listVideoItems.invalidate(qc);
       api.video.listTvShows.invalidate(qc);
       api.video.getRecentlyAdded.invalidate(qc);
+      api.video.listGenres.invalidate(qc);
     },
     onError: (e) => message.error(e.message || "同步失败"),
   });

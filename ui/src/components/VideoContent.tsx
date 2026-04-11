@@ -5,16 +5,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VideoOutput } from "@/generated/rust-api";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
+import { useInfiniteScroll } from "@/shared/hooks/use-infinite-scroll";
 import { useLang, useWindowNav } from "@/system";
 import type { TvShowOutput, VideoItemOutput } from "@/types";
-
-const MIN_CARD_WIDTH = 150;
-const CARD_GAP = 12;
-const CARD_TITLE_HEIGHT = 52;
 
 type MediaItem = (VideoItemOutput | TvShowOutput) & {
   posterPath?: string | null;
 };
+
+const MIN_CARD_WIDTH = 150;
+const CARD_GAP = 12;
+const CARD_TITLE_HEIGHT = 52;
 
 const POSTER_BADGE_CLASS =
   "absolute right-0 inline-flex items-center gap-1 rounded-l-md rounded-r-none border border-r-0 border-white/12 bg-[var(--sidebar-bg)] px-2 py-1 text-[10px] font-medium shadow-sm backdrop-blur-md";
@@ -111,11 +112,8 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
 
   const [tab, setTabRaw] = useState<MediaTabKey>("all");
   const [page, setPage] = useState(1);
-  const [allItems, setAllItems] = useState<MediaItem[]>([]);
   const [sortValue, setSortValue] = useState<SortValue>("addedAt");
   const [genreId, setGenreId] = useState<string | undefined>(undefined);
-  const lastAppendedPageRef = useRef(0);
-  const isLoadingMoreRef = useRef(false);
 
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -158,23 +156,6 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
     return Math.max(estimatedCols * (visibleRows + 6), 24);
   }, []);
 
-  const resetPagination = useCallback(() => {
-    lastAppendedPageRef.current = 0;
-    setAllItems([]);
-    setPage(1);
-  }, []);
-
-  // Reset when switching category
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on id change
-  useEffect(() => {
-    lastAppendedPageRef.current = 0;
-    setAllItems([]);
-    setPage(1);
-    setTabRaw("all");
-    setSortValue("addedAt");
-    setGenreId(undefined);
-  }, [id]);
-
   const sortParams = parseSortValue(sortValue);
 
   const genresQuery = api.video.listGenres.useQuery({ id }, { enabled: !!id });
@@ -197,70 +178,56 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
   );
 
   const paginatedQuery = isTv ? tvQuery : moviesQuery;
-  const paginatedTotal = paginatedQuery.data?.total ?? 0;
-  const hasMore = allItems.length < paginatedTotal;
 
-  const displayItems = tab === "recent" ? recentItems : allItems;
-  const displayTotal = tab === "recent" ? recentItems.length : paginatedTotal;
+  const { items, total, hasMore, sentinelRef, reset } =
+    useInfiniteScroll<MediaItem>({
+      queryData: paginatedQuery.data as
+        | { items: MediaItem[]; total: number; page: number }
+        | undefined,
+      isFetching: paginatedQuery.isFetching,
+      onLoadMore: () => setPage((p) => p + 1),
+      enabled: tab === "all",
+    });
+
+  const resetAll = useCallback(() => {
+    reset();
+    setPage(1);
+  }, [reset]);
+
+  const displayItems = tab === "recent" ? recentItems : items;
+  const displayTotal = tab === "recent" ? recentItems.length : total;
   const isLoading =
     tab === "recent"
       ? recentQuery.isLoading
       : paginatedQuery.isLoading ||
-        (allItems.length === 0 && paginatedQuery.isFetching);
+        (items.length === 0 && paginatedQuery.isFetching);
+
+  // Reset when data is externally cleared (e.g. sync with "clear" option)
+  const lastKnownTotalRef = useRef(total);
+  useEffect(() => {
+    if (lastKnownTotalRef.current > 0 && total === 0 && page > 1) {
+      resetAll();
+    }
+    lastKnownTotalRef.current = total;
+  }, [total, page, resetAll]);
+
+  // Reset when switching category
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on id change
+  useEffect(() => {
+    resetAll();
+    setTabRaw("all");
+    setSortValue("addedAt");
+    setGenreId(undefined);
+  }, [id]);
 
   const setTab = useCallback(
     (t: MediaTabKey) => {
       if (t === tab) return;
       setTabRaw(t);
-      if (t === "all") resetPagination();
+      if (t === "all") resetAll();
     },
-    [tab, resetPagination],
+    [tab, resetAll],
   );
-
-  useEffect(() => {
-    const data = paginatedQuery.data;
-    if (!data || paginatedQuery.isFetching) return;
-    isLoadingMoreRef.current = false;
-    const currentPage = data.page;
-    if (currentPage === lastAppendedPageRef.current) return;
-    lastAppendedPageRef.current = currentPage;
-    if (currentPage === 1) {
-      setAllItems(data.items as MediaItem[]);
-    } else {
-      setAllItems((prev) => [...prev, ...(data.items as MediaItem[])]);
-    }
-  }, [paginatedQuery.data, paginatedQuery.isFetching]);
-
-  // Infinite scroll
-  useEffect(() => {
-    let container: HTMLElement | null =
-      gridWrapperRef.current?.parentElement ?? null;
-    while (container) {
-      const ov = getComputedStyle(container).overflowY;
-      if (ov === "auto" || ov === "scroll") break;
-      container = container.parentElement;
-    }
-    if (!container) return;
-
-    const check = () => {
-      if (
-        tab !== "all" ||
-        isLoadingMoreRef.current ||
-        !hasMore ||
-        paginatedQuery.isFetching
-      )
-        return;
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (scrollTop + clientHeight >= scrollHeight - 600) {
-        isLoadingMoreRef.current = true;
-        setPage((p) => p + 1);
-      }
-    };
-
-    container.addEventListener("scroll", check, { passive: true });
-    check();
-    return () => container.removeEventListener("scroll", check);
-  }, [tab, hasMore, paginatedQuery.isFetching]);
 
   const handleItemClick = useCallback(
     (item: MediaItem) => {
@@ -278,12 +245,12 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
 
   const handleSortChange = (v: SortValue) => {
     setSortValue(v);
-    resetPagination();
+    resetAll();
   };
 
   const handleGenreChange = (gid: string | undefined) => {
     setGenreId(gid);
-    resetPagination();
+    resetAll();
   };
 
   const MEDIA_TABS: { key: MediaTabKey; label: string; icon: typeof Clock }[] =
@@ -366,16 +333,17 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
             </div>
 
             {tab === "all" && (
-              <div className="mt-2 flex justify-center py-3">
-                {paginatedQuery.isFetching && <Spin />}
-                {!hasMore &&
-                  paginatedTotal > 0 &&
-                  !paginatedQuery.isFetching && (
+              <>
+                <div ref={sentinelRef} className="h-px" />
+                <div className="mt-2 flex justify-center py-3">
+                  {paginatedQuery.isFetching && <Spin />}
+                  {!hasMore && total > 0 && !paginatedQuery.isFetching && (
                     <p className="text-xs text-fg-muted">
-                      已加载全部 {paginatedTotal} 个
+                      已加载全部 {total} 个
                     </p>
                   )}
-              </div>
+                </div>
+              </>
             )}
           </>
         )}

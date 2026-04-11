@@ -37,6 +37,12 @@ pub async fn sync_video(
     if video.sync_status == "syncing" && !clear_data {
         return Err(AppError::Conflict("Video is already syncing".into()));
     }
+
+    // Clear data synchronously so frontend sees empty state immediately
+    if clear_data {
+        AppSyncService::clear_library_data(&state.db, uid, &video.r#type).await?;
+    }
+
     VideoRepo::update_sync_status(&state.db, uid, "syncing", None).await?;
 
     let db = state.db.clone();
@@ -46,7 +52,7 @@ pub async fn sync_video(
 
     tokio::spawn(async move {
         match AppSyncService::execute_video_sync(
-            &db, &sources, &storage, uid, clear_data, http_client,
+            &db, &sources, &storage, uid, false, http_client,
         )
         .await
         {

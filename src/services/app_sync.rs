@@ -314,6 +314,9 @@ impl AppSyncService {
             Self::clear_library_data(db, book_id, lib_type).await?;
         }
 
+        // Clean up old finished jobs so progress counts only reflect this sync run
+        JobRepo::delete_finished_jobs_by_app_id(db, book_id).await?;
+
         let source_tuples = BookRepo::parse_sources(&book.sources);
         if source_tuples.is_empty() {
             info!("  No sources configured for book library, skipping");
@@ -363,6 +366,9 @@ impl AppSyncService {
             info!("  Deleted {deleted} music albums");
         }
 
+        // Clean up old finished jobs so progress counts only reflect this sync run
+        JobRepo::delete_finished_jobs_by_app_id(db, music_id).await?;
+
         let source_tuples = MusicRepo::parse_sources(&music.sources);
         if source_tuples.is_empty() {
             info!("  No sources configured for music library, skipping");
@@ -403,6 +409,9 @@ impl AppSyncService {
             Self::clear_library_data(db, video_id, lib_type).await?;
         }
 
+        // Clean up old finished jobs so progress counts only reflect this sync run
+        JobRepo::delete_finished_jobs_by_app_id(db, video_id).await?;
+
         let mut total_jobs = 0u64;
 
         // Parse sources from JSON column
@@ -436,7 +445,7 @@ impl AppSyncService {
 
     // ── clear library data ──────────────────────────────────────────────
 
-    async fn clear_library_data(
+    pub async fn clear_library_data(
         db: &DatabaseConnection,
         app_id: Uuid,
         lib_type: &str,
@@ -1235,23 +1244,7 @@ impl AppSyncService {
             return Ok(a.id);
         }
 
-        // Serialise creation: `music_artists.name` has no unique constraint.
-        let lock_key = name.to_lowercase();
-        let per_lock = {
-            let mut locks = crate::MUSIC_ARTIST_CREATION_LOCKS.lock().await;
-            locks.entry(lock_key).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
-        };
-        let _guard = per_lock.lock().await;
-
-        // Re-check under lock.
-        if let Some(a) = music_artists::Entity::find()
-            .filter(music_artists::Column::Name.eq(name))
-            .one(db)
-            .await?
-        {
-            return Ok(a.id);
-        }
-
+        // Try INSERT, catch unique violation from concurrent inserts
         let id = Uuid::new_v4();
         let now = Utc::now().fixed_offset();
         let active = music_artists::ActiveModel {
@@ -1261,8 +1254,19 @@ impl AppSyncService {
             updated_at: Set(Some(now)),
             ..Default::default()
         };
-        music_artists::Entity::insert(active).exec(db).await?;
-        Ok(id)
+        match music_artists::Entity::insert(active).exec(db).await {
+            Ok(_) => Ok(id),
+            Err(e) if matches!(e.sql_err(), Some(sea_orm::SqlErr::UniqueConstraintViolation(_))) => {
+                // Re-query: another worker created it concurrently
+                let a = music_artists::Entity::find()
+                    .filter(music_artists::Column::Name.eq(name))
+                    .one(db)
+                    .await?
+                    .not_found("music artist just created but not found")?;
+                Ok(a.id)
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Find or create a `MusicAlbum` for the given group.
