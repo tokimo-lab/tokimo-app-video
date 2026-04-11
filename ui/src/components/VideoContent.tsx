@@ -203,7 +203,10 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
   const displayItems = tab === "recent" ? recentItems : allItems;
   const displayTotal = tab === "recent" ? recentItems.length : paginatedTotal;
   const isLoading =
-    tab === "recent" ? recentQuery.isLoading : paginatedQuery.isLoading;
+    tab === "recent"
+      ? recentQuery.isLoading
+      : paginatedQuery.isLoading ||
+        (allItems.length === 0 && paginatedQuery.isFetching);
 
   const setTab = useCallback(
     (t: MediaTabKey) => {

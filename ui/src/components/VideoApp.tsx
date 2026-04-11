@@ -1,9 +1,11 @@
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { Spin } from "@tokiomo/components";
 import { Film, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useWindowActions, useWindowId, useWindowNav } from "@/system";
+import { useJobEvents } from "@/system/events/useJobEvents";
 import type { TaskMetadata } from "@/system/window/window-types";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
@@ -93,6 +95,58 @@ export default function VideoApp() {
     }
   };
 
+  // ── Sync progress tracking ──
+  const queryClient = useQueryClient();
+
+  const syncProgressQueries = useQueries({
+    queries: (categories ?? []).map((cat) => ({
+      queryKey: api.video.getSyncProgress.queryKey({ id: cat.id }),
+      queryFn: () => api.video.getSyncProgress.fetch({ id: cat.id }),
+      enabled: cat.syncStatus === "syncing",
+      refetchInterval: 3000,
+      staleTime: 2000,
+    })),
+  });
+
+  const syncProgress: Record<string, { isActive: boolean; pct: number }> = {};
+  for (let i = 0; i < (categories ?? []).length; i++) {
+    const cat = categories![i];
+    const q = syncProgressQueries[i];
+    if (q?.data) {
+      const d = q.data;
+      const total = d.completed + d.running + d.pending + d.failed;
+      const pct = total > 0 ? Math.round((d.completed / total) * 100) : 0;
+      const isActive = d.status === "syncing" || d.running > 0 || d.pending > 0;
+      if (isActive) {
+        syncProgress[cat.id] = { isActive, pct };
+      }
+    } else if (cat.syncStatus === "syncing") {
+      syncProgress[cat.id] = { isActive: true, pct: 0 };
+    }
+  }
+
+  useJobEvents({
+    onEvent: (event) => {
+      if (event.type === "job_update") {
+        const payload = event.job.payload as Record<string, unknown>;
+        const appId = payload?.appId as string | undefined;
+        if (appId && (categories ?? []).some((c) => c.id === appId)) {
+          queryClient.invalidateQueries({
+            queryKey: api.video.getSyncProgress.queryKey({ id: appId }),
+          });
+          if (
+            event.job.status === "completed" ||
+            event.job.status === "failed"
+          ) {
+            api.video.list.invalidate(queryClient);
+            api.video.listVideoItems.invalidate(queryClient);
+            api.video.listTvShows.invalidate(queryClient);
+          }
+        }
+      }
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -142,6 +196,7 @@ export default function VideoApp() {
         collapsed={sidebarCollapsed}
         onCreateClick={handleCreate}
         onSettingsClick={handleSettings}
+        syncProgress={syncProgress}
       />
       <div
         className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}

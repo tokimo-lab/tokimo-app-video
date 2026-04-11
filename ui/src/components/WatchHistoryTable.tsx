@@ -2,13 +2,28 @@ import { Spin } from "@tokiomo/components";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { api } from "@/generated/rust-api";
-import { useDateFormat } from "@/system";
+import { parseUserAgent } from "@/lib/ua-parser";
+import { useDateFormat, usePlayer } from "@/system";
+import type { MediaFileOutput } from "@/types";
 
 dayjs.extend(relativeTime);
 
 interface WatchHistoryTableProps {
   videoItemId?: string;
   episodeId?: string;
+  /** File + meta needed for "continue watching" button */
+  playContext?: {
+    file: MediaFileOutput;
+    meta: {
+      title: string;
+      posterPath?: string | null;
+      videoItemId?: string;
+      episodeId?: string;
+      tvShowId?: string;
+      imdbId?: string | null;
+      tmdbId?: string | null;
+    };
+  };
 }
 
 function formatDuration(seconds: number): string {
@@ -31,8 +46,10 @@ function progressPercent(item: {
 export function WatchHistoryTable({
   videoItemId,
   episodeId,
+  playContext,
 }: WatchHistoryTableProps) {
   const { formatLong } = useDateFormat();
+  const { play } = usePlayer();
   const { data, isLoading } = api.playback.watchHistory.useQuery(
     { videoItemId, episodeId, limit: 20 },
     { enabled: !!(videoItemId || episodeId) },
@@ -61,12 +78,14 @@ export function WatchHistoryTable({
             <th className="py-2 pr-4 font-medium">播放位置</th>
             <th className="py-2 pr-4 font-medium">进度</th>
             <th className="py-2 pr-4 font-medium">客户端</th>
-            <th className="py-2 font-medium">状态</th>
+            <th className="py-2 pr-4 font-medium">状态</th>
+            {playContext && <th className="py-2 font-medium">操作</th>}
           </tr>
         </thead>
         <tbody>
           {data.map((item) => {
             const pct = progressPercent(item);
+            const ua = parseUserAgent(item.userAgent);
             return (
               <tr
                 key={item.id}
@@ -96,10 +115,13 @@ export function WatchHistoryTable({
                     "—"
                   )}
                 </td>
-                <td className="py-2 pr-4 text-fg-muted">
-                  {item.clientName ?? "—"}
+                <td
+                  className="py-2 pr-4 text-fg-muted"
+                  title={item.userAgent ?? undefined}
+                >
+                  {item.userAgent ? ua.summary : (item.clientName ?? "—")}
                 </td>
-                <td className="py-2">
+                <td className="py-2 pr-4">
                   {item.completed ? (
                     <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
                       已看完
@@ -110,6 +132,24 @@ export function WatchHistoryTable({
                     </span>
                   )}
                 </td>
+                {playContext && (
+                  <td className="py-2">
+                    {!item.completed && item.position > 0 && (
+                      <button
+                        type="button"
+                        className="cursor-pointer rounded px-2 py-1 text-xs text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
+                        onClick={() => {
+                          play(playContext.file, playContext.meta, {
+                            initialPosition: item.position,
+                            watchHistoryId: item.id,
+                          });
+                        }}
+                      >
+                        继续观看
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}

@@ -26,7 +26,6 @@ use super::iso_reader;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
-use crate::scheduler::tasks::persist_playback_progress;
 use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
 
@@ -80,6 +79,9 @@ pub struct StreamUrlBody {
     #[serde(rename = "forceSDR", default)]
     pub force_sdr: bool,
     pub audio_index: Option<usize>,
+    /// Optional: reuse an existing watch history record (for "continue watching").
+    /// If absent, the backend creates a new record.
+    pub watch_history_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -97,6 +99,14 @@ pub struct WatchHistoryQuery {
     #[serde(rename = "episodeId")]
     pub episode_id: Option<String>,
     pub limit: Option<u64>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportProgressBody {
+    pub watch_history_id: String,
+    pub position: f64,
+    pub duration: f64,
 }
 
 // ── POST /api/playback/stream-url/{file_id} ──────────────────────────────────
@@ -138,7 +148,7 @@ pub async fn stream_url(
         match MusicRepo::load_stream_target(db, &file_id).await {
             Ok(Some(_)) => {
                 let url = format!("/api/apps/music/files/{file_id}/stream");
-                return ok(StreamUrlDto { url }).into_response();
+                return ok(StreamUrlDto { url, watch_history_id: None }).into_response();
             }
             Ok(None) => {
                 return err_resp::<StreamUrlDto>(
@@ -153,6 +163,48 @@ pub async fn stream_url(
                     e.to_string(),
                 )
                 .into_response();
+            }
+        }
+    };
+
+    // ── Watch history: create or reuse ──────────────────────────────────────
+    let user_uuid: Uuid = match auth.user_id.parse() {
+        Ok(u) => u,
+        Err(_) => {
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
+                .into_response();
+        }
+    };
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
+    let watch_history_id: Option<String> = if let Some(ref existing_id) = body.watch_history_id {
+        // Reuse existing record — verify ownership
+        if let Ok(hid) = existing_id.parse::<Uuid>() {
+            if let Ok(true) = PlaybackRepo::verify_history_ownership(db, hid, user_uuid).await {
+                Some(hid.to_string())
+            } else {
+                warn!("[Playback] watch_history_id {existing_id} not owned by user, creating new");
+                match PlaybackRepo::create_history(db, user_uuid, file_uuid, user_agent.clone(), file.duration).await {
+                    Ok(id) => Some(id.to_string()),
+                    Err(e) => {
+                        warn!("[Playback] failed to create watch history: {e}");
+                        None
+                    }
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        // No existing ID — create new record
+        match PlaybackRepo::create_history(db, user_uuid, file_uuid, user_agent.clone(), file.duration).await {
+            Ok(id) => Some(id.to_string()),
+            Err(e) => {
+                warn!("[Playback] failed to create watch history: {e}");
+                None
             }
         }
     };
@@ -245,7 +297,7 @@ pub async fn stream_url(
         )
     {
         let url = build_direct_stream_url(&file);
-        return ok(StreamUrlDto { url }).into_response();
+        return ok(StreamUrlDto { url, watch_history_id: watch_history_id.clone() }).into_response();
     }
 
     // Parse stream metadata
@@ -293,6 +345,24 @@ pub async fn stream_url(
         transcode_decision::open_gop_transcode_reason(&file.path, file.video_codec.as_deref());
     let should_transcode_video =
         transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
+
+    // AV1 and VP9 cannot be properly muxed into MPEG-TS segments (the container
+    // used for DirectStream / copy mode). If HLS is already required for any other
+    // reason (audio transcode, container, codec-tag, ISO), force video transcode so
+    // the pipeline switches to fMP4 and re-encodes to H.264/HEVC instead.
+    let mpegts_incompat_reason: Option<String> = if !should_transcode_video
+        && (transcode_audio || transcode_container || transcode_codec_tag || is_iso)
+    {
+        let raw = file.video_codec.as_deref().unwrap_or("").to_lowercase();
+        if raw.contains("av1") || raw.contains("vp9") || raw.contains("vp8") {
+            Some(format!("VideoCodecNotCompatibleWithMpegTs ({raw})"))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let should_transcode_video = should_transcode_video || mpegts_incompat_reason.is_some();
 
     // Mediabunny (client-side AC3/EAC3 decoder) is only active in direct-stream
     // mode. When HLS is forced (container remux, video transcode, ISO, codec-tag),
@@ -380,6 +450,7 @@ pub async fn stream_url(
             } else {
                 None
             })
+            .or(mpegts_incompat_reason.as_deref())
             .or(if should_transcode_video {
                 open_gop_reason.as_deref()
             } else {
@@ -517,7 +588,7 @@ pub async fn stream_url(
         )
         .await
         {
-            Ok(url) => return ok(StreamUrlDto { url }).into_response(),
+            Ok(url) => return ok(StreamUrlDto { url, watch_history_id: watch_history_id.clone() }).into_response(),
             Err(e) => {
                 return err_resp::<StreamUrlDto>(
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -529,7 +600,7 @@ pub async fn stream_url(
     }
 
     let url = build_direct_stream_url(&file);
-    ok(StreamUrlDto { url }).into_response()
+    ok(StreamUrlDto { url, watch_history_id }).into_response()
 }
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
@@ -1042,7 +1113,7 @@ pub async fn stop_session_beacon(
     StatusCode::NO_CONTENT.into_response()
 }
 
-/// Shared logic: stop HLS sessions for a file and persist progress.
+/// Shared logic: stop HLS sessions for a file.
 async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
     info!("[Playback] stop-session file_id={}", file_id);
 
@@ -1055,20 +1126,7 @@ async fn stop_sessions_by_file(state: &AppState, file_id: &str) {
         debug!("[Playback] tap registry released file_id={}", file_id);
     }
 
-    let snapshots = state.hls_manager.playback_snapshots().await;
-    let file_snapshots: Vec<_> = snapshots
-        .into_iter()
-        .filter(|s| s.file_id == file_id)
-        .collect();
     state.hls_manager.stop_session_for_file(file_id).await;
-    for snap in &file_snapshots {
-        if let Err(e) = persist_playback_progress(&state.db, snap).await {
-            warn!(
-                "[Playback] failed to persist final progress for {}: {}",
-                snap.session_id, e
-            );
-        }
-    }
 
     // Mark active playback sessions as stopped.
     if let Ok(file_uuid) = file_id.parse::<Uuid>()
@@ -1127,6 +1185,41 @@ pub async fn watch_history(
 
     match PlaybackRepo::get_watch_history(&state.db, user_id, video_item_id, episode_id, limit).await {
         Ok(items) => ok(items).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+// ── POST /api/playback/progress ──────────────────────────────────────────────
+
+pub async fn report_progress(
+    State(state): State<Arc<AppState>>,
+    AuthUser(auth): AuthUser,
+    Json(body): Json<ReportProgressBody>,
+) -> Response {
+    let user_id: Uuid = match auth.user_id.parse() {
+        Ok(u) => u,
+        Err(_) => {
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
+                .into_response();
+        }
+    };
+    let history_id: Uuid = match body.watch_history_id.parse() {
+        Ok(u) => u,
+        Err(_) => {
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid watch history ID".into())
+                .into_response();
+        }
+    };
+
+    let position = body.position as i32;
+    let duration = if body.duration > 0.0 {
+        Some(body.duration as i32)
+    } else {
+        None
+    };
+
+    match PlaybackRepo::report_progress(&state.db, user_id, history_id, position, duration).await {
+        Ok(_completed) => ok(()).into_response(),
         Err(e) => e.into_response(),
     }
 }

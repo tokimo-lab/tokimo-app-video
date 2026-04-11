@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Checkbox, Modal } from "@tokiomo/components";
-import { FolderSync, Plus, RefreshCw, Scan } from "lucide-react";
+import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
 import type { MenuBarConfig } from "@/system";
@@ -31,17 +31,12 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
   const syncMutation = api.video.sync.useMutation({
     onSuccess: () => {
       message.success("同步已开始");
+      api.video.list.invalidate(qc);
       api.video.listVideoItems.invalidate(qc);
       api.video.listTvShows.invalidate(qc);
       api.video.getRecentlyAdded.invalidate(qc);
     },
     onError: (e) => message.error(e.message || "同步失败"),
-  });
-
-  const scrapePersonsMutation = api.video.scrapePersons.useMutation({
-    onSuccess: (data: { queued: number }) =>
-      message.success(`已派发 ${data.queued} 个演员刮削任务`),
-    onError: (error: Error) => message.error(error.message || "刮削失败"),
   });
 
   const isOnlineVideo = activeLibrary.type === "online_video";
@@ -90,14 +85,6 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
           });
         },
       });
-    } else if (activeLibrary.id) {
-      extraItems.push({
-        key: "scrape-persons",
-        label: "刮削演员",
-        icon: <Scan size={14} />,
-        disabled: scrapePersonsMutation.isPending,
-        onClick: () => scrapePersonsMutation.mutate({ id: activeLibrary.id! }),
-      });
     }
 
     return {
@@ -134,7 +121,6 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
     activeLibrary.id,
     windowId,
     openModalWindow,
-    scrapePersonsMutation,
   ]);
 
   useMenuBar(menuBarConfig);

@@ -24,11 +24,28 @@ import {
   SectionTitle,
 } from "./media-detail-shared";
 
-function WatchHistorySection({ videoItemId }: { videoItemId: string }) {
+function WatchHistorySection({
+  videoItemId,
+  playContext,
+}: {
+  videoItemId: string;
+  playContext?: {
+    file: MediaFileOutput;
+    meta: {
+      title: string;
+      posterPath?: string | null;
+      videoItemId?: string;
+      episodeId?: string;
+      tvShowId?: string;
+      imdbId?: string | null;
+      tmdbId?: string | null;
+    };
+  };
+}) {
   return (
     <section className="mb-8">
       <SectionTitle>观看记录</SectionTitle>
-      <WatchHistoryTable videoItemId={videoItemId} />
+      <WatchHistoryTable videoItemId={videoItemId} playContext={playContext} />
     </section>
   );
 }
@@ -123,14 +140,15 @@ export default function VideoItemDetailPage() {
 
   const { play } = usePlayer();
 
-  const resumeQuery = api.playback.resumePosition.useQuery(
-    { videoItemId: videoItemId! },
+  const watchHistoryQuery = api.playback.watchHistory.useQuery(
+    { videoItemId: videoItemId!, limit: 1 },
     { enabled: !!videoItemId },
   );
 
   const [resumePrompt, setResumePrompt] = useState<{
     file: MediaFileOutput;
     position: number;
+    watchHistoryId?: string;
   } | null>(null);
 
   const { setBackgroundArt } = useBackgroundArt();
@@ -191,9 +209,10 @@ export default function VideoItemDetailPage() {
   };
 
   const handlePlay = (file: NonNullable<typeof firstFile>) => {
-    const pos = resumeQuery.data?.position ?? 0;
+    const latest = watchHistoryQuery.data?.[0];
+    const pos = latest && !latest.completed ? latest.position : 0;
     if (pos > 10) {
-      setResumePrompt({ file, position: pos });
+      setResumePrompt({ file, position: pos, watchHistoryId: latest?.id });
     } else {
       play(file, playMeta);
     }
@@ -215,13 +234,14 @@ export default function VideoItemDetailPage() {
           if (resumePrompt) {
             play(resumePrompt.file, playMeta, {
               initialPosition: resumePrompt.position,
+              watchHistoryId: resumePrompt.watchHistoryId,
             });
           }
           setResumePrompt(null);
         }}
         onRestart={() => {
           if (resumePrompt) {
-            play(resumePrompt.file, playMeta, { initialPosition: 0 });
+            play(resumePrompt.file, playMeta);
           }
           setResumePrompt(null);
         }}
@@ -333,7 +353,12 @@ export default function VideoItemDetailPage() {
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
-        <WatchHistorySection videoItemId={movie.id} />
+        <WatchHistorySection
+          videoItemId={movie.id}
+          playContext={
+            firstFile ? { file: firstFile, meta: playMeta } : undefined
+          }
+        />
       </MediaDetailLayout>
     </>
   );

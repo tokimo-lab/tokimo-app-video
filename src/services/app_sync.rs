@@ -198,16 +198,6 @@ impl AppSyncService {
             video.name, video_id, lib_type
         );
 
-        if video.sync_status == "syncing" && !clear_data {
-            warn!(
-                "Video \"{}\" is already syncing, skipping duplicate sync request",
-                video.name
-            );
-            return Err(AppError::Conflict("Video is already syncing".into()));
-        }
-
-        VideoRepo::update_sync_status(db, video_id, "syncing", None).await?;
-
         let result = Self::do_video_sync(
             db, sources, storage, &video, lib_type, is_movie, is_tv, clear_data,
         )
@@ -247,16 +237,6 @@ impl AppSyncService {
             "Starting music sync for \"{}\" (id={}, type={})",
             music.name, music_id, music.r#type
         );
-
-        if music.sync_status == "syncing" && !clear_data {
-            warn!(
-                "Music library \"{}\" is already syncing, skipping duplicate sync request",
-                music.name
-            );
-            return Err(AppError::Conflict("Music library is already syncing".into()));
-        }
-
-        MusicRepo::update_sync_status(db, music_id, "syncing", None).await?;
 
         let result = Self::do_music_sync(db, sources, storage, &music, clear_data).await;
 
@@ -298,16 +278,6 @@ impl AppSyncService {
             "Starting book sync for \"{}\" (id={}, type={})",
             book.name, book_id, lib_type
         );
-
-        if book.sync_status == "syncing" && !clear_data {
-            warn!(
-                "Book library \"{}\" is already syncing, skipping duplicate sync request",
-                book.name
-            );
-            return Err(AppError::Conflict("Book library is already syncing".into()));
-        }
-
-        BookRepo::update_sync_status(db, book_id, "syncing", None).await?;
 
         let result = Self::do_book_sync(db, sources, storage, &book, clear_data).await;
 
@@ -1663,12 +1633,11 @@ impl AppSyncService {
     async fn process_album_group(
         db: &DatabaseConnection,
         app_id: Uuid,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        mb: &rust_client_api::metadata_providers::musicbrainz::MusicBrainzClient,
+        _storage: &Arc<dyn crate::services::storage::StorageProvider>,
         group: &AlbumGroup,
         is_local: bool,
         vfs: Option<&Arc<Vfs>>,
-    ) -> Result<(), AppError> {
+    ) -> Result<Uuid, AppError> {
         let album_id = Self::find_or_create_album(db, app_id, group).await?;
 
         for file in &group.files {
@@ -1700,44 +1669,7 @@ impl AppSyncService {
 
         Self::update_album_metadata(db, album_id, group, is_local, vfs).await?;
 
-        // Scrape MusicBrainz immediately using the artist name from file tags,
-        // so artists are only created with a proper mb_id (never as stubs).
-        // Skip if already scraped (re-sync of an existing album).
-        let already_scraped = music_albums::Entity::find_by_id(album_id)
-            .one(db)
-            .await?
-            .and_then(|a| a.scraped_at)
-            .is_some();
-
-        if already_scraped {
-            return Ok(());
-        }
-
-        let result = crate::services::media::scrape::music::MusicScrapeService::scrape_album_inline(
-            db,
-            storage,
-            mb,
-            album_id,
-            &group.artist_name,
-            &group.album_title,
-        )
-        .await;
-        match result.status.as_str() {
-            "success" => info!(
-                "[music_scrape] Scraped \"{}\" by \"{}\"",
-                group.album_title, group.artist_name
-            ),
-            "no_match" => info!(
-                "[music_scrape] No MB match for \"{}\" by \"{}\"",
-                group.album_title, group.artist_name
-            ),
-            _ => warn!(
-                "[music_scrape] Scrape failed for \"{}\" by \"{}\": {:?}",
-                group.album_title, group.artist_name, result.error
-            ),
-        }
-
-        Ok(())
+        Ok(album_id)
     }
 
     /// Full music sync for a single file-system source.
@@ -1885,18 +1817,41 @@ impl AppSyncService {
             album_groups.len()
         );
 
-        // Process each album group — scrape MusicBrainz inline using tag artist name
+        // Process each album group — enqueue async scrape jobs
         let vfs_ref = if is_local { Some(&vfs) } else { None };
-        let mb = rust_client_api::metadata_providers::musicbrainz::MusicBrainzClient::new();
-        let mut processed_albums = 0u64;
+        let mut total_jobs = 0u64;
+        let mut scrape_jobs: Vec<(&str, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
+
         for (i, group) in album_groups.iter().enumerate() {
-            if let Err(e) = Self::process_album_group(db, app_id, storage, &mb, group, is_local, vfs_ref).await {
-                error!(
-                    "Album processing failed \"{}\" by \"{}\": {}",
-                    group.album_title, group.artist_name, e
-                );
+            match Self::process_album_group(db, app_id, storage, group, is_local, vfs_ref).await {
+                Ok(album_id) => {
+                    // Check if album needs scraping
+                    let already_scraped = music_albums::Entity::find_by_id(album_id)
+                        .one(db)
+                        .await?
+                        .and_then(|a| a.scraped_at)
+                        .is_some();
+                    if !already_scraped {
+                        scrape_jobs.push((
+                            "music_scrape",
+                            json!({
+                                "albumId": album_id.to_string(),
+                                "appId": app_id.to_string(),
+                            }),
+                            None,
+                        ));
+                        if scrape_jobs.len() >= Self::JOB_BATCH_FLUSH_SIZE {
+                            total_jobs += JobRepo::create_jobs_batch(db, std::mem::take(&mut scrape_jobs)).await?;
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!(
+                        "Album processing failed \"{}\" by \"{}\": {}",
+                        group.album_title, group.artist_name, e
+                    );
+                }
             }
-            processed_albums += 1;
             if (i + 1) % 10 == 0 {
                 info!(
                     "Music sync progress: {}/{} albums processed",
@@ -1906,18 +1861,21 @@ impl AppSyncService {
             }
         }
 
+        if !scrape_jobs.is_empty() {
+            total_jobs += JobRepo::create_jobs_batch(db, scrape_jobs).await?;
+        }
+
         // Cleanup missing files
         Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths)
             .await?;
 
         info!(
-            "[{}({})] Music sync done: {} albums processed",
-            source.name, source_type, processed_albums
+            "[{}({})] Music sync done: {} albums processed, {} scrape jobs enqueued",
+            source.name, source_type, album_groups.len(), total_jobs
         );
 
-        // Return number of new/changed files processed (not job count, since music
-        // sync processes inline rather than dispatching jobs)
-        Ok(processed_albums)
+        // Return number of scrape jobs enqueued
+        Ok(total_jobs)
     }
 
     /// Remove music-related DB records for files no longer on disk.

@@ -28,11 +28,17 @@ pub async fn sync_video(
         .parse()
         .map_err(|_| AppError::BadRequest("invalid video id".into()))?;
 
-    let _video = VideoRepo::get_by_id(&state.db, uid)
+    let video = VideoRepo::get_by_id(&state.db, uid)
         .await?
         .not_found(format!("video {id} not found"))?;
 
     let clear_data = body.and_then(|b| b.clear_data).unwrap_or(false);
+
+    if video.sync_status == "syncing" && !clear_data {
+        return Err(AppError::Conflict("Video is already syncing".into()));
+    }
+    VideoRepo::update_sync_status(&state.db, uid, "syncing", None).await?;
+
     let db = state.db.clone();
     let sources = state.sources.clone();
     let storage = state.storage.clone();
@@ -101,7 +107,7 @@ pub async fn get_video_sync_progress(
         .await?
         .not_found(format!("video {id} not found"))?;
 
-    let job_types = &["file_scrape"];
+    let job_types = &["movie_scrape", "tv_scrape"];
     let (total, completed, running, pending, failed) =
         JobRepo::count_jobs_by_app(&state.db, uid, job_types).await?;
 

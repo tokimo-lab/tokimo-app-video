@@ -11,7 +11,6 @@ use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};
 
 use crate::handlers::{err_resp, ok, ApiResponse};
-use crate::scheduler::tasks::persist_playback_progress;
 use crate::AppState;
 
 /// POST /api/hls/sessions — create a new HLS transcoding session.
@@ -34,10 +33,7 @@ pub async fn stop_session(
     Path(session_id): Path<String>,
 ) -> Response {
     debug!("[HLS] stop request for session {}", session_id);
-    if let Some(snap) = state.hls_manager.stop_session(&session_id).await
-        && let Err(e) = persist_playback_progress(&state.db, &snap).await {
-            warn!("[HLS] failed to persist final progress for {}: {}", session_id, e);
-        }
+    state.hls_manager.stop_session(&session_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
 
@@ -47,15 +43,7 @@ pub async fn stop_sessions_for_file(
     Path(file_id): Path<String>,
 ) -> Response {
     debug!("[HLS] stop-by-file request for file {}", file_id);
-    // Get snapshots before stopping sessions
-    let snapshots = state.hls_manager.playback_snapshots().await;
-    let file_snapshots: Vec<_> = snapshots.into_iter().filter(|s| s.file_id == file_id).collect();
     state.hls_manager.stop_session_for_file(&file_id).await;
-    for snap in &file_snapshots {
-        if let Err(e) = persist_playback_progress(&state.db, snap).await {
-            warn!("[HLS] failed to persist final progress for {}: {}", snap.session_id, e);
-        }
-    }
     StatusCode::NO_CONTENT.into_response()
 }
 

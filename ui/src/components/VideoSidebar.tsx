@@ -1,4 +1,4 @@
-import { AppSidebar, Tooltip } from "@tokiomo/components";
+import { AppSidebar, CircularProgress, Tooltip } from "@tokiomo/components";
 import { Plus, Settings } from "lucide-react";
 import type { VideoOutput } from "@/generated/rust-api";
 import { AppIcon } from "@/shared/components/icons";
@@ -10,6 +10,7 @@ export default function VideoSidebar({
   collapsed,
   onCreateClick,
   onSettingsClick,
+  syncProgress,
 }: {
   categories: VideoOutput[];
   activeId: string | null;
@@ -17,6 +18,7 @@ export default function VideoSidebar({
   collapsed?: boolean;
   onCreateClick: () => void;
   onSettingsClick: () => void;
+  syncProgress?: Record<string, { isActive: boolean; pct: number }>;
 }) {
   const sections = [
     {
@@ -24,12 +26,17 @@ export default function VideoSidebar({
         key: cat.id,
         icon: <AppIcon icon={cat.icon} color={cat.color} size={20} />,
         label: cat.name,
-        extra:
-          cat.itemCount > 0 ? (
+        extra: (() => {
+          const sp = syncProgress?.[cat.id];
+          if (sp?.isActive) {
+            return <CircularProgress value={sp.pct} size={24} />;
+          }
+          return cat.itemCount > 0 ? (
             <span className="text-[10px] tabular-nums text-fg-muted">
               {cat.itemCount}
             </span>
-          ) : undefined,
+          ) : undefined;
+        })(),
       })),
     },
   ];
