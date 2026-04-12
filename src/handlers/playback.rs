@@ -98,6 +98,8 @@ pub struct WatchHistoryQuery {
     pub video_item_id: Option<String>,
     #[serde(rename = "episodeId")]
     pub episode_id: Option<String>,
+    #[serde(rename = "tvShowId")]
+    pub tv_show_id: Option<String>,
     pub limit: Option<u64>,
 }
 
@@ -1181,10 +1183,38 @@ pub async fn watch_history(
     };
     let video_item_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let episode_id = q.episode_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
+    let tv_show_id = q.tv_show_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
     let limit = q.limit.unwrap_or(20).clamp(1, 50);
 
-    match PlaybackRepo::get_watch_history(&state.db, user_id, video_item_id, episode_id, limit).await {
+    match PlaybackRepo::get_watch_history(&state.db, user_id, video_item_id, episode_id, tv_show_id, limit).await {
         Ok(items) => ok(items).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+// ── DELETE /api/playback/watch-history/{id} ──────────────────────────────────
+
+pub async fn delete_watch_history(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    AuthUser(auth): AuthUser,
+) -> Response {
+    let user_id: Uuid = match auth.user_id.parse() {
+        Ok(u) => u,
+        Err(_) => {
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
+                .into_response();
+        }
+    };
+    let history_id: Uuid = match id.parse() {
+        Ok(u) => u,
+        Err(_) => {
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid history ID".into())
+                .into_response();
+        }
+    };
+    match PlaybackRepo::delete_watch_history(&state.db, user_id, history_id).await {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),
     }
 }

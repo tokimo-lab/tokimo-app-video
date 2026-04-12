@@ -1,29 +1,24 @@
-import { Spin } from "@tokiomo/components";
+import { Avatar, Spin } from "@tokiomo/components";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { api } from "@/generated/rust-api";
+import { getAvatarColor, getAvatarInitial } from "@/lib/avatar";
+import { thumbUrl } from "@/lib/thumb";
 import { parseUserAgent } from "@/lib/ua-parser";
-import { useDateFormat, usePlayer } from "@/system";
-import type { MediaFileOutput } from "@/types";
+import { useAuth, useDateFormat } from "@/system";
 
 dayjs.extend(relativeTime);
 
 interface WatchHistoryTableProps {
   videoItemId?: string;
   episodeId?: string;
-  /** File + meta needed for "continue watching" button */
-  playContext?: {
-    file: MediaFileOutput;
-    meta: {
-      title: string;
-      posterPath?: string | null;
-      videoItemId?: string;
-      episodeId?: string;
-      tvShowId?: string;
-      imdbId?: string | null;
-      tmdbId?: string | null;
-    };
-  };
+  tvShowId?: string;
+  /**
+   * Called when user clicks "继续播放". The parent is responsible for
+   * looking up the file and calling play() — the component only passes
+   * back what it knows: fileId, resume position, and the history record id.
+   */
+  onResumePlay?: (fileId: string, position: number, historyId: string) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -46,14 +41,21 @@ function progressPercent(item: {
 export function WatchHistoryTable({
   videoItemId,
   episodeId,
-  playContext,
+  tvShowId,
+  onResumePlay,
 }: WatchHistoryTableProps) {
   const { formatLong } = useDateFormat();
-  const { play } = usePlayer();
-  const { data, isLoading } = api.playback.watchHistory.useQuery(
-    { videoItemId, episodeId, limit: 20 },
-    { enabled: !!(videoItemId || episodeId) },
+  const { user } = useAuth();
+  const avatarSrc = user ? thumbUrl("user", user.id, 44, 44) : undefined;
+  const avatarColor = getAvatarColor(user?.name || user?.email);
+  const avatarInitial = getAvatarInitial(user?.name, user?.email);
+  const { data, isLoading, refetch } = api.playback.watchHistory.useQuery(
+    { videoItemId, episodeId, tvShowId, limit: 20 },
+    { enabled: !!(videoItemId || episodeId || tvShowId) },
   );
+  const deleteMutation = api.playback.deleteWatchHistory.useMutation({
+    onSuccess: () => refetch(),
+  });
 
   if (isLoading) {
     return (
@@ -75,17 +77,26 @@ export function WatchHistoryTable({
         <thead>
           <tr className="border-b border-border-base text-left text-xs text-fg-muted">
             <th className="py-2 pr-4 font-medium">时间</th>
+            {tvShowId && <th className="py-2 pr-4 font-medium">剧集</th>}
+            <th className="py-2 pr-4 font-medium">用户</th>
             <th className="py-2 pr-4 font-medium">播放位置</th>
             <th className="py-2 pr-4 font-medium">进度</th>
             <th className="py-2 pr-4 font-medium">客户端</th>
             <th className="py-2 pr-4 font-medium">状态</th>
-            {playContext && <th className="py-2 font-medium">操作</th>}
+            <th className="py-2 font-medium">操作</th>
           </tr>
         </thead>
         <tbody>
           {data.map((item) => {
             const pct = progressPercent(item);
             const ua = parseUserAgent(item.userAgent);
+            const canContinue = !item.completed && !!item.fileId;
+            const episodeLabel =
+              item.seasonNumber != null && item.episodeNumber != null
+                ? `S${item.seasonNumber}E${item.episodeNumber}`
+                : item.episodeNumber != null
+                  ? `第 ${item.episodeNumber} 集`
+                  : null;
             return (
               <tr
                 key={item.id}
@@ -95,6 +106,29 @@ export function WatchHistoryTable({
                   <span title={formatLong(item.startedAt)}>
                     {dayjs(item.startedAt).fromNow()}
                   </span>
+                </td>
+                {tvShowId && (
+                  <td className="py-2 pr-4 font-mono text-xs text-fg-secondary">
+                    {episodeLabel ?? "—"}
+                  </td>
+                )}
+                <td className="py-2 pr-4">
+                  {item.userName ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        size={22}
+                        src={avatarSrc}
+                        style={{
+                          backgroundColor: avatarSrc ? undefined : avatarColor,
+                        }}
+                      >
+                        {avatarInitial}
+                      </Avatar>
+                      <span className="text-fg-secondary">{item.userName}</span>
+                    </div>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2 pr-4 font-mono">
                   {formatDuration(item.position)}
@@ -132,24 +166,28 @@ export function WatchHistoryTable({
                     </span>
                   )}
                 </td>
-                {playContext && (
-                  <td className="py-2">
-                    {!item.completed && item.position > 0 && (
+                <td className="py-2">
+                  <div className="flex items-center gap-1">
+                    {canContinue && onResumePlay && (
                       <button
                         type="button"
                         className="cursor-pointer rounded px-2 py-1 text-xs text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
-                        onClick={() => {
-                          play(playContext.file, playContext.meta, {
-                            initialPosition: item.position,
-                            watchHistoryId: item.id,
-                          });
-                        }}
+                        onClick={() =>
+                          onResumePlay(item.fileId!, item.position, item.id)
+                        }
                       >
-                        继续观看
+                        继续播放
                       </button>
                     )}
-                  </td>
-                )}
+                    <button
+                      type="button"
+                      className="cursor-pointer rounded px-2 py-1 text-xs text-fg-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+                      onClick={() => deleteMutation.mutate(item.id)}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </td>
               </tr>
             );
           })}

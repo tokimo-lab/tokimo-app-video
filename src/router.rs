@@ -80,6 +80,10 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
             get(handlers::list_video_genres),
         )
         .route(
+            "/api/apps/video/{id}/countries",
+            get(handlers::list_video_countries),
+        )
+        .route(
             "/api/apps/video/{id}/recently-added",
             get(handlers::video_recently_added),
         )
@@ -149,6 +153,10 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
         .route(
             "/api/playback/watch-history",
             get(handlers::playback::watch_history),
+        )
+        .route(
+            "/api/playback/watch-history/{id}",
+            delete(handlers::playback::delete_watch_history),
         )
         .route(
             "/api/playback/progress",

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Modal, Spin } from "@tokiomo/components";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
 import {
@@ -23,32 +23,6 @@ import {
   FilesSection,
   SectionTitle,
 } from "./media-detail-shared";
-
-function WatchHistorySection({
-  videoItemId,
-  playContext,
-}: {
-  videoItemId: string;
-  playContext?: {
-    file: MediaFileOutput;
-    meta: {
-      title: string;
-      posterPath?: string | null;
-      videoItemId?: string;
-      episodeId?: string;
-      tvShowId?: string;
-      imdbId?: string | null;
-      tmdbId?: string | null;
-    };
-  };
-}) {
-  return (
-    <section className="mb-8">
-      <SectionTitle>观看记录</SectionTitle>
-      <WatchHistoryTable videoItemId={videoItemId} playContext={playContext} />
-    </section>
-  );
-}
 
 function FavoriteButton({
   isFavorite,
@@ -173,6 +147,29 @@ export default function VideoItemDetailPage() {
     }
   });
 
+  const playMeta = useMemo(
+    () => ({
+      title: movie?.title ?? "",
+      posterPath: movie?.posterPath,
+      videoItemId: movie?.id ?? "",
+      imdbId: movie?.imdbId,
+      tmdbId: movie?.tmdbId,
+    }),
+    [movie?.title, movie?.posterPath, movie?.id, movie?.imdbId, movie?.tmdbId],
+  );
+
+  const handleResumePlay = useCallback(
+    (fileId: string, position: number, historyId: string) => {
+      const file = movie?.files?.find((f) => f.id === fileId);
+      if (!file) return;
+      play(file, playMeta, {
+        initialPosition: position,
+        watchHistoryId: historyId,
+      });
+    },
+    [movie?.files, play, playMeta],
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -199,14 +196,6 @@ export default function VideoItemDetailPage() {
 
   // First available video file for the big "play" button on the poster
   const firstFile = movie.files?.find((f) => f.videoCodec);
-
-  const playMeta = {
-    title: movie.title,
-    posterPath: movie.posterPath,
-    videoItemId: movie.id,
-    imdbId: movie.imdbId,
-    tmdbId: movie.tmdbId,
-  };
 
   const handlePlay = (file: NonNullable<typeof firstFile>) => {
     const latest = watchHistoryQuery.data?.[0];
@@ -353,12 +342,13 @@ export default function VideoItemDetailPage() {
         <CastRow credits={movie.credits ?? []} />
         <CrewRow credits={movie.credits ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
-        <WatchHistorySection
-          videoItemId={movie.id}
-          playContext={
-            firstFile ? { file: firstFile, meta: playMeta } : undefined
-          }
-        />
+        <section className="mb-8">
+          <SectionTitle>观看记录</SectionTitle>
+          <WatchHistoryTable
+            videoItemId={movie.id}
+            onResumePlay={handleResumePlay}
+          />
+        </section>
       </MediaDetailLayout>
     </>
   );

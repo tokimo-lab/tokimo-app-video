@@ -1,11 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, PillTabBar, Spin } from "@tokiomo/components";
 import { Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
 import { useBackgroundArt, usePlayer, useWindowNav } from "@/system";
 import type { EpisodeOutput } from "@/types";
+import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import {
   CollectionsSection,
   MediaDetailLayout,
@@ -17,6 +18,7 @@ import {
   CrewRow,
   formatRuntime,
   MediaFileCard,
+  SectionTitle,
 } from "./media-detail-shared";
 
 function FavoriteButton({
@@ -163,6 +165,7 @@ export default function TvShowDetailPage() {
   const { params, goBack } = useWindowNav();
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
+  const { play } = usePlayer();
 
   const { data: show, isLoading } = api.video.getTvShowDetail.useQuery(
     { id: tvId! },
@@ -182,6 +185,42 @@ export default function TvShowDetailPage() {
       setBackgroundArt(null);
     };
   }, [show?.backdropPath, setBackgroundArt]);
+
+  // Build fileId → { episode } map from all loaded seasons/episodes
+  const fileMap = useMemo(() => {
+    const map = new Map<string, EpisodeOutput>();
+    for (const season of show?.seasons ?? []) {
+      for (const ep of season.episodes ?? []) {
+        for (const f of ep.files ?? []) {
+          map.set(f.id, ep);
+        }
+      }
+    }
+    return map;
+  }, [show?.seasons]);
+
+  const handleResumePlay = useCallback(
+    (fileId: string, position: number, historyId: string) => {
+      if (!show) return;
+      const episode = fileMap.get(fileId);
+      if (!episode) return;
+      const file = episode.files?.find((f) => f.id === fileId);
+      if (!file) return;
+      void play(
+        file,
+        {
+          title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+          posterPath: show.posterPath,
+          tvShowId: show.id,
+          episodeId: episode.id,
+          imdbId: show.imdbId,
+          tmdbId: show.tmdbId,
+        },
+        { initialPosition: position, watchHistoryId: historyId },
+      );
+    },
+    [fileMap, play, show],
+  );
 
   if (isLoading) {
     return (
@@ -311,6 +350,11 @@ export default function TvShowDetailPage() {
       <CollectionsSection collections={show.collections} />
       <CastRow credits={show.credits ?? []} />
       <CrewRow credits={show.credits ?? []} />
+
+      <section className="mb-8">
+        <SectionTitle>观看记录</SectionTitle>
+        <WatchHistoryTable tvShowId={show.id} onResumePlay={handleResumePlay} />
+      </section>
     </MediaDetailLayout>
   );
 }

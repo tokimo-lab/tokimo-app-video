@@ -90,6 +90,10 @@ pub struct VideoListMediaQuery {
     pub sort_dir: Option<String>,
     pub genre_id: Option<String>,
     pub search: Option<String>,
+    pub country: Option<String>,
+    pub favorite: Option<bool>,
+    pub resolution: Option<String>,
+    pub runtime: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

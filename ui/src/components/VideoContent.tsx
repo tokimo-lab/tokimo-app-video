@@ -1,14 +1,20 @@
-import { Empty, PillTabBar, PosterCard, Spin, Tag } from "@tokiomo/components";
+import { cn, Empty, PosterCard, Spin } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
 import { motion } from "framer-motion";
-import { ArrowDownUp, Clock, LayoutGrid } from "lucide-react";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ContentSearch } from "@/components/media/ContentSearch";
 import type { VideoOutput } from "@/generated/rust-api";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";
 import { useInfiniteScroll } from "@/shared/hooks/use-infinite-scroll";
 import { useLang, useWindowNav } from "@/system";
 import type { TvShowOutput, VideoItemOutput } from "@/types";
+import type { FilterOption, MediaFilters } from "./MediaFilterPanel";
+import MediaFilterPanel, {
+  EMPTY_FILTERS,
+  getCountryDisplayName,
+} from "./MediaFilterPanel";
 
 type MediaItem = (VideoItemOutput | TvShowOutput) & {
   posterPath?: string | null;
@@ -71,7 +77,12 @@ function MediaCard({
       onClick={onClick}
     >
       <p
-        className="truncate text-sm font-medium text-fg-primary"
+        className={cn(
+          "truncate text-sm font-medium",
+          (item as VideoItemOutput).isFavorite
+            ? "text-[var(--accent)]"
+            : "text-fg-primary",
+        )}
         title={item.title}
       >
         {item.title}
@@ -89,19 +100,9 @@ function MediaCard({
   );
 }
 
-const SORT_OPTIONS = [
-  { label: "最近添加", value: "addedAt" },
-  { label: "标题 A-Z", value: "title_asc" },
-  { label: "标题 Z-A", value: "title_desc" },
-  { label: "年份 最新", value: "year_desc" },
-  { label: "年份 最旧", value: "year_asc" },
-  { label: "评分 最高", value: "rating" },
-] as const;
+// Sort options moved to MediaFilterPanel
 
-type SortValue = (typeof SORT_OPTIONS)[number]["value"];
-type MediaTabKey = "all" | "recent";
-
-function parseSortValue(v: SortValue) {
+function parseSortValue(v: string) {
   if (v === "title_asc") return { sortBy: "title", sortDir: "asc" };
   if (v === "title_desc") return { sortBy: "title", sortDir: "desc" };
   if (v === "year_desc") return { sortBy: "year", sortDir: "desc" };
@@ -124,10 +125,8 @@ export default function VideoContent({
   const isTv = libType === "tv" || libType === "anime";
   const isLandscape = libType === "online_video";
 
-  const [tab, setTabRaw] = useState<MediaTabKey>("all");
   const [page, setPage] = useState(1);
-  const [sortValue, setSortValue] = useState<SortValue>("addedAt");
-  const [genreId, setGenreId] = useState<string | undefined>(undefined);
+  const [filters, setFilters] = useState<MediaFilters>(EMPTY_FILTERS);
 
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -170,24 +169,43 @@ export default function VideoContent({
     return Math.max(estimatedCols * (visibleRows + 6), 24);
   }, []);
 
-  const sortParams = parseSortValue(sortValue);
+  const sortParams = parseSortValue(filters.sortBy || "addedAt");
 
   const genresQuery = api.video.listGenres.useQuery({ id }, { enabled: !!id });
   const genres = genresQuery.data ?? [];
 
-  const recentQuery = api.video.getRecentlyAdded.useQuery(
-    { id, limit: 50 },
+  const countriesQuery = api.video.listCountries.useQuery(
+    { id },
     { enabled: !!id },
   );
-  const recentItems = (recentQuery.data ?? []) as unknown as MediaItem[];
+  const countries = countriesQuery.data ?? [];
 
   const moviesQuery = api.video.listVideoItems.useQuery(
-    { id, page, pageSize, ...sortParams, genreId },
+    {
+      id,
+      page,
+      pageSize,
+      ...sortParams,
+      genreId: filters.genreId || undefined,
+      country: filters.country || undefined,
+      favorite: filters.favorite === "true" ? true : undefined,
+      resolution: filters.resolution || undefined,
+      runtime: filters.runtime || undefined,
+    },
     { enabled: !!id && !isTv && pageSize > 0 },
   );
 
   const tvQuery = api.video.listTvShows.useQuery(
-    { id, page, pageSize, ...sortParams, genreId },
+    {
+      id,
+      page,
+      pageSize,
+      ...sortParams,
+      genreId: filters.genreId || undefined,
+      country: filters.country || undefined,
+      favorite: filters.favorite === "true" ? true : undefined,
+      resolution: filters.resolution || undefined,
+    },
     { enabled: !!id && isTv && pageSize > 0 },
   );
 
@@ -200,7 +218,7 @@ export default function VideoContent({
         | undefined,
       isFetching: paginatedQuery.isFetching,
       onLoadMore: () => setPage((p) => p + 1),
-      enabled: tab === "all" && !syncing,
+      enabled: !syncing,
     });
 
   const resetAll = useCallback(() => {
@@ -208,31 +226,16 @@ export default function VideoContent({
     setPage(1);
   }, [reset]);
 
-  const displayItems = tab === "recent" ? recentItems : items;
-  const displayTotal = tab === "recent" ? recentItems.length : total;
   const isLoading =
-    tab === "recent"
-      ? recentQuery.isLoading
-      : paginatedQuery.isLoading ||
-        (items.length === 0 && paginatedQuery.isFetching);
+    paginatedQuery.isLoading ||
+    (items.length === 0 && paginatedQuery.isFetching);
 
   // Reset when switching category
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on id change
   useEffect(() => {
     resetAll();
-    setTabRaw("all");
-    setSortValue("addedAt");
-    setGenreId(undefined);
+    setFilters(EMPTY_FILTERS);
   }, [id]);
-
-  const setTab = useCallback(
-    (t: MediaTabKey) => {
-      if (t === tab) return;
-      setTabRaw(t);
-      if (t === "all") resetAll();
-    },
-    [tab, resetAll],
-  );
 
   const handleItemClick = useCallback(
     (item: MediaItem) => {
@@ -248,75 +251,86 @@ export default function VideoContent({
     [isTv, navigate],
   );
 
-  const handleSortChange = (v: SortValue) => {
-    setSortValue(v);
-    resetAll();
-  };
+  const handleFiltersChange = useCallback(
+    (next: MediaFilters) => {
+      setFilters(next);
+      resetAll();
+    },
+    [resetAll],
+  );
 
-  const handleGenreChange = (gid: string | undefined) => {
-    setGenreId(gid);
-    resetAll();
-  };
+  const activeFilterCount = useMemo(() => {
+    let c = 0;
+    if (filters.sortBy && filters.sortBy !== "addedAt") c++;
+    if (filters.genreId) c++;
+    if (filters.country) c++;
+    if (filters.runtime) c++;
+    if (filters.favorite) c++;
+    if (filters.resolution) c++;
+    return c;
+  }, [filters]);
 
-  const MEDIA_TABS: { key: MediaTabKey; label: string; icon: typeof Clock }[] =
-    [
-      { key: "recent", label: "最近添加", icon: Clock },
-      { key: "all", label: "全部", icon: LayoutGrid },
-    ];
+  const genreOptions: FilterOption[] = useMemo(
+    () =>
+      genres.map((g) => ({
+        label: getGenreName(g.tmdbGenreId, lang) || g.name,
+        value: g.id,
+      })),
+    [genres, lang],
+  );
 
-  const genreOptions = [
-    { label: "全部", value: "" },
-    ...genres.map((g) => ({
-      label: getGenreName(g.tmdbGenreId, lang) || g.name,
-      value: g.id,
-    })),
-  ];
+  const countryOptions: FilterOption[] = useMemo(
+    () => countries.map((c) => ({ label: getCountryDisplayName(c), value: c })),
+    [countries],
+  );
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <PillTabBar
-        tabs={MEDIA_TABS}
-        activeTab={tab}
-        onTabChange={setTab}
-        sort={
-          tab === "all"
-            ? {
-                options: SORT_OPTIONS,
-                value: sortValue,
-                onChange: (v) => handleSortChange(v as SortValue),
-                activeIcon: <ArrowDownUp className="h-3.5 w-3.5" />,
-              }
-            : undefined
-        }
-        filters={
-          tab === "all" && genres.length > 0
-            ? [
-                {
-                  label: "类型",
-                  options: genreOptions,
-                  value: genreId ?? "",
-                  onChange: (v) => handleGenreChange(v || undefined),
-                },
-              ]
-            : undefined
-        }
-        trailing={displayTotal > 0 ? <Tag>{displayTotal}</Tag> : undefined}
-      />
+    <div className="flex h-full flex-col overflow-y-auto p-4">
+      {/* Search bar — PillTabBar style, sticky */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-[var(--bg-primary)] px-4 pt-4 pb-3">
+        <ContentSearch
+          appId={id}
+          searchType={isTv ? "tv" : "movie"}
+          placeholder={isTv ? "搜索电视剧…" : "搜索影片…"}
+          onSelect={(item) => {
+            if (isTv) {
+              navigate(
+                `/tv/${item.id}`,
+                `TokimoVideo · ${item.title ?? "TV Show"}`,
+              );
+            } else {
+              navigate(
+                `/movies/${item.id}`,
+                `TokimoVideo · ${item.title ?? "Movie"}`,
+              );
+            }
+          }}
+        />
+      </div>
+
+      {/* Filter Panel - always visible */}
+      <div className="rounded-lg border border-white/8 bg-black/20 px-4 py-3 backdrop-blur-md">
+        <MediaFilterPanel
+          filters={filters}
+          onChange={handleFiltersChange}
+          genreOptions={genreOptions}
+          countryOptions={countryOptions}
+          showRuntime={!isTv}
+        />
+      </div>
 
       <div ref={gridWrapperRef} className="mt-3 min-h-0 flex-1">
-        {(isLoading || syncing) && displayItems.length === 0 ? (
+        {(isLoading || syncing) && items.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Spin />
           </div>
-        ) : displayItems.length === 0 ? (
+        ) : items.length === 0 ? (
           <Empty
             className="flex h-full items-center justify-center"
             description={
-              tab === "recent"
-                ? "暂无最近添加的资源"
-                : genreId
-                  ? "该类型暂无资源"
-                  : "暂无资源，请先同步"
+              activeFilterCount > 0
+                ? "该筛选条件下暂无资源"
+                : "暂无资源，请先同步"
             }
           />
         ) : (
@@ -328,7 +342,7 @@ export default function VideoContent({
                 gap: CARD_GAP,
               }}
             >
-              {displayItems.map((item) => (
+              {items.map((item) => (
                 <motion.div key={item.id} layout transition={LAYOUT_SPRING}>
                   <MediaCard
                     item={item}
@@ -339,19 +353,13 @@ export default function VideoContent({
               ))}
             </div>
 
-            {tab === "all" && (
-              <>
-                <div ref={sentinelRef} className="h-px" />
-                <div className="mt-2 flex justify-center py-3">
-                  {paginatedQuery.isFetching && <Spin />}
-                  {!hasMore && total > 0 && !paginatedQuery.isFetching && (
-                    <p className="text-xs text-fg-muted">
-                      已加载全部 {total} 个
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
+            <div ref={sentinelRef} className="h-px" />
+            <div className="mt-2 flex justify-center py-3">
+              {paginatedQuery.isFetching && <Spin />}
+              {!hasMore && total > 0 && !paginatedQuery.isFetching && (
+                <p className="text-xs text-fg-muted">已加载全部 {total} 个</p>
+              )}
+            </div>
           </>
         )}
       </div>

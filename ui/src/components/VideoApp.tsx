@@ -4,6 +4,7 @@ import { Film, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
+import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
 import { useSyncProgress } from "@/shared/hooks/use-sync-progress";
 import { useWindowActions, useWindowId, useWindowNav } from "@/system";
 import type { TaskMetadata } from "@/system/window/window-types";
@@ -23,7 +24,10 @@ export default function VideoApp() {
   const { LazyViewComponent, route, navigate, updateTitle } = useWindowNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
-  const sidebarCollapsed = containerWidth > 0 && containerWidth < 720;
+  const { collapsed: sidebarCollapsed, onToggleCollapse } = useSidebarCollapsed(
+    "video",
+    containerWidth > 0 && containerWidth < 720,
+  );
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const initialized = useRef(false);
 
@@ -163,6 +167,7 @@ export default function VideoApp() {
         onCreateClick={handleCreate}
         onSettingsClick={handleSettings}
         syncProgress={syncProgress}
+        onToggleCollapse={onToggleCollapse}
       />
       <div
         className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}

@@ -36,6 +36,10 @@ pub async fn list_video_items(
             sort_dir: q.sort_dir.clone().unwrap_or_else(|| "asc".to_string()),
             genre_id,
             search: q.search.clone(),
+            country: q.country.clone(),
+            favorite: q.favorite,
+            resolution: q.resolution.clone(),
+            runtime: q.runtime.clone(),
         },
     )
     .await?;
@@ -64,6 +68,10 @@ pub async fn list_video_tv_shows(
             sort_dir: q.sort_dir.clone().unwrap_or_else(|| "asc".to_string()),
             genre_id,
             search: q.search.clone(),
+            country: q.country.clone(),
+            favorite: q.favorite,
+            resolution: q.resolution.clone(),
+            runtime: q.runtime.clone(),
         },
     )
     .await?;
@@ -79,6 +87,16 @@ pub async fn list_video_genres(
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
     let uid = parse_uuid(&id)?;
     let items = MediaContentRepo::list_genres(&state.db, uid).await?;
+    Ok(ok(items))
+}
+
+/// GET /api/apps/video/{id}/countries
+pub async fn list_video_countries(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<Vec<String>>>, AppError> {
+    let uid = parse_uuid(&id)?;
+    let items = MediaContentRepo::list_countries(&state.db, uid).await?;
     Ok(ok(items))
 }
 
