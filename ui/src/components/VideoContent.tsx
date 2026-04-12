@@ -1,5 +1,6 @@
 import { Empty, PillTabBar, PosterCard, Spin, Tag } from "@tokiomo/components";
 import { getGenreName } from "@tokiomo/types";
+import { motion } from "framer-motion";
 import { ArrowDownUp, Clock, LayoutGrid } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VideoOutput } from "@/generated/rust-api";
@@ -19,6 +20,13 @@ const CARD_TITLE_HEIGHT = 52;
 
 const POSTER_BADGE_CLASS =
   "absolute right-0 inline-flex items-center gap-1 rounded-l-md rounded-r-none border border-r-0 border-white/12 bg-[var(--sidebar-bg)] px-2 py-1 text-[10px] font-medium shadow-sm backdrop-blur-md";
+
+const LAYOUT_SPRING = {
+  type: "spring" as const,
+  stiffness: 400,
+  damping: 30,
+  mass: 0.8,
+};
 
 function MediaCard({
   item,
@@ -102,7 +110,13 @@ function parseSortValue(v: SortValue) {
   return { sortBy: "addedAt", sortDir: "desc" };
 }
 
-export default function VideoContent({ category }: { category: VideoOutput }) {
+export default function VideoContent({
+  category,
+  syncing,
+}: {
+  category: VideoOutput;
+  syncing?: boolean;
+}) {
   const { navigate } = useWindowNav();
   const { lang } = useLang();
   const id = category.id;
@@ -186,7 +200,7 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
         | undefined,
       isFetching: paginatedQuery.isFetching,
       onLoadMore: () => setPage((p) => p + 1),
-      enabled: tab === "all",
+      enabled: tab === "all" && !syncing,
     });
 
   const resetAll = useCallback(() => {
@@ -201,15 +215,6 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
       ? recentQuery.isLoading
       : paginatedQuery.isLoading ||
         (items.length === 0 && paginatedQuery.isFetching);
-
-  // Reset when data is externally cleared (e.g. sync with "clear" option)
-  const lastKnownTotalRef = useRef(total);
-  useEffect(() => {
-    if (lastKnownTotalRef.current > 0 && total === 0 && page > 1) {
-      resetAll();
-    }
-    lastKnownTotalRef.current = total;
-  }, [total, page, resetAll]);
 
   // Reset when switching category
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on id change
@@ -268,7 +273,7 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
   ];
 
   return (
-    <div className="p-4">
+    <div className="flex h-full flex-col p-4">
       <PillTabBar
         tabs={MEDIA_TABS}
         activeTab={tab}
@@ -298,13 +303,14 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
         trailing={displayTotal > 0 ? <Tag>{displayTotal}</Tag> : undefined}
       />
 
-      <div ref={gridWrapperRef} className="mt-3">
-        {isLoading && displayItems.length === 0 ? (
-          <div className="flex h-64 items-center justify-center">
+      <div ref={gridWrapperRef} className="mt-3 min-h-0 flex-1">
+        {(isLoading || syncing) && displayItems.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
             <Spin />
           </div>
         ) : displayItems.length === 0 ? (
           <Empty
+            className="flex h-full items-center justify-center"
             description={
               tab === "recent"
                 ? "暂无最近添加的资源"
@@ -323,12 +329,13 @@ export default function VideoContent({ category }: { category: VideoOutput }) {
               }}
             >
               {displayItems.map((item) => (
-                <MediaCard
-                  key={item.id}
-                  item={item}
-                  landscape={isLandscape}
-                  onClick={() => handleItemClick(item)}
-                />
+                <motion.div key={item.id} layout transition={LAYOUT_SPRING}>
+                  <MediaCard
+                    item={item}
+                    landscape={isLandscape}
+                    onClick={() => handleItemClick(item)}
+                  />
+                </motion.div>
               ))}
             </div>
 

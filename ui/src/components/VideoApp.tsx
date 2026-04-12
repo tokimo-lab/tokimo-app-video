@@ -58,8 +58,8 @@ export default function VideoApp() {
       component: () => import("@/apps/settings/admin/VideoSettingsPage"),
       parentWindowId: windowId,
       title: "TokimoVideo 设置",
-      width: 800,
-      height: 560,
+      width: 960,
+      height: 640,
       noMinimize: true,
     });
   }, [openModalWindow, windowId]);
@@ -173,7 +173,13 @@ export default function VideoApp() {
           </Suspense>
         ) : (
           activeCategoryId &&
-          activeCategory && <VideoContent category={activeCategory} />
+          activeCategory && (
+            <VideoContent
+              key={activeCategoryId}
+              category={activeCategory}
+              syncing={!!syncProgress[activeCategoryId]?.isActive}
+            />
+          )
         )}
       </div>
     </div>

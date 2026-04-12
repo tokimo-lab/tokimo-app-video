@@ -153,33 +153,41 @@ pub async fn upload_poster_and_backdrop(
 ) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error + Send + Sync>> {
     let id_str = entity_id.to_string();
     let folder = if entity == "movie" { "video_items" } else { "tvshows" };
-    let mut poster_storage_path: Option<String> = None;
-    let mut backdrop_storage_path: Option<String> = None;
 
-    // Poster: local → NFO TMDB URL → TMDB API
-    if let (Some(buf), Some(filename)) = (&artwork.poster_buf, &artwork.poster_filename) {
-        let ext = image_storage_ext(filename);
-        let key = format!("library-images/{folder}/{id_str}/poster.{ext}");
-        poster_storage_path = Some(upload_image_buffer(&state.storage, buf, &key).await?);
-    } else {
-        let tmdb_path = nfo_poster_tmdb_path.or(tmdb_poster_path);
-        if let Some(path) = tmdb_path {
-            dispatch_tmdb_image_job(db, path, entity, &id_str, "posterPath").await?;
+    // Upload poster and backdrop concurrently
+    let poster_fut = async {
+        if let (Some(buf), Some(filename)) = (&artwork.poster_buf, &artwork.poster_filename) {
+            let ext = image_storage_ext(filename);
+            let key = format!("library-images/{folder}/{id_str}/poster.{ext}");
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>(Some(
+                upload_image_buffer(&state.storage, buf, &key).await?,
+            ))
+        } else {
+            let tmdb_path = nfo_poster_tmdb_path.or(tmdb_poster_path);
+            if let Some(path) = tmdb_path {
+                dispatch_tmdb_image_job(db, path, entity, &id_str, "posterPath").await?;
+            }
+            Ok(None)
         }
-    }
+    };
 
-    // Backdrop: local → NFO TMDB URL → TMDB API
-    if let Some(buf) = &artwork.fanart_buf {
-        let key = format!("library-images/{folder}/{id_str}/backdrop.jpg");
-        backdrop_storage_path = Some(upload_image_buffer(&state.storage, buf, &key).await?);
-    } else {
-        let tmdb_path = nfo_backdrop_tmdb_path.or(tmdb_backdrop_path);
-        if let Some(path) = tmdb_path {
-            dispatch_tmdb_image_job(db, path, entity, &id_str, "backdropPath").await?;
+    let backdrop_fut = async {
+        if let Some(buf) = &artwork.fanart_buf {
+            let key = format!("library-images/{folder}/{id_str}/backdrop.jpg");
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>(Some(
+                upload_image_buffer(&state.storage, buf, &key).await?,
+            ))
+        } else {
+            let tmdb_path = nfo_backdrop_tmdb_path.or(tmdb_backdrop_path);
+            if let Some(path) = tmdb_path {
+                dispatch_tmdb_image_job(db, path, entity, &id_str, "backdropPath").await?;
+            }
+            Ok(None)
         }
-    }
+    };
 
-    Ok((poster_storage_path, backdrop_storage_path))
+    let (poster_result, backdrop_result) = tokio::join!(poster_fut, backdrop_fut);
+    Ok((poster_result?, backdrop_result?))
 }
 
 /// Upload extra art to `media_arts` table.
@@ -198,34 +206,48 @@ pub async fn upload_extra_art(
         return Ok(());
     };
 
+    // Upload all images concurrently via spawned tasks
+    let mut handles = Vec::with_capacity(extra_art.len());
     for art in extra_art {
+        let storage = state.storage.clone();
         let key = format!("library-images/{folder}/{id_str}/{}.{}", art.art_type, art.ext);
-        let storage_path = upload_image_buffer(&state.storage, &art.buf, &key).await?;
+        let art_type = art.art_type.clone();
+        let buf = art.buf.clone();
+        handles.push(tokio::spawn(async move {
+            upload_image_buffer(&storage, &buf, &key)
+                .await
+                .map(|path| (art_type, path))
+                .map_err(|e| e.to_string())
+        }));
+    }
 
-        let model = media_arts::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            video_item_id: Set(movie_id),
-            tv_show_id: Set(tv_show_id),
-            season_id: Set(None),
-            album_id: Set(None),
-            book_id: Set(None),
-            art_type: Set(art.art_type.clone()),
-            url: Set(storage_path),
-            width: Set(None),
-            height: Set(None),
-            language: Set(None),
-            source: Set(Some("local".to_string())),
-            is_selected: Set(true),
-            created_at: Set(chrono::Utc::now().fixed_offset()),
-        };
-
-        match media_arts::Entity::insert(model).exec(db).await {
-            Ok(_) => {
-                info!("[file_scrape] Uploaded extra art: {} for {}/{}", art.art_type, folder, id_str);
+    // Collect results and insert DB records
+    for handle in handles {
+        match handle.await {
+            Ok(Ok((art_type, storage_path))) => {
+                let model = media_arts::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    video_item_id: Set(movie_id),
+                    tv_show_id: Set(tv_show_id),
+                    season_id: Set(None),
+                    album_id: Set(None),
+                    book_id: Set(None),
+                    art_type: Set(art_type.clone()),
+                    url: Set(storage_path),
+                    width: Set(None),
+                    height: Set(None),
+                    language: Set(None),
+                    source: Set(Some("local".to_string())),
+                    is_selected: Set(true),
+                    created_at: Set(chrono::Utc::now().fixed_offset()),
+                };
+                match media_arts::Entity::insert(model).exec(db).await {
+                    Ok(_) => info!("[file_scrape] Uploaded extra art: {} for {}/{}", art_type, folder, id_str),
+                    Err(e) => warn!("[file_scrape] Failed to insert media_art: {e}"),
+                }
             }
-            Err(e) => {
-                warn!("[file_scrape] Failed to insert media_art: {e}");
-            }
+            Ok(Err(e)) => warn!("[file_scrape] Extra art upload failed: {e}"),
+            Err(e) => warn!("[file_scrape] Extra art task panicked: {e}"),
         }
     }
 

@@ -173,13 +173,12 @@ async fn apply_person_detail(
             if let Some(aka) = &detail.also_known_as && !aka.is_empty() {
                 $active.aliases = Set(Some(aka.clone()));
             }
-            if let Some(ext) = &detail.external_ids
-                && let Some(imdb_id) = &ext.imdb_id {
-                    $active.imdb_id = Set(Some(imdb_id.clone()));
-                }
+            // imdb_id is handled separately to avoid unique constraint violations
             $active.updated_at = Set(Some(now));
         }};
     }
+
+    let new_imdb_id = detail.external_ids.as_ref().and_then(|ext| ext.imdb_id.clone());
 
     if person_type == "tv" {
         use crate::db::entities::tv_persons;
@@ -187,6 +186,18 @@ async fn apply_person_detail(
         let Some(p) = p else { return Ok(()) };
         let mut active: tv_persons::ActiveModel = p.into();
         set_detail!(active);
+        if let Some(ref imdb_id) = new_imdb_id {
+            let conflict = tv_persons::Entity::find()
+                .filter(tv_persons::Column::ImdbId.eq(imdb_id.as_str()))
+                .filter(tv_persons::Column::Id.ne(person_uuid))
+                .count(db)
+                .await?;
+            if conflict == 0 {
+                active.imdb_id = Set(Some(imdb_id.clone()));
+            } else {
+                warn!("[tmdb_person_scrape] Skipping imdb_id {imdb_id} for tv_person {person_uuid}: already used by another record");
+            }
+        }
         active.update(db).await?;
     } else {
         use crate::db::entities::video_persons;
@@ -194,6 +205,18 @@ async fn apply_person_detail(
         let Some(p) = p else { return Ok(()) };
         let mut active: video_persons::ActiveModel = p.into();
         set_detail!(active);
+        if let Some(ref imdb_id) = new_imdb_id {
+            let conflict = video_persons::Entity::find()
+                .filter(video_persons::Column::ImdbId.eq(imdb_id.as_str()))
+                .filter(video_persons::Column::Id.ne(person_uuid))
+                .count(db)
+                .await?;
+            if conflict == 0 {
+                active.imdb_id = Set(Some(imdb_id.clone()));
+            } else {
+                warn!("[tmdb_person_scrape] Skipping imdb_id {imdb_id} for video_person {person_uuid}: already used by another record");
+            }
+        }
         active.update(db).await?;
     }
     Ok(())
