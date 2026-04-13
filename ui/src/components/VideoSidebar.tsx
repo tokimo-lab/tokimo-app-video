@@ -24,22 +24,36 @@ export default function VideoSidebar({
 }) {
   const sections = [
     {
-      items: categories.map((cat) => ({
-        key: cat.id,
-        icon: <AppIcon icon={cat.icon} color={cat.color} size={20} />,
-        label: cat.name,
-        extra: (() => {
-          const sp = syncProgress?.[cat.id];
-          if (sp?.isActive) {
-            return <CircularProgress value={sp.pct} size={24} />;
-          }
-          return cat.itemCount > 0 ? (
-            <span className="text-[10px] tabular-nums text-fg-muted">
-              {cat.itemCount}
+      items: categories.map((cat) => {
+        const sp = syncProgress?.[cat.id];
+        return {
+          key: cat.id,
+          icon: <AppIcon icon={cat.icon} color={cat.color} size={20} />,
+          collapsedIcon: sp?.isActive ? (
+            <span className="relative flex h-7 w-7 items-center justify-center">
+              <AppIcon icon={cat.icon} color={cat.color} size={16} />
+              <CircularProgress
+                value={sp.pct}
+                size={28}
+                strokeWidth={2}
+                showText={false}
+                className="absolute left-0 top-0"
+              />
             </span>
-          ) : undefined;
-        })(),
-      })),
+          ) : undefined,
+          label: cat.name,
+          extra: (() => {
+            if (sp?.isActive) {
+              return <CircularProgress value={sp.pct} size={24} />;
+            }
+            return cat.itemCount > 0 ? (
+              <span className="text-[10px] tabular-nums text-fg-muted">
+                {cat.itemCount}
+              </span>
+            ) : undefined;
+          })(),
+        };
+      }),
     },
   ];
 

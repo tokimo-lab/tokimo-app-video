@@ -111,6 +111,7 @@ export default function VideoApp() {
       api.video.listTvShows.invalidate(queryClient);
       api.video.getRecentlyAdded.invalidate(queryClient);
       api.video.listGenres.invalidate(queryClient);
+      api.video.listCountries.invalidate(queryClient);
     },
     onLibraryRefresh: () => {
       api.video.list.invalidate(queryClient);
