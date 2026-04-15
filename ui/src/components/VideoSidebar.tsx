@@ -33,19 +33,19 @@ export default function VideoSidebar({
             <AppIcon
               icon={getAvatarIcon(cat.avatar) || cat.name}
               color={getAvatarColor(cat.avatar)}
-              size={20}
+              size={24}
             />
           ),
           collapsedIcon: sp?.isActive ? (
-            <span className="relative flex h-7 w-7 items-center justify-center">
+            <span className="relative flex h-8 w-8 items-center justify-center">
               <AppIcon
                 icon={getAvatarIcon(cat.avatar)}
                 color={getAvatarColor(cat.avatar)}
-                size={20}
+                size={24}
               />
               <CircularProgress
                 value={sp.pct}
-                size={28}
+                size={32}
                 strokeWidth={2}
                 showText={false}
                 className="absolute left-0 top-0"
