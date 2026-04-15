@@ -15,16 +15,17 @@ import {
 } from "@tokiomo/components";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import AppAvatarPicker from "@/apps/settings/components/AppAvatarPicker";
+import { AvatarPicker } from "@/components/avatar-picker";
 import type { VideoOutput } from "@/generated/rust-api";
 import { api } from "@/generated/rust-api";
 import {
   getDefaultFileFormat,
   getDefaultFolderFormat,
 } from "@/lib/organize-constants";
-import { AppIcon } from "@/shared/components/icons";
+import { parseAvatar } from "@/shared/avatar-utils";
 import { useMessage } from "@/system";
 import type { OrganizeSettings } from "@/types";
+import type { AvatarData } from "@/types/avatar";
 import VideoBindingsField, {
   type VideoBinding,
 } from "./video-library/VideoBindingsField";
@@ -57,7 +58,7 @@ export default function VideoLibraryEditor({
   const [selectedType, setSelectedType] = useState<string | undefined>(
     video?.type,
   );
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [avatar, setAvatar] = useState<AvatarData | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
 
@@ -68,7 +69,6 @@ export default function VideoLibraryEditor({
       prevVideoId.current = videoId;
       setShowTypeSelect(!videoId);
       setSelectedType(undefined);
-      setPickerOpen(false);
       setDeleteOpen(false);
       setDeleteInput("");
     }
@@ -77,10 +77,13 @@ export default function VideoLibraryEditor({
   const initDefaults = useCallback(
     (type: string) => {
       const info = getVideoTypeInfo(type);
-      form.setFieldsValue({
-        type,
+      setAvatar({
+        type: "icon",
         icon: `lucide:${info.iconName}`,
         color: info.color,
+      });
+      form.setFieldsValue({
+        type,
         bindings: [],
         linkMode: "hardlink",
         folderFormat: getDefaultFolderFormat(type),
@@ -99,11 +102,10 @@ export default function VideoLibraryEditor({
       const settings = (video.settings ?? {}) as Partial<OrganizeSettings>;
       const vt = video.type as string;
       setSelectedType(vt);
+      setAvatar(parseAvatar(video.avatar));
       form.setFieldsValue({
         type: vt,
         name: video.name,
-        icon: video.icon ?? "",
-        color: video.color ?? "",
         description: video.description ?? "",
         linkMode: settings.linkMode ?? "hardlink",
         folderFormat: settings.folderFormat || getDefaultFolderFormat(vt),
@@ -175,8 +177,7 @@ export default function VideoLibraryEditor({
         id: video.id,
         type: selectedType,
         name: values.name as string,
-        icon: (values.icon as string) || null,
-        color: (values.color as string) || null,
+        avatar: avatar as Record<string, unknown> | null,
         description: (values.description as string) || null,
         settings,
         sources,
@@ -185,20 +186,15 @@ export default function VideoLibraryEditor({
       await createMutation.mutateAsync({
         name: values.name as string,
         type: selectedType!,
-        icon: (values.icon as string) || null,
-        color: (values.color as string) || null,
+        avatar: avatar as Record<string, unknown> | null,
         description: (values.description as string) || null,
         settings,
         sources,
       });
     }
-  }, [form, video, selectedType, createMutation, updateMutation]);
+  }, [form, video, selectedType, avatar, createMutation, updateMutation]);
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const iconValue: string = Form.useWatch("icon", form) ?? "";
-  const colorValue: string =
-    Form.useWatch("color", form) ??
-    (selectedType ? getVideoTypeInfo(selectedType).color : "#3b82f6");
   const typeInfo = selectedType ? getVideoTypeInfo(selectedType) : null;
 
   // ── Type selector step ──
@@ -284,23 +280,9 @@ export default function VideoLibraryEditor({
             <Form.Item name="type" hidden>
               <Input />
             </Form.Item>
-            <Form.Item name="icon" hidden>
-              <Input />
-            </Form.Item>
-            <Form.Item name="color" hidden>
-              <Input />
-            </Form.Item>
 
-            <div className="group relative mb-5 w-fit">
-              <AppIcon
-                icon={iconValue}
-                color={colorValue}
-                size={80}
-                onClick={() => setPickerOpen(true)}
-              />
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-                <Pencil className="h-5 w-5 text-white" />
-              </div>
+            <div className="mb-5">
+              <AvatarPicker value={avatar} onChange={setAvatar} size={80} />
             </div>
 
             <Form.Item
@@ -385,16 +367,6 @@ export default function VideoLibraryEditor({
           loading={deleteMutation.isPending}
         />
       )}
-
-      {/* Avatar picker */}
-      <AppAvatarPicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        value={{ icon: iconValue, color: colorValue }}
-        onChange={(val) => {
-          form.setFieldsValue({ icon: val.icon, color: val.color });
-        }}
-      />
     </div>
   );
 }

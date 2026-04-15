@@ -1,6 +1,7 @@
 import { AppSidebar, CircularProgress, Tooltip } from "@tokiomo/components";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
 import type { VideoOutput } from "@/generated/rust-api";
+import { getAvatarColor, getAvatarIcon } from "@/shared/avatar-utils";
 import { AppIcon } from "@/shared/components/icons";
 
 export default function VideoSidebar({
@@ -28,10 +29,20 @@ export default function VideoSidebar({
         const sp = syncProgress?.[cat.id];
         return {
           key: cat.id,
-          icon: <AppIcon icon={cat.icon} color={cat.color} size={20} />,
+          icon: (
+            <AppIcon
+              icon={getAvatarIcon(cat.avatar) || cat.name}
+              color={getAvatarColor(cat.avatar)}
+              size={20}
+            />
+          ),
           collapsedIcon: sp?.isActive ? (
             <span className="relative flex h-7 w-7 items-center justify-center">
-              <AppIcon icon={cat.icon} color={cat.color} size={16} />
+              <AppIcon
+                icon={getAvatarIcon(cat.avatar)}
+                color={getAvatarColor(cat.avatar)}
+                size={20}
+              />
               <CircularProgress
                 value={sp.pct}
                 size={28}
@@ -46,6 +57,7 @@ export default function VideoSidebar({
             if (sp?.isActive) {
               return <CircularProgress value={sp.pct} size={24} />;
             }
+            if (collapsed) return undefined;
             return cat.itemCount > 0 ? (
               <span className="text-[10px] tabular-nums text-fg-muted">
                 {cat.itemCount}

@@ -56,8 +56,7 @@ pub async fn create_video(
         name: None,
         r#type: None,
         description: body.description.clone(),
-        icon: body.icon.clone(),
-        color: body.color.as_ref().map(|c| if c.is_empty() { None } else { Some(c.clone()) }),
+        avatar: body.avatar.clone(),
         poster_path: None,
         scrape_enabled: body.scrape_enabled,
         scrape_agents: body.scrape_agents.clone(),
@@ -65,8 +64,7 @@ pub async fn create_video(
         sources: None,
     };
 
-    if body.icon.is_some()
-        || body.color.is_some()
+    if body.avatar.is_some()
         || body.description.is_some()
         || body.scrape_enabled.is_some()
         || body.scrape_agents.is_some()
@@ -115,8 +113,7 @@ pub async fn update_video(
         name: body.name,
         r#type: body.r#type,
         description: body.description,
-        icon: body.icon,
-        color: body.color.map(|c| if c.is_empty() { None } else { Some(c) }),
+        avatar: body.avatar,
         poster_path: None,
         scrape_enabled: body.scrape_enabled,
         scrape_agents: body.scrape_agents,
