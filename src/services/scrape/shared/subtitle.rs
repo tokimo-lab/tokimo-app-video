@@ -6,13 +6,13 @@ use std::sync::Arc;
 use tracing::warn;
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::subtitles;
 use crate::services::storage::UploadOptions;
-use crate::AppState;
 
-use super::constants::{subtitle_ext_to_format, SUBTITLE_EXTENSIONS};
-use super::parse::detect_subtitle_language;
 use super::DirContext;
+use super::constants::{SUBTITLE_EXTENSIONS, subtitle_ext_to_format};
+use super::parse::detect_subtitle_language;
 
 /// Sync external subtitle files from the directory to the subtitles table.
 pub async fn sync_subtitles(
@@ -25,8 +25,7 @@ pub async fn sync_subtitles(
         .filter(subtitles::Column::FileId.eq(file_id))
         .all(db)
         .await?;
-    let existing_paths: std::collections::HashSet<String> =
-        existing.iter().filter_map(|s| s.path.clone()).collect();
+    let existing_paths: std::collections::HashSet<String> = existing.iter().filter_map(|s| s.path.clone()).collect();
 
     for entry in &ctx.dir_entries {
         let ext_lower = entry
@@ -40,8 +39,7 @@ pub async fn sync_subtitles(
         }
 
         // Subtitle filename must start with the video stem (case-sensitive, aligned with TS)
-        if !entry.starts_with(&ctx.stem)
-        {
+        if !entry.starts_with(&ctx.stem) {
             continue;
         }
 
@@ -55,11 +53,7 @@ pub async fn sync_subtitles(
 
         // Read and upload subtitle file
         let mut s3_key: Option<String> = None;
-        if let Ok(buf) = ctx
-            .vfs
-            .read_bytes(std::path::Path::new(&sub_path), 0, None)
-            .await
-        {
+        if let Ok(buf) = ctx.vfs.read_bytes(std::path::Path::new(&sub_path), 0, None).await {
             let uid = Uuid::new_v4();
             let key = format!("subtitles/{file_id}/{uid}.{format}");
             let content_type = if format == "vtt" {

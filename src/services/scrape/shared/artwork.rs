@@ -7,14 +7,14 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::media_arts;
 use crate::db::repos::job_repo::JobRepo;
 use crate::services::storage::{StorageProvider, UploadOptions};
-use crate::AppState;
 
-use super::constants::{image_mime, image_storage_ext, EXTRA_ART, FANART_NAMES, POSTER_NAMES};
-use super::parse::find_stem_poster_filename;
 use super::DirContext;
+use super::constants::{EXTRA_ART, FANART_NAMES, POSTER_NAMES, image_mime, image_storage_ext};
+use super::parse::find_stem_poster_filename;
 
 /// Upload a local image buffer to S3 and return the storage path.
 pub async fn upload_image_buffer(
@@ -111,14 +111,15 @@ pub async fn discover_artwork(ctx: &DirContext) -> DiscoveredArtwork {
                 .map(|idx| ctx.dir_entries[idx].clone())
         });
         if let Some(found) = found
-            && let Some(buf) = read_file_from_dir(ctx, &found).await {
-                let ext = found.rsplit('.').next().unwrap_or("jpg").to_ascii_lowercase();
-                extra_art.push(ExtraArtBuf {
-                    art_type: def.art_type.to_string(),
-                    buf,
-                    ext,
-                });
-            }
+            && let Some(buf) = read_file_from_dir(ctx, &found).await
+        {
+            let ext = found.rsplit('.').next().unwrap_or("jpg").to_ascii_lowercase();
+            extra_art.push(ExtraArtBuf {
+                art_type: def.art_type.to_string(),
+                buf,
+                ext,
+            });
+        }
     }
 
     DiscoveredArtwork {
@@ -131,10 +132,7 @@ pub async fn discover_artwork(ctx: &DirContext) -> DiscoveredArtwork {
 
 async fn read_file_from_dir(ctx: &DirContext, filename: &str) -> Option<Vec<u8>> {
     let full_path = format!("{}/{}", ctx.dir_path.trim_end_matches('/'), filename);
-    ctx.vfs
-        .read_bytes(std::path::Path::new(&full_path), 0, None)
-        .await
-        .ok()
+    ctx.vfs.read_bytes(std::path::Path::new(&full_path), 0, None).await.ok()
 }
 
 /// Upload poster and backdrop for a movie or TV show.
@@ -242,7 +240,10 @@ pub async fn upload_extra_art(
                     created_at: Set(chrono::Utc::now().fixed_offset()),
                 };
                 match media_arts::Entity::insert(model).exec(db).await {
-                    Ok(_) => info!("[file_scrape] Uploaded extra art: {} for {}/{}", art_type, folder, id_str),
+                    Ok(_) => info!(
+                        "[file_scrape] Uploaded extra art: {} for {}/{}",
+                        art_type, folder, id_str
+                    ),
                     Err(e) => warn!("[file_scrape] Failed to insert media_art: {e}"),
                 }
             }

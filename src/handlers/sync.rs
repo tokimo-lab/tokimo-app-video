@@ -6,17 +6,17 @@ use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::ApiDateTimeExt;
 use crate::db::models::video::{VideoSyncProgressOutput, VideoSyncStatusOutput, VideoTaskProgress};
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::{ok, ApiResponse};
+use crate::handlers::{ApiResponse, ok};
 use crate::services::media::app_sync::AppSyncService;
-use crate::AppState;
 
-use super::{parse_uuid, VideoSyncInput};
+use super::{VideoSyncInput, parse_uuid};
 
 /// POST /api/apps/video/{id}/sync
 pub async fn sync_video(
@@ -51,16 +51,9 @@ pub async fn sync_video(
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
-        match AppSyncService::execute_video_sync(
-            &db, &sources, &storage, uid, false, http_client,
-        )
-        .await
-        {
+        match AppSyncService::execute_video_sync(&db, &sources, &storage, uid, false, http_client).await {
             Ok(result) => {
-                info!(
-                    "video sync completed, {} jobs dispatched",
-                    result.total_jobs
-                );
+                info!("video sync completed, {} jobs dispatched", result.total_jobs);
             }
             Err(e) => {
                 error!("video sync failed: {e}");
@@ -114,8 +107,7 @@ pub async fn get_video_sync_progress(
         .not_found(format!("video {id} not found"))?;
 
     let job_types = &["movie_scrape", "tv_scrape"];
-    let (total, completed, running, pending, failed) =
-        JobRepo::count_jobs_by_app(&state.db, uid, job_types).await?;
+    let (total, completed, running, pending, failed) = JobRepo::count_jobs_by_app(&state.db, uid, job_types).await?;
 
     let rows = JobRepo::get_task_progress_by_app(&state.db, uid, job_types).await?;
     let tasks: Vec<VideoTaskProgress> = rows

@@ -1,19 +1,17 @@
 use axum::{
     extract::{ConnectInfo, Path, Query, Request, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use serde::Deserialize;
 use sea_orm::DatabaseConnection;
+use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
 
 use crate::{
-    db::repos::{
-        auth_repo::AuthRepo, media::file_repo::VideoFileRepo, subtitle_repo::SubtitleRepo,
-    },
-    handlers::media::stream::stream_driver_file,
-    handlers::{err404, err500, err_resp},
     AppState,
+    db::repos::{auth_repo::AuthRepo, media::file_repo::VideoFileRepo, subtitle_repo::SubtitleRepo},
+    handlers::media::stream::stream_driver_file,
+    handlers::{err_resp, err404, err500},
 };
 
 use rust_subtitle::{
@@ -98,7 +96,11 @@ pub async fn stream_media_file(
     // All spawned stream tasks select on this token and abort immediately when
     // the session is cancelled (browser close, explicit stop-session, etc.).
     let cancel = state.stream_sessions.create_or_get(&file_id);
-    tracing::debug!("[StreamSession] DirectPlay session attached file_id={} path={}", file_id, target.path);
+    tracing::debug!(
+        "[StreamSession] DirectPlay session attached file_id={} path={}",
+        file_id,
+        target.path
+    );
 
     let Some(source_id) = target.source_id.as_deref() else {
         return err500::<()>("Media file has no source_id".into()).into_response();

@@ -1,17 +1,17 @@
 use axum::{
+    Json,
     body::Body,
     extract::{Path, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
-    Json,
 };
 use rust_hls::{CreateSessionRequest, HlsSessionInfo};
 use std::sync::Arc;
 use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};
 
-use crate::handlers::{err_resp, ok, ApiResponse};
 use crate::AppState;
+use crate::handlers::{ApiResponse, err_resp, ok};
 
 /// POST /api/hls/sessions — create a new HLS transcoding session.
 pub async fn create_session(
@@ -28,33 +28,23 @@ pub async fn create_session(
 }
 
 /// DELETE /`api/hls/{session_id`} — stop an HLS session.
-pub async fn stop_session(
-    State(state): State<Arc<AppState>>,
-    Path(session_id): Path<String>,
-) -> Response {
+pub async fn stop_session(State(state): State<Arc<AppState>>, Path(session_id): Path<String>) -> Response {
     debug!("[HLS] stop request for session {}", session_id);
     state.hls_manager.stop_session(&session_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
 
 /// DELETE /api/hls/by-file/{file_id} — stop all HLS sessions for a file.
-pub async fn stop_sessions_for_file(
-    State(state): State<Arc<AppState>>,
-    Path(file_id): Path<String>,
-) -> Response {
+pub async fn stop_sessions_for_file(State(state): State<Arc<AppState>>, Path(file_id): Path<String>) -> Response {
     debug!("[HLS] stop-by-file request for file {}", file_id);
     state.hls_manager.stop_session_for_file(&file_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
 
 /// GET /`api/hls/{session_id}/playlist.m3u8` — serve the VOD playlist.
-pub async fn get_playlist(
-    State(state): State<Arc<AppState>>,
-    Path(session_id): Path<String>,
-) -> Response {
+pub async fn get_playlist(State(state): State<Arc<AppState>>, Path(session_id): Path<String>) -> Response {
     let Some(session) = state.hls_manager.get_session(&session_id).await else {
-        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
-            .into_response();
+        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into()).into_response();
     };
 
     // Keep stream_sessions alive so cleanup_stale doesn't reap this file's session.
@@ -84,8 +74,7 @@ pub async fn get_segment(
     let req_start = std::time::Instant::now();
 
     let Some(session) = state.hls_manager.get_session(&session_id).await else {
-        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into())
-            .into_response();
+        return err_resp::<()>(StatusCode::NOT_FOUND, "HLS session not found".into()).into_response();
     };
 
     // Keep stream_sessions alive so cleanup_stale doesn't reap this file's session.
@@ -159,10 +148,7 @@ pub async fn get_segment(
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
         }
         Err(e) => {
-            warn!(
-                "[HLS:{}] failed to read segment {}: {}",
-                session_id, segment, e
-            );
+            warn!("[HLS:{}] failed to read segment {}: {}", session_id, segment, e);
             StatusCode::NOT_FOUND.into_response()
         }
     }

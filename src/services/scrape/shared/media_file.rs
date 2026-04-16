@@ -7,16 +7,16 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{episodes, video_files, video_items, tv_shows};
-use crate::queue::handlers::common;
 use crate::AppState;
+use crate::db::entities::{episodes, tv_shows, video_files, video_items};
+use crate::queue::handlers::common;
 
-use super::artwork;
-use super::constants::{guess_mime, image_storage_ext, POSTER_NAMES};
-use super::lib_type::LibType;
-use crate::queue::handlers::nfo_parser::{self, extract_tmdb_path, NfoInfo};
-use super::parse;
 use super::DirContext;
+use super::artwork;
+use super::constants::{POSTER_NAMES, guess_mime, image_storage_ext};
+use super::lib_type::LibType;
+use super::parse;
+use crate::queue::handlers::nfo_parser::{self, NfoInfo, extract_tmdb_path};
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -56,8 +56,7 @@ pub async fn create_or_update(
         .await?;
 
     if let Some(existing) = existing {
-        let mut update =
-            video_files::Entity::update_many().filter(video_files::Column::Id.eq(existing.id));
+        let mut update = video_files::Entity::update_many().filter(video_files::Column::Id.eq(existing.id));
         if movie_id.is_some() {
             update = update.col_expr(video_files::Column::VideoItemId, Expr::value(movie_id));
         }
@@ -148,17 +147,13 @@ pub async fn create_or_update(
                 .filter(video_files::Column::Path.eq(file_path))
                 .one(db)
                 .await?
-                .ok_or_else(|| {
-                    format!("Unique violation but no existing video_file for {file_path}")
-                })?;
-            let mut update = video_files::Entity::update_many()
-                .filter(video_files::Column::Id.eq(existing.id));
+                .ok_or_else(|| format!("Unique violation but no existing video_file for {file_path}"))?;
+            let mut update = video_files::Entity::update_many().filter(video_files::Column::Id.eq(existing.id));
             if movie_id.is_some() {
                 update = update.col_expr(video_files::Column::VideoItemId, Expr::value(movie_id));
             }
             if episode_id.is_some() {
-                update =
-                    update.col_expr(video_files::Column::EpisodeId, Expr::value(episode_id));
+                update = update.col_expr(video_files::Column::EpisodeId, Expr::value(episode_id));
             }
             update
                 .col_expr(video_files::Column::ScannedAt, Expr::cust("NOW()"))
@@ -189,39 +184,32 @@ pub async fn try_nfo_patch(
 
     if lib_type.is_movie_family() {
         if let Some(mid) = indexed.video_item_id
-            && let Ok(Some(movie)) = video_items::Entity::find_by_id(mid).one(db).await {
-                needs_tmdb_id = movie.tmdb_id.is_none();
-                needs_poster = movie.poster_path.is_none();
-                entity_movie_id = Some(mid);
-            }
+            && let Ok(Some(movie)) = video_items::Entity::find_by_id(mid).one(db).await
+        {
+            needs_tmdb_id = movie.tmdb_id.is_none();
+            needs_poster = movie.poster_path.is_none();
+            entity_movie_id = Some(mid);
+        }
     } else if lib_type.is_tv_family()
         && let Some(eid) = indexed.episode_id
-            && let Ok(Some(ep)) = episodes::Entity::find_by_id(eid).one(db).await
-                && let Ok(Some(show)) =
-                    tv_shows::Entity::find_by_id(ep.tv_show_id).one(db).await
-                {
-                    needs_tmdb_id = show.tmdb_id.is_none();
-                    needs_poster = show.poster_path.is_none();
-                    entity_tv_show_id = Some(ep.tv_show_id);
-                }
-
-    if (!needs_tmdb_id && !needs_poster)
-        || (entity_movie_id.is_none() && entity_tv_show_id.is_none())
+        && let Ok(Some(ep)) = episodes::Entity::find_by_id(eid).one(db).await
+        && let Ok(Some(show)) = tv_shows::Entity::find_by_id(ep.tv_show_id).one(db).await
     {
+        needs_tmdb_id = show.tmdb_id.is_none();
+        needs_poster = show.poster_path.is_none();
+        entity_tv_show_id = Some(ep.tv_show_id);
+    }
+
+    if (!needs_tmdb_id && !needs_poster) || (entity_movie_id.is_none() && entity_tv_show_id.is_none()) {
         return;
     }
 
-    let Ok(vfs) = state.sources.ensure_vfs(source_id).await else { return };
+    let Ok(vfs) = state.sources.ensure_vfs(source_id).await else {
+        return;
+    };
     let filename = indexed.filename.as_str();
-    let stem = filename
-        .rsplit_once('.')
-        .map_or(filename, |(n, _)| n)
-        .to_string();
-    let dir_folder_name = dir_path
-        .trim_end_matches('/')
-        .rsplit('/')
-        .next()
-        .unwrap_or("");
+    let stem = filename.rsplit_once('.').map_or(filename, |(n, _)| n).to_string();
+    let dir_folder_name = dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");
 
     let dir_entries: Vec<String> = match vfs.list(std::path::Path::new(dir_path)).await {
         Ok(entries) => entries.into_iter().map(|e| e.name).collect(),
@@ -256,9 +244,29 @@ pub async fn try_nfo_patch(
     }
 
     if let Some(mid) = entity_movie_id {
-        patch_movie(db, state, mid, needs_tmdb_id, needs_poster, &nfo, &poster_buf, &poster_filename).await;
+        patch_movie(
+            db,
+            state,
+            mid,
+            needs_tmdb_id,
+            needs_poster,
+            &nfo,
+            &poster_buf,
+            &poster_filename,
+        )
+        .await;
     } else if let Some(tid) = entity_tv_show_id {
-        patch_tv_show(db, state, tid, needs_tmdb_id, needs_poster, &nfo, &poster_buf, &poster_filename).await;
+        patch_tv_show(
+            db,
+            state,
+            tid,
+            needs_tmdb_id,
+            needs_poster,
+            &nfo,
+            &poster_buf,
+            &poster_filename,
+        )
+        .await;
     }
 }
 
@@ -275,21 +283,22 @@ async fn patch_movie(
 ) {
     if needs_tmdb_id
         && let Some(nfo) = nfo
-            && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some()) {
-                let mut update = video_items::Entity::update_many().filter(video_items::Column::Id.eq(mid));
-                if let Some(ref tid) = nfo.tmdb_id {
-                    update = update.col_expr(video_items::Column::TmdbId, Expr::value(tid.as_str()));
-                }
-                if let Some(ref iid) = nfo.imdb_id {
-                    update = update.col_expr(video_items::Column::ImdbId, Expr::value(iid.as_str()));
-                }
-                let _ = update.exec(db).await;
-                info!(
-                    "[nfo_patch] movie {mid}: set tmdbId={} imdbId={}",
-                    nfo.tmdb_id.as_deref().unwrap_or("-"),
-                    nfo.imdb_id.as_deref().unwrap_or("-")
-                );
-            }
+        && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some())
+    {
+        let mut update = video_items::Entity::update_many().filter(video_items::Column::Id.eq(mid));
+        if let Some(ref tid) = nfo.tmdb_id {
+            update = update.col_expr(video_items::Column::TmdbId, Expr::value(tid.as_str()));
+        }
+        if let Some(ref iid) = nfo.imdb_id {
+            update = update.col_expr(video_items::Column::ImdbId, Expr::value(iid.as_str()));
+        }
+        let _ = update.exec(db).await;
+        info!(
+            "[nfo_patch] movie {mid}: set tmdbId={} imdbId={}",
+            nfo.tmdb_id.as_deref().unwrap_or("-"),
+            nfo.imdb_id.as_deref().unwrap_or("-")
+        );
+    }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
@@ -302,9 +311,7 @@ async fn patch_movie(
                     .await;
                 info!("[nfo_patch] movie {mid}: uploaded poster {pf}");
             }
-        } else if let Some(tmdb_path) =
-            nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref()))
-        {
+        } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
             let _ = artwork::dispatch_tmdb_image_job(db, &tmdb_path, "movie", &mid.to_string(), "posterPath").await;
             info!("[nfo_patch] movie {mid}: dispatched poster job from NFO");
         }
@@ -324,22 +331,22 @@ async fn patch_tv_show(
 ) {
     if needs_tmdb_id
         && let Some(nfo) = nfo
-            && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some()) {
-                let mut update =
-                    tv_shows::Entity::update_many().filter(tv_shows::Column::Id.eq(tid));
-                if let Some(ref tmdb) = nfo.tmdb_id {
-                    update = update.col_expr(tv_shows::Column::TmdbId, Expr::value(tmdb.as_str()));
-                }
-                if let Some(ref imdb) = nfo.imdb_id {
-                    update = update.col_expr(tv_shows::Column::ImdbId, Expr::value(imdb.as_str()));
-                }
-                let _ = update.exec(db).await;
-                info!(
-                    "[nfo_patch] tvShow {tid}: set tmdbId={} imdbId={}",
-                    nfo.tmdb_id.as_deref().unwrap_or("-"),
-                    nfo.imdb_id.as_deref().unwrap_or("-")
-                );
-            }
+        && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some())
+    {
+        let mut update = tv_shows::Entity::update_many().filter(tv_shows::Column::Id.eq(tid));
+        if let Some(ref tmdb) = nfo.tmdb_id {
+            update = update.col_expr(tv_shows::Column::TmdbId, Expr::value(tmdb.as_str()));
+        }
+        if let Some(ref imdb) = nfo.imdb_id {
+            update = update.col_expr(tv_shows::Column::ImdbId, Expr::value(imdb.as_str()));
+        }
+        let _ = update.exec(db).await;
+        info!(
+            "[nfo_patch] tvShow {tid}: set tmdbId={} imdbId={}",
+            nfo.tmdb_id.as_deref().unwrap_or("-"),
+            nfo.imdb_id.as_deref().unwrap_or("-")
+        );
+    }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
@@ -352,9 +359,7 @@ async fn patch_tv_show(
                     .await;
                 info!("[nfo_patch] tvShow {tid}: uploaded poster {pf}");
             }
-        } else if let Some(tmdb_path) =
-            nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref()))
-        {
+        } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
             let _ = artwork::dispatch_tmdb_image_job(db, &tmdb_path, "tvShow", &tid.to_string(), "posterPath").await;
             info!("[nfo_patch] tvShow {tid}: dispatched poster job from NFO");
         }
@@ -362,16 +367,8 @@ async fn patch_tv_show(
 }
 
 /// Read NFO file from a directory context for `nfo_patch`.
-async fn read_nfo_for_patch(
-    ctx: &DirContext,
-    stem: &str,
-    dir_folder_name: &str,
-) -> Option<NfoInfo> {
-    let lower_entries: Vec<String> = ctx
-        .dir_entries
-        .iter()
-        .map(|e| e.to_ascii_lowercase())
-        .collect();
+async fn read_nfo_for_patch(ctx: &DirContext, stem: &str, dir_folder_name: &str) -> Option<NfoInfo> {
+    let lower_entries: Vec<String> = ctx.dir_entries.iter().map(|e| e.to_ascii_lowercase()).collect();
     let stem_lower = stem.to_ascii_lowercase();
     let dir_lower_name = dir_folder_name.to_ascii_lowercase();
 
@@ -379,11 +376,7 @@ async fn read_nfo_for_patch(
         .iter()
         .position(|e| e == &format!("{stem_lower}.nfo"))
         .or_else(|| lower_entries.iter().position(|e| e == "movie.nfo"))
-        .or_else(|| {
-            lower_entries
-                .iter()
-                .position(|e| e == &format!("{dir_lower_name}.nfo"))
-        })
+        .or_else(|| lower_entries.iter().position(|e| e == &format!("{dir_lower_name}.nfo")))
         .map(|i| ctx.dir_entries[i].clone())?;
 
     let nfo_path = format!("{}/{}", ctx.dir_path.trim_end_matches('/'), nfo_filename);
@@ -395,4 +388,3 @@ async fn read_nfo_for_patch(
     let content = String::from_utf8_lossy(&bytes).to_string();
     Some(nfo_parser::parse_nfo(&content))
 }
-

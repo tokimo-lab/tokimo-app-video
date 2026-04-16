@@ -23,10 +23,10 @@ pub struct UdfreadBlockInput {
     pub read: Option<
         unsafe extern "C" fn(
             *mut UdfreadBlockInput,
-            u32,        // lba
+            u32,         // lba
             *mut c_void, // buf
-            u32,        // nblocks
-            c_int,      // flags
+            u32,         // nblocks
+            c_int,       // flags
         ) -> c_int,
     >,
     pub size: Option<unsafe extern "C" fn(*mut UdfreadBlockInput) -> c_uint>,

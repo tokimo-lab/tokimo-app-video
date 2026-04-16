@@ -4,16 +4,15 @@ use axum::{
 };
 use std::sync::Arc;
 
+use crate::AppState;
 use crate::db::pagination::Page;
 use crate::db::repos::media::MediaContentRepo;
 use crate::db::repos::media::media_content_repo::ListMediaInput;
 use crate::error::{AppError, OptionExt};
-use crate::handlers::{ok, ApiResponse};
-use crate::AppState;
+use crate::handlers::{ApiResponse, ok};
 
 use super::{
-    parse_uuid, VideoCollectionsQuery, VideoListMediaQuery, VideoRecentlyAddedQuery,
-    VideoToggleFavoriteInput,
+    VideoCollectionsQuery, VideoListMediaQuery, VideoRecentlyAddedQuery, VideoToggleFavoriteInput, parse_uuid,
 };
 
 /// GET /api/apps/video/{id}/items
@@ -43,9 +42,7 @@ pub async fn list_video_items(
         },
     )
     .await?;
-    Ok(ok(
-        Page::from_parts(items, total, page as u64, page_size as u64),
-    ))
+    Ok(ok(Page::from_parts(items, total, page as u64, page_size as u64)))
 }
 
 /// GET /api/apps/video/{id}/tv-shows
@@ -75,9 +72,7 @@ pub async fn list_video_tv_shows(
         },
     )
     .await?;
-    Ok(ok(
-        Page::from_parts(items, total, page as u64, page_size as u64),
-    ))
+    Ok(ok(Page::from_parts(items, total, page as u64, page_size as u64)))
 }
 
 /// GET /api/apps/video/{id}/genres

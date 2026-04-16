@@ -8,13 +8,17 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::video_items;
 use crate::AppState;
+use crate::db::entities::video_items;
 
-use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
-use crate::queue::handlers::common::{is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media, CastMember};
-use crate::services::media::scrape::shared::lib_type::LibType;
+use crate::queue::handlers::common::{
+    CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
+};
 use crate::queue::handlers::nfo_parser::NfoInfo;
+use crate::services::media::scrape::shared::artwork::{
+    DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
+};
+use crate::services::media::scrape::shared::lib_type::LibType;
 use crate::services::media::scrape::shared::tmdb;
 
 pub struct VideoItemResult {
@@ -39,10 +43,18 @@ pub async fn scrape(
     parsed_year: Option<i32>,
 ) -> Result<VideoItemResult, Box<dyn std::error::Error + Send + Sync>> {
     find_or_create_video_item(
-        db, state, app_id, lib_type,
-        nfo.as_ref(), parsed_title, parsed_year,
-        title, year, artwork,
-        nfo_poster_tmdb.as_deref(), nfo_backdrop_tmdb.as_deref(),
+        db,
+        state,
+        app_id,
+        lib_type,
+        nfo.as_ref(),
+        parsed_title,
+        parsed_year,
+        title,
+        year,
+        artwork,
+        nfo_poster_tmdb.as_deref(),
+        nfo_backdrop_tmdb.as_deref(),
     )
     .await
 }
@@ -80,14 +92,20 @@ pub async fn find_or_create_video_item(
     let nfo_imdb_id = nfo.and_then(|n| n.imdb_id.as_deref());
     if let Some(id) = find_existing_video_item(db, app_id, nfo_tmdb_id, nfo_imdb_id).await? {
         touch_video_item(db, id).await?;
-        return Ok(VideoItemResult { video_item_id: id, scraped: false });
+        return Ok(VideoItemResult {
+            video_item_id: id,
+            scraped: false,
+        });
     }
 
     // Step 2: Check by parsed title+year — handles the common case where a sibling job
     // in the same movie directory already created the movie record.
     if let Some(id) = find_existing_video_item_by_title(db, app_id, parsed_title, parsed_year).await? {
         touch_video_item(db, id).await?;
-        return Ok(VideoItemResult { video_item_id: id, scraped: false });
+        return Ok(VideoItemResult {
+            video_item_id: id,
+            scraped: false,
+        });
     }
 
     // Step 3: Movie not in DB — call TMDB now.
@@ -95,8 +113,13 @@ pub async fn find_or_create_video_item(
         if let Some(api_key) = tmdb::get_api_key(db).await? {
             let client = tmdb::build_client(state, &api_key);
             tmdb::scrape_movie(
-                &client, nfo, display_title, display_year, artwork,
-                nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
+                &client,
+                nfo,
+                display_title,
+                display_year,
+                artwork,
+                nfo_poster_tmdb_path,
+                nfo_backdrop_tmdb_path,
             )
             .await
         } else {
@@ -106,8 +129,7 @@ pub async fn find_or_create_video_item(
         None
     };
 
-    let scraped =
-        tmdb_detail.is_some() || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient);
+    let scraped = tmdb_detail.is_some() || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient);
 
     let tmdb_id_str = tmdb_detail
         .as_ref()
@@ -121,22 +143,46 @@ pub async fn find_or_create_video_item(
     // Step 4: Re-check by TMDB-resolved IDs to handle rare cross-directory races
     // (e.g. same movie appearing in two different libraries simultaneously).
     if let Some(id) = find_existing_video_item(db, app_id, tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await? {
-        backfill_video_item_ids(db, id, tmdb_detail.as_ref(), tmdb_id_str.as_deref(), imdb_id_str.as_deref()).await?;
+        backfill_video_item_ids(
+            db,
+            id,
+            tmdb_detail.as_ref(),
+            tmdb_id_str.as_deref(),
+            imdb_id_str.as_deref(),
+        )
+        .await?;
         touch_video_item(db, id).await?;
-        return Ok(VideoItemResult { video_item_id: id, scraped: false });
+        return Ok(VideoItemResult {
+            video_item_id: id,
+            scraped: false,
+        });
     }
 
     // Step 5: Create the movie record.
     let movie_id = create_video_item_record(
-        db, app_id, is_adult, should_use_tmdb, tmdb_detail.as_ref(), nfo,
-        parsed_title, parsed_year, tmdb_id_str.as_deref(), imdb_id_str.as_deref(), lib_type,
+        db,
+        app_id,
+        is_adult,
+        should_use_tmdb,
+        tmdb_detail.as_ref(),
+        nfo,
+        parsed_title,
+        parsed_year,
+        tmdb_id_str.as_deref(),
+        imdb_id_str.as_deref(),
+        lib_type,
     )
     .await?;
 
     // Upload artwork.
     let (poster_path, backdrop_path) = upload_poster_and_backdrop(
-        db, state, "movie", movie_id, artwork,
-        nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
+        db,
+        state,
+        "movie",
+        movie_id,
+        artwork,
+        nfo_poster_tmdb_path,
+        nfo_backdrop_tmdb_path,
         tmdb_detail.as_ref().and_then(|d| d.base.poster_path.as_deref()),
         tmdb_detail.as_ref().and_then(|d| d.base.backdrop_path.as_deref()),
     )
@@ -159,21 +205,31 @@ pub async fn find_or_create_video_item(
             sync_genres(db, genres, Some(movie_id), None).await?;
         }
     } else if let Some(nfo) = nfo
-        && !nfo.genres.is_empty() {
-            sync_genres_from_names(db, &nfo.genres, Some(movie_id), None).await?;
-        }
+        && !nfo.genres.is_empty()
+    {
+        sync_genres_from_names(db, &nfo.genres, Some(movie_id), None).await?;
+    }
 
     // Sync cast/people: unified approach (TMDB cast preferred, NFO actors fallback).
     {
         let cast: Vec<CastMember> = if let Some(detail) = tmdb_detail.as_ref() {
-            detail.cast.as_deref().unwrap_or(&[]).iter().map(CastMember::from).collect()
+            detail
+                .cast
+                .as_deref()
+                .unwrap_or(&[])
+                .iter()
+                .map(CastMember::from)
+                .collect()
         } else if let Some(nfo) = nfo {
-            nfo.actors.iter().map(|a| CastMember {
-                name: a.name.clone(),
-                role: a.role.clone(),
-                thumb: a.thumb.clone(),
-                tmdb_id: None,
-            }).collect()
+            nfo.actors
+                .iter()
+                .map(|a| CastMember {
+                    name: a.name.clone(),
+                    role: a.role.clone(),
+                    thumb: a.thumb.clone(),
+                    tmdb_id: None,
+                })
+                .collect()
         } else {
             vec![]
         };
@@ -183,7 +239,10 @@ pub async fn find_or_create_video_item(
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
 
-    Ok(VideoItemResult { video_item_id: movie_id, scraped })
+    Ok(VideoItemResult {
+        video_item_id: movie_id,
+        scraped,
+    })
 }
 
 async fn touch_video_item(
@@ -244,8 +303,7 @@ async fn find_existing_video_item_by_title(
     if let Some(ref m) = existing {
         info!(
             "[movie_scrape] Dedup by title+year: found existing movie '{}' ({})",
-            title,
-            m.id
+            title, m.id
         );
     }
     Ok(existing.map(|m| m.id))
@@ -274,7 +332,11 @@ async fn backfill_video_item_ids(
     let mut update = video_items::Entity::update_many().filter(video_items::Column::Id.eq(movie_id));
     if need_tmdb {
         update = update.col_expr(video_items::Column::TmdbId, Expr::value(tmdb_id.unwrap()));
-        info!("[movie_scrape] Backfilled tmdb_id={} onto movie {}", tmdb_id.unwrap(), movie_id);
+        info!(
+            "[movie_scrape] Backfilled tmdb_id={} onto movie {}",
+            tmdb_id.unwrap(),
+            movie_id
+        );
     }
     if need_imdb {
         update = update.col_expr(video_items::Column::ImdbId, Expr::value(imdb_id.unwrap()));
@@ -304,47 +366,84 @@ async fn create_video_item_record(
     let movie_id = Uuid::new_v4();
     let now = chrono::Utc::now().fixed_offset();
 
-    let title = tmdb_detail.map(|d| d.base.title.clone())
+    let title = tmdb_detail
+        .map(|d| d.base.title.clone())
         .or_else(|| nfo.and_then(|n| n.title.clone()))
         .unwrap_or_else(|| parsed_title.to_string());
 
-    let original_title = tmdb_detail.and_then(|d| d.base.original_title.clone())
+    let original_title = tmdb_detail
+        .and_then(|d| d.base.original_title.clone())
         .or_else(|| nfo.and_then(|n| n.original_title.clone()));
 
-    let year = tmdb_detail.and_then(|d| d.base.release_date.as_deref()
-        .and_then(|r| r.get(..4)).and_then(|y| y.parse::<i32>().ok()))
+    let year = tmdb_detail
+        .and_then(|d| {
+            d.base
+                .release_date
+                .as_deref()
+                .and_then(|r| r.get(..4))
+                .and_then(|y| y.parse::<i32>().ok())
+        })
         .or(parsed_year);
 
-    let release_date = tmdb_detail.and_then(|d| d.base.release_date.as_deref()
-        .and_then(|r| chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d").ok()))
-        .or_else(|| nfo.and_then(|n| n.release_date.as_deref()
-            .and_then(|r| chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d").ok())));
+    let release_date = tmdb_detail
+        .and_then(|d| {
+            d.base
+                .release_date
+                .as_deref()
+                .and_then(|r| chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d").ok())
+        })
+        .or_else(|| {
+            nfo.and_then(|n| {
+                n.release_date
+                    .as_deref()
+                    .and_then(|r| chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d").ok())
+            })
+        });
 
-    let runtime = tmdb_detail.and_then(|d| d.runtime)
+    let runtime = tmdb_detail
+        .and_then(|d| d.runtime)
         .or_else(|| nfo.and_then(|n| n.runtime));
 
-    let overview = tmdb_detail.and_then(|d| d.base.overview.clone())
+    let overview = tmdb_detail
+        .and_then(|d| d.base.overview.clone())
         .or_else(|| nfo.and_then(|n| n.plot.clone()));
-    let tagline = tmdb_detail.and_then(|d| d.tagline.clone())
+    let tagline = tmdb_detail
+        .and_then(|d| d.tagline.clone())
         .or_else(|| nfo.and_then(|n| n.tagline.clone()));
     let tmdb_rating = if should_use_tmdb {
-        tmdb_detail.and_then(|d| d.base.vote_average).or_else(|| nfo.and_then(|n| n.rating))
+        tmdb_detail
+            .and_then(|d| d.base.vote_average)
+            .or_else(|| nfo.and_then(|n| n.rating))
     } else {
         nfo.and_then(|n| n.rating)
     };
     let content_rating = nfo.and_then(|n| n.content_rating.clone());
-    let countries = tmdb_detail.and_then(|d| d.origin_country.clone()).filter(|c| !c.is_empty());
+    let countries = tmdb_detail
+        .and_then(|d| d.origin_country.clone())
+        .filter(|c| !c.is_empty());
     let scraped_at = if tmdb_detail.is_some()
         || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient)
         || lib_type == LibType::Custom
-    { Some(now) } else { None };
+    {
+        Some(now)
+    } else {
+        None
+    };
 
     let mut metadata = serde_json::Map::new();
     if let Some(nfo) = nfo {
-        if let Some(ref s) = nfo.studio { metadata.insert("studio".into(), json!(s)); }
-        if let Some(ref c) = nfo.country { metadata.insert("country".into(), json!(c)); }
+        if let Some(ref s) = nfo.studio {
+            metadata.insert("studio".into(), json!(s));
+        }
+        if let Some(ref c) = nfo.country {
+            metadata.insert("country".into(), json!(c));
+        }
     }
-    let metadata_json = if metadata.is_empty() { None } else { Some(serde_json::Value::Object(metadata)) };
+    let metadata_json = if metadata.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(metadata))
+    };
 
     let model = video_items::ActiveModel {
         id: Set(movie_id),
@@ -358,8 +457,16 @@ async fn create_video_item_record(
         tmdb_rating: Set(tmdb_rating),
         imdb_rating: Set(None),
         douban_rating: Set(None),
-        tmdb_id: Set(if should_use_tmdb { tmdb_id_str.map(std::string::ToString::to_string) } else { None }),
-        imdb_id: Set(if should_use_tmdb { imdb_id_str.map(std::string::ToString::to_string) } else { None }),
+        tmdb_id: Set(if should_use_tmdb {
+            tmdb_id_str.map(std::string::ToString::to_string)
+        } else {
+            None
+        }),
+        imdb_id: Set(if should_use_tmdb {
+            imdb_id_str.map(std::string::ToString::to_string)
+        } else {
+            None
+        }),
         douban_id: Set(None),
         jav_number: Set(None),
         javbus_id: Set(None),
@@ -384,12 +491,16 @@ async fn create_video_item_record(
 
     match video_items::Entity::insert(model).exec(db).await {
         Ok(_) => {
-            info!("[movie_scrape] Created movie: {title} (tmdb={}, imdb={})",
-                tmdb_id_str.unwrap_or("-"), imdb_id_str.unwrap_or("-"));
+            info!(
+                "[movie_scrape] Created movie: {title} (tmdb={}, imdb={})",
+                tmdb_id_str.unwrap_or("-"),
+                imdb_id_str.unwrap_or("-")
+            );
             Ok(movie_id)
         }
         Err(e) if is_unique_violation(&e) => {
-            let existing = find_existing_video_item(db, app_id, tmdb_id_str, imdb_id_str).await?
+            let existing = find_existing_video_item(db, app_id, tmdb_id_str, imdb_id_str)
+                .await?
                 .or(find_existing_video_item_by_title(db, app_id, parsed_title, parsed_year).await?);
             if let Some(id) = existing {
                 info!("[movie_scrape] Movie already exists (concurrent): {title}");
@@ -401,5 +512,3 @@ async fn create_video_item_record(
         Err(e) => Err(e.into()),
     }
 }
-
-

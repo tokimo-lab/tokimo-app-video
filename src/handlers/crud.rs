@@ -5,25 +5,23 @@ use axum::{
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::models::video::VideoOutput;
 use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::video_repo::UpdateVideoFields;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::{ok, ok_empty, ApiResponse};
+use crate::handlers::{ApiResponse, ok, ok_empty};
 use crate::services::media::source::normalize_source_path;
-use crate::AppState;
 
 use super::{
-    parse_uuid, sources_to_json, to_video_output, to_video_outputs,
-    CreateVideoInput, UpdateVideoInput, VideoReorderInput,
+    CreateVideoInput, UpdateVideoInput, VideoReorderInput, parse_uuid, sources_to_json, to_video_output,
+    to_video_outputs,
 };
 
 /// GET /api/apps/video
-pub async fn list_videos(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<ApiResponse<Vec<VideoOutput>>>, AppError> {
+pub async fn list_videos(State(state): State<Arc<AppState>>) -> Result<Json<ApiResponse<Vec<VideoOutput>>>, AppError> {
     let rows = VideoRepo::list_all(&state.db).await?;
     let outputs = to_video_outputs(&state.db, rows).await?;
     Ok(ok(outputs))
@@ -163,12 +161,7 @@ pub async fn reorder_videos(
     let orders: Vec<(Uuid, i32)> = body
         .orders
         .into_iter()
-        .filter_map(|item| {
-            item.id
-                .parse::<Uuid>()
-                .ok()
-                .map(|uid| (uid, item.sort_order))
-        })
+        .filter_map(|item| item.id.parse::<Uuid>().ok().map(|uid| (uid, item.sort_order)))
         .collect();
     VideoRepo::reorder(&state.db, orders).await?;
     Ok(ok_empty())

@@ -14,15 +14,13 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
+use super::iso_reader;
 use crate::AppState;
 use crate::db::entities::{vfs, video_files};
-use crate::db::models::playback::{
-    AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto,
-};
-use crate::db::repos::media::{MusicRepo, PlaybackRepo, PlaybackSessionRepo};
+use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
 use crate::db::repos::media::playback_session_repo::CreatePlaybackSessionInput;
+use crate::db::repos::media::{MusicRepo, PlaybackRepo, PlaybackSessionRepo};
 use crate::db::repos::subtitle_repo::SubtitleRepo;
-use super::iso_reader;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
@@ -124,8 +122,7 @@ pub async fn stream_url(
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid file ID".into())
-                .into_response();
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid file ID".into()).into_response();
         }
     };
 
@@ -140,8 +137,7 @@ pub async fn stream_url(
     {
         Ok(row) => row,
         Err(e) => {
-            return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-                .into_response();
+            return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
         }
     };
 
@@ -150,21 +146,17 @@ pub async fn stream_url(
         match MusicRepo::load_stream_target(db, &file_id).await {
             Ok(Some(_)) => {
                 let url = format!("/api/apps/music/files/{file_id}/stream");
-                return ok(StreamUrlDto { url, watch_history_id: None }).into_response();
+                return ok(StreamUrlDto {
+                    url,
+                    watch_history_id: None,
+                })
+                .into_response();
             }
             Ok(None) => {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::NOT_FOUND,
-                    "File not found".into(),
-                )
-                .into_response();
+                return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into()).into_response();
             }
             Err(e) => {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    e.to_string(),
-                )
-                .into_response();
+                return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
             }
         }
     };
@@ -173,8 +165,7 @@ pub async fn stream_url(
     let user_uuid: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
-                .into_response();
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response();
         }
     };
     let user_agent = headers
@@ -212,11 +203,7 @@ pub async fn stream_url(
     };
 
     let client_profile = ClientProfile {
-        supported_vc: body
-            .video_codecs
-            .iter()
-            .map(|s| s.trim().to_lowercase())
-            .collect(),
+        supported_vc: body.video_codecs.iter().map(|s| s.trim().to_lowercase()).collect(),
         supported_range_types: if body.video_range_types.is_empty() {
             vec!["SDR".to_string()]
         } else {
@@ -230,11 +217,7 @@ pub async fn stream_url(
         max_ref_frames: body.max_ref_frames,
         max_framerate: body.max_framerate,
         supports_anamorphic: body.supports_anamorphic,
-        hevc_codec_tags: body
-            .hevc_codec_tags
-            .iter()
-            .map(|s| s.trim().to_lowercase())
-            .collect(),
+        hevc_codec_tags: body.hevc_codec_tags.iter().map(|s| s.trim().to_lowercase()).collect(),
         max_video_bit_depth: body.max_video_bit_depth,
         max_audio_channels: body.max_audio_channels,
         max_audio_bitrate: body.max_audio_bitrate,
@@ -254,21 +237,12 @@ pub async fn stream_url(
             .collect(),
     };
     let force_sdr = body.force_sdr;
-    let client_containers: Vec<String> = body
-        .containers
-        .iter()
-        .map(|s| s.trim().to_lowercase())
-        .collect();
-    let client_audio_codecs: Vec<String> = body
-        .audio_codecs
-        .iter()
-        .map(|s| s.trim().to_lowercase())
-        .collect();
+    let client_containers: Vec<String> = body.containers.iter().map(|s| s.trim().to_lowercase()).collect();
+    let client_audio_codecs: Vec<String> = body.audio_codecs.iter().map(|s| s.trim().to_lowercase()).collect();
 
     // ── Filesystem source ───────────────────────────────────────────────────
     let Some(source) = source else {
-        return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "File has no source".into())
-            .into_response();
+        return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "File has no source".into()).into_response();
     };
 
     let source_type = source.r#type.as_str();
@@ -283,8 +257,7 @@ pub async fn stream_url(
     // ISO disc images must always go through HLS — they can't be direct-played.
     // Check BEFORE is_audio_only_file: un-scanned ISOs have video_codec=NULL which
     // would otherwise be mis-classified as audio-only.
-    let is_iso = file.mime_type.as_deref() == Some("video/iso-image")
-        || file.path.to_lowercase().ends_with(".iso");
+    let is_iso = file.mime_type.as_deref() == Some("video/iso-image") || file.path.to_lowercase().ends_with(".iso");
     let iso_type: Option<&'static str> = if is_iso {
         Some(detect_iso_type(&file.path))
     } else {
@@ -292,14 +265,13 @@ pub async fn stream_url(
     };
 
     // Audio-only → direct stream (skip for ISO which has no video_codec in DB)
-    if !is_iso
-        && transcode_decision::is_audio_only_file(
-            file.video_codec.as_deref(),
-            file.mime_type.as_deref(),
-        )
-    {
+    if !is_iso && transcode_decision::is_audio_only_file(file.video_codec.as_deref(), file.mime_type.as_deref()) {
         let url = build_direct_stream_url(&file);
-        return ok(StreamUrlDto { url, watch_history_id: watch_history_id.clone() }).into_response();
+        return ok(StreamUrlDto {
+            url,
+            watch_history_id: watch_history_id.clone(),
+        })
+        .into_response();
     }
 
     // Parse stream metadata
@@ -331,60 +303,49 @@ pub async fn stream_url(
         &client_profile,
     );
     let transcode_video = video_reason.is_some();
-    let container_reason =
-        transcode_decision::container_transcode_reason(&file.path, &client_containers);
+    let container_reason = transcode_decision::container_transcode_reason(&file.path, &client_containers);
     let transcode_container = container_reason.is_some();
-    let codec_tag_reason = transcode_decision::codec_tag_transcode_reason(
-        file.video_codec.as_deref(),
-        &vs,
-        &client_profile,
-        &file.path,
-    );
+    let codec_tag_reason =
+        transcode_decision::codec_tag_transcode_reason(file.video_codec.as_deref(), &vs, &client_profile, &file.path);
     let transcode_codec_tag = codec_tag_reason.is_some();
 
     let is_hdr_content = transcode_decision::is_hdr(file.hdr_type.as_deref());
-    let open_gop_reason =
-        transcode_decision::open_gop_transcode_reason(&file.path, file.video_codec.as_deref());
-    let should_transcode_video =
-        transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
+    let open_gop_reason = transcode_decision::open_gop_transcode_reason(&file.path, file.video_codec.as_deref());
+    let should_transcode_video = transcode_video || (force_sdr && is_hdr_content) || open_gop_reason.is_some();
 
     // AV1 and VP9 cannot be properly muxed into MPEG-TS segments (the container
     // used for DirectStream / copy mode). If HLS is already required for any other
     // reason (audio transcode, container, codec-tag, ISO), force video transcode so
     // the pipeline switches to fMP4 and re-encodes to H.264/HEVC instead.
-    let mpegts_incompat_reason: Option<String> = if !should_transcode_video
-        && (transcode_audio || transcode_container || transcode_codec_tag || is_iso)
-    {
-        let raw = file.video_codec.as_deref().unwrap_or("").to_lowercase();
-        if raw.contains("av1") || raw.contains("vp9") || raw.contains("vp8") {
-            Some(format!("VideoCodecNotCompatibleWithMpegTs ({raw})"))
+    let mpegts_incompat_reason: Option<String> =
+        if !should_transcode_video && (transcode_audio || transcode_container || transcode_codec_tag || is_iso) {
+            let raw = file.video_codec.as_deref().unwrap_or("").to_lowercase();
+            if raw.contains("av1") || raw.contains("vp9") || raw.contains("vp8") {
+                Some(format!("VideoCodecNotCompatibleWithMpegTs ({raw})"))
+            } else {
+                None
+            }
         } else {
             None
-        }
-    } else {
-        None
-    };
+        };
     let should_transcode_video = should_transcode_video || mpegts_incompat_reason.is_some();
 
     // Mediabunny (client-side AC3/EAC3 decoder) is only active in direct-stream
     // mode. When HLS is forced (container remux, video transcode, ISO, codec-tag),
     // the frontend falls into `isHLS` path which disables mediabunny — the browser
     // would have to decode AC3 natively, which it cannot. Force AAC transcode.
-    let hls_audio_compat_reason: Option<String> = if !transcode_audio
-        && (is_iso || should_transcode_video || transcode_container || transcode_codec_tag)
-    {
-        let codec = selected_audio
-            .map(|a| a.codec.to_lowercase())
-            .unwrap_or_default();
-        match codec.as_str() {
-            "ac3" | "eac3" => Some(format!(
-                "AudioNotCompatibleWithHls ({codec}) — mediabunny unavailable in HLS mode"
-            )),
-            _ => None,
-        }
-    } else {
-        None
-    };
+    let hls_audio_compat_reason: Option<String> =
+        if !transcode_audio && (is_iso || should_transcode_video || transcode_container || transcode_codec_tag) {
+            let codec = selected_audio.map(|a| a.codec.to_lowercase()).unwrap_or_default();
+            match codec.as_str() {
+                "ac3" | "eac3" => Some(format!(
+                    "AudioNotCompatibleWithHls ({codec}) — mediabunny unavailable in HLS mode"
+                )),
+                _ => None,
+            }
+        } else {
+            None
+        };
     let transcode_audio = transcode_audio || hls_audio_compat_reason.is_some();
     let audio_reason = audio_reason.or(hls_audio_compat_reason);
 
@@ -426,11 +387,7 @@ pub async fn stream_url(
     //   DirectStream:  container/audio/codec-tag issues but video ok → remux (-c:v copy)
     //   Transcode:     video codec issues → re-encode
     // ISO images always require transcoding (libbluray / UDF reader path).
-    let needs_hls = is_iso
-        || transcode_audio
-        || should_transcode_video
-        || transcode_container
-        || transcode_codec_tag;
+    let needs_hls = is_iso || transcode_audio || should_transcode_video || transcode_container || transcode_codec_tag;
 
     let play_method = if should_transcode_video {
         "Transcode"
@@ -506,9 +463,12 @@ pub async fn stream_url(
                 .map(str::to_string);
 
             let transcode_video_codec = if should_transcode_video {
-                let client_prefers_hevc =
-                    client_profile.supported_vc.iter().any(|c| c == "hevc");
-                Some(if client_prefers_hevc { "hevc".to_string() } else { "h264".to_string() })
+                let client_prefers_hevc = client_profile.supported_vc.iter().any(|c| c == "hevc");
+                Some(if client_prefers_hevc {
+                    "hevc".to_string()
+                } else {
+                    "h264".to_string()
+                })
             } else {
                 None
             };
@@ -581,22 +541,22 @@ pub async fn stream_url(
             source_type == "local",
             source.config.as_ref(),
             &auth.user_id,
-            file.source_id
-                .as_ref()
-                .map(std::string::ToString::to_string)
-                .as_deref(),
+            file.source_id.as_ref().map(std::string::ToString::to_string).as_deref(),
             iso_type,
             client_profile.supported_vc.iter().any(|c| c == "hevc"),
         )
         .await
         {
-            Ok(url) => return ok(StreamUrlDto { url, watch_history_id: watch_history_id.clone() }).into_response(),
-            Err(e) => {
-                return err_resp::<StreamUrlDto>(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("HLS stream failed: {e}"),
-                )
+            Ok(url) => {
+                return ok(StreamUrlDto {
+                    url,
+                    watch_history_id: watch_history_id.clone(),
+                })
                 .into_response();
+            }
+            Err(e) => {
+                return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, format!("HLS stream failed: {e}"))
+                    .into_response();
             }
         }
     }
@@ -689,9 +649,7 @@ pub(crate) async fn build_iso_m2ts_input(
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
 ) -> Result<Arc<ffmpeg_tool::DirectInput>, String> {
     let source_id = source_id.ok_or("ISO file has no source ID")?;
-    let file_size = file_size
-        .filter(|&s| s > 0)
-        .ok_or("ISO file has unknown size")? as u64;
+    let file_size = file_size.filter(|&s| s > 0).ok_or("ISO file has unknown size")? as u64;
 
     let vfs = state
         .sources
@@ -726,12 +684,7 @@ pub(crate) async fn build_iso_m2ts_input(
         );
     }
 
-    Ok(build_direct_input_from_m2ts(
-        vfs,
-        iso_path,
-        m2ts,
-        subtitle_tap,
-    ).await)
+    Ok(build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap).await)
 }
 
 /// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
@@ -743,8 +696,8 @@ pub(crate) async fn parse_iso_m2ts(
 ) -> Result<iso_reader::M2tsFile, String> {
     let parse_read_at = vfs.to_read_at(std::path::Path::new(iso_path)).await;
 
-    let m2ts_files = iso_reader::find_m2ts_files(parse_read_at, file_size)
-        .map_err(|e| format!("UDF parse failed: {e}"))?;
+    let m2ts_files =
+        iso_reader::find_m2ts_files(parse_read_at, file_size).map_err(|e| format!("UDF parse failed: {e}"))?;
 
     if m2ts_files.is_empty() {
         return Err("No M2TS files found in BDMV/STREAM/ — not a Blu-ray ISO?".to_string());
@@ -770,9 +723,8 @@ async fn build_direct_input_from_m2ts(
 
     let input = ffmpeg_tool::DirectInput {
         read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
-            let result = read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| {
-                iso_ra(iso_offset, len)
-            })?;
+            let result =
+                read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| iso_ra(iso_offset, len))?;
             if let Some(ref tx) = subtitle_tap {
                 let _ = tx.try_send((bytes::Bytes::copy_from_slice(&result), m2ts_offset));
             }
@@ -890,16 +842,7 @@ async fn create_hls_session_internal(
                 .iso_meta
                 .as_ref()
                 .and_then(|v| serde_json::from_value::<IsoMeta>(v.clone()).ok());
-            match build_iso_m2ts_input(
-                state,
-                source_id,
-                &file.path,
-                file.size,
-                iso_meta.as_ref(),
-                tap,
-            )
-            .await
-            {
+            match build_iso_m2ts_input(state, source_id, &file.path, file.size, iso_meta.as_ref(), tap).await {
                 Ok(input) => {
                     info!("[ISO] Remote Blu-ray ISO: M2TS extracted via UDF → AVIO ready");
                     // We serve raw M2TS bytes, so no ISO-specific FFmpeg prefix needed.
@@ -923,10 +866,7 @@ async fn create_hls_session_internal(
                         file.id, source_id, file.size,
                     )
                 })?;
-            (
-                Some(input),
-                iso_type.map(String::from).as_deref().map(|_| "dvd"),
-            )
+            (Some(input), iso_type.map(String::from).as_deref().map(|_| "dvd"))
         }
     } else {
         // Local file (including local ISO): use the filesystem path directly.
@@ -1016,26 +956,12 @@ async fn build_direct_input(
             let _ = tap.try_send((shared.clone(), offset));
             Ok(shared.to_vec())
         });
-        ffmpeg_tool::DirectInput::from_read_at(
-            tapped_ra,
-            file_size,
-            filename_hint,
-            Some(ffmpeg_tool::READAHEAD_HLS),
-        )
+        ffmpeg_tool::DirectInput::from_read_at(tapped_ra, file_size, filename_hint, Some(ffmpeg_tool::READAHEAD_HLS))
     } else {
-        ffmpeg_tool::DirectInput::from_read_at(
-            ra,
-            file_size,
-            filename_hint,
-            Some(ffmpeg_tool::READAHEAD_HLS),
-        )
+        ffmpeg_tool::DirectInput::from_read_at(ra, file_size, filename_hint, Some(ffmpeg_tool::READAHEAD_HLS))
     };
 
-    info!(
-        "[HLS] DirectInput: {} ({}MB)",
-        file_path,
-        file_size / 1024 / 1024,
-    );
+    info!("[HLS] DirectInput: {} ({}MB)", file_path, file_size / 1024 / 1024,);
 
     Some(input)
 }
@@ -1069,9 +995,7 @@ async fn build_subtitle_tap_impl(
     tap_path: &str,
 ) -> Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>> {
     let file_id = file.id.to_string();
-    let rows = SubtitleRepo::load_file_subtitles(&state.db, &file_id)
-        .await
-        .ok()?;
+    let rows = SubtitleRepo::load_file_subtitles(&state.db, &file_id).await.ok()?;
     if rows.is_empty() {
         return None;
     }
@@ -1107,10 +1031,7 @@ pub async fn stop_session_delete(
 
 // ── POST /api/playback/stop-session/{file_id} (beacon, no auth) ─────────────
 
-pub async fn stop_session_beacon(
-    State(state): State<Arc<AppState>>,
-    Path(file_id): Path<String>,
-) -> Response {
+pub async fn stop_session_beacon(State(state): State<Arc<AppState>>, Path(file_id): Path<String>) -> Response {
     stop_sessions_by_file(&state, &file_id).await;
     StatusCode::NO_CONTENT.into_response()
 }
@@ -1148,11 +1069,7 @@ pub async fn resume_position(
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<ResumePositionDto>(
-                StatusCode::BAD_REQUEST,
-                "Invalid user ID".into(),
-            )
-            .into_response();
+            return err_resp::<ResumePositionDto>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response();
         }
     };
     let video_item_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
@@ -1174,11 +1091,8 @@ pub async fn watch_history(
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<Vec<WatchHistoryItemDto>>(
-                StatusCode::BAD_REQUEST,
-                "Invalid user ID".into(),
-            )
-            .into_response();
+            return err_resp::<Vec<WatchHistoryItemDto>>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
+                .into_response();
         }
     };
     let video_item_id = q.video_item_id.as_deref().and_then(|s| s.parse::<Uuid>().ok());
@@ -1202,15 +1116,13 @@ pub async fn delete_watch_history(
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
-                .into_response();
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response();
         }
     };
     let history_id: Uuid = match id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid history ID".into())
-                .into_response();
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid history ID".into()).into_response();
         }
     };
     match PlaybackRepo::delete_watch_history(&state.db, user_id, history_id).await {
@@ -1229,15 +1141,13 @@ pub async fn report_progress(
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into())
-                .into_response();
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid user ID".into()).into_response();
         }
     };
     let history_id: Uuid = match body.watch_history_id.parse() {
         Ok(u) => u,
         Err(_) => {
-            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid watch history ID".into())
-                .into_response();
+            return err_resp::<()>(StatusCode::BAD_REQUEST, "Invalid watch history ID".into()).into_response();
         }
     };
 

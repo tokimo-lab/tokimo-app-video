@@ -3,14 +3,14 @@ use std::sync::Arc;
 use bytes::Bytes;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::*;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::{download_records, vfs, video_files};
 use crate::db::repos::job_repo::JobRepo;
 use crate::services::storage::{StorageProvider, UploadOptions};
-use crate::AppState;
 
 // ── Download log helpers ──────────────────────────────────────────────────────
 
@@ -72,10 +72,7 @@ pub async fn handle(
         .get("recordId")
         .and_then(|v| v.as_str())
         .ok_or("Missing recordId")?;
-    let url = payload
-        .get("url")
-        .and_then(|v| v.as_str())
-        .ok_or("Missing url")?;
+    let url = payload.get("url").and_then(|v| v.as_str()).ok_or("Missing url")?;
     let target_app_id = payload
         .get("targetAppId")
         .and_then(|v| v.as_str())
@@ -84,7 +81,7 @@ pub async fn handle(
     let record_uuid = Uuid::parse_str(record_id)?;
 
     // Resolve target library from videos / musics / books tables.
-    use crate::db::entities::{videos, musics, books};
+    use crate::db::entities::{books, musics, videos};
     use crate::db::repos::media::VideoRepo;
     let lib_uuid = Uuid::parse_str(target_app_id)?;
 
@@ -95,11 +92,23 @@ pub async fn handle(
     }
 
     let lib_info = if let Some(v) = videos::Entity::find_by_id(lib_uuid).one(db).await? {
-        LibInfo { r#type: v.r#type, settings: v.settings, sources: v.sources }
+        LibInfo {
+            r#type: v.r#type,
+            settings: v.settings,
+            sources: v.sources,
+        }
     } else if let Some(m) = musics::Entity::find_by_id(lib_uuid).one(db).await? {
-        LibInfo { r#type: "music".into(), settings: m.settings, sources: m.sources }
+        LibInfo {
+            r#type: "music".into(),
+            settings: m.settings,
+            sources: m.sources,
+        }
     } else if let Some(b) = books::Entity::find_by_id(lib_uuid).one(db).await? {
-        LibInfo { r#type: "book".into(), settings: b.settings, sources: b.sources }
+        LibInfo {
+            r#type: "book".into(),
+            settings: b.settings,
+            sources: b.sources,
+        }
     } else {
         return Err("目标应用不存在".into());
     };
@@ -108,9 +117,7 @@ pub async fn handle(
     use crate::config::ScrapingSettings;
     use crate::db::repos::system_config_repo::SystemConfigRepo;
     let scraping_row = SystemConfigRepo::get::<ScrapingSettings>(db).await.ok();
-    let generate_nfo = scraping_row
-        .as_ref()
-        .is_some_and(|s| s.generate_nfo);
+    let generate_nfo = scraping_row.as_ref().is_some_and(|s| s.generate_nfo);
 
     // Resolve default download source root path from sources JSON.
     let parsed_sources = VideoRepo::parse_sources(&lib_info.sources);
@@ -123,9 +130,7 @@ pub async fn handle(
     }
     let default_source = parsed_sources.iter().find(|s| s.2).or(parsed_sources.first());
     let download_source_id = default_source.map(|s| s.0);
-    let organize_target_path = default_source
-        .map(|s| s.1.clone())
-        .unwrap_or_default();
+    let organize_target_path = default_source.map(|s| s.1.clone()).unwrap_or_default();
 
     // Fetch file system config (root_folder_path) for computing relative paths.
     // Also detect whether the source is local (can be accessed via tokio::fs) or
@@ -162,27 +167,21 @@ pub async fn handle(
         )
     };
     let effective_target_path = vfs_stage_dir
-        .as_ref().map_or_else(|| organize_target_path.clone(), |p| p.to_string_lossy().into_owned());
+        .as_ref()
+        .map_or_else(|| organize_target_path.clone(), |p| p.to_string_lossy().into_owned());
 
     // Parse analysis from payload.
     let analysis = payload.get("analysis").cloned().unwrap_or(json!({}));
     let auth = payload.get("auth").cloned().unwrap_or(json!({}));
-    let download_format = payload
-        .get("downloadFormat")
-        .and_then(|v| v.as_str())
-        .unwrap_or("auto");
+    let download_format = payload.get("downloadFormat").and_then(|v| v.as_str()).unwrap_or("auto");
     let media_title = payload.get("mediaTitle").and_then(|v| v.as_str());
     let media_year = payload.get("mediaYear").and_then(|v| v.as_str());
 
     let app_type = &lib_info.r#type;
-    let is_audio_only = download_format == "audio_only"
-        || (download_format != "video" && app_type == "music");
+    let is_audio_only = download_format == "audio_only" || (download_format != "video" && app_type == "music");
 
     let settings = lib_info.settings.clone().unwrap_or(json!({}));
-    let link_mode = settings
-        .get("linkMode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("hardlink");
+    let link_mode = settings.get("linkMode").and_then(|v| v.as_str()).unwrap_or("hardlink");
     let organize_lang = settings.get("organizeLang").and_then(|v| v.as_str());
 
     // Build CreateTaskRequest and call TaskManager directly.
@@ -192,82 +191,45 @@ pub async fn handle(
     let task_request = CreateTaskRequest {
         record_id: record_id.into(),
         url: url.into(),
-        normalized_url: analysis
-            .get("normalizedUrl")
-            .and_then(|v| v.as_str())
-            .map(String::from),
+        normalized_url: analysis.get("normalizedUrl").and_then(|v| v.as_str()).map(String::from),
         provider_id: analysis
             .get("provider")
             .and_then(|p| p.get("id"))
             .and_then(|v| v.as_str())
             .map(String::from),
         auth: Some(rust_online_media_ingest::models::TaskAuthInput {
-            cookie_header: auth
-                .get("cookieHeader")
-                .and_then(|v| v.as_str())
-                .map(String::from),
+            cookie_header: auth.get("cookieHeader").and_then(|v| v.as_str()).map(String::from),
         }),
         audio_only: if is_audio_only { Some(true) } else { None },
         audio_container: None,
         target_library_id: target_app_id.into(),
-        target_folder_config_snapshot:
-            rust_online_media_ingest::models::TargetFolderConfigSnapshot {
-                id: target_app_id.into(),
-                content_type: app_type.clone(),
-                download_path: effective_target_path.clone(),
-                target_path: effective_target_path.clone(),
-                link_mode: link_mode.into(),
-                organize_lang: organize_lang.map(String::from),
-            },
+        target_folder_config_snapshot: rust_online_media_ingest::models::TargetFolderConfigSnapshot {
+            id: target_app_id.into(),
+            content_type: app_type.clone(),
+            download_path: effective_target_path.clone(),
+            target_path: effective_target_path.clone(),
+            link_mode: link_mode.into(),
+            organize_lang: organize_lang.map(String::from),
+        },
         metadata: rust_online_media_ingest::models::TaskMetadataInput {
-            title: analysis
-                .get("title")
-                .and_then(|v| v.as_str())
-                .map(String::from),
+            title: analysis.get("title").and_then(|v| v.as_str()).map(String::from),
             media_title: media_title.map(String::from),
             media_year: media_year.map(String::from),
             thumbnail_url: analysis
                 .get("thumbnailUrl")
                 .and_then(|v| v.as_str())
-                .map(|url| {
-                    crate::handlers::image_proxy::unwrap_proxy_url(url)
-                        .unwrap_or_else(|| url.to_string())
-                }),
+                .map(|url| crate::handlers::image_proxy::unwrap_proxy_url(url).unwrap_or_else(|| url.to_string())),
             duration_seconds: analysis.get("durationSeconds").and_then(sea_orm::JsonValue::as_u64),
-            uploader: analysis
-                .get("uploader")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            source_id: analysis
-                .get("sourceId")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            external_id: analysis
-                .get("externalId")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            source_site: analysis
-                .get("sourceSite")
-                .and_then(|v| v.as_str())
-                .map(String::from),
+            uploader: analysis.get("uploader").and_then(|v| v.as_str()).map(String::from),
+            source_id: analysis.get("sourceId").and_then(|v| v.as_str()).map(String::from),
+            external_id: analysis.get("externalId").and_then(|v| v.as_str()).map(String::from),
+            source_site: analysis.get("sourceSite").and_then(|v| v.as_str()).map(String::from),
             generate_nfo: Some(generate_nfo),
             raw_metadata: analysis.get("rawMetadata").cloned(),
-            artist: analysis
-                .get("artist")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            album_artist: analysis
-                .get("albumArtist")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            album: analysis
-                .get("album")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            track_title: analysis
-                .get("trackTitle")
-                .and_then(|v| v.as_str())
-                .map(String::from),
+            artist: analysis.get("artist").and_then(|v| v.as_str()).map(String::from),
+            album_artist: analysis.get("albumArtist").and_then(|v| v.as_str()).map(String::from),
+            album: analysis.get("album").and_then(|v| v.as_str()).map(String::from),
+            track_title: analysis.get("trackTitle").and_then(|v| v.as_str()).map(String::from),
             track_number: analysis
                 .get("trackNumber")
                 .and_then(sea_orm::JsonValue::as_u64)
@@ -276,22 +238,12 @@ pub async fn handle(
                 .get("discNumber")
                 .and_then(sea_orm::JsonValue::as_u64)
                 .map(|v| v as u32),
-            genre: analysis
-                .get("genre")
-                .and_then(|v| v.as_str())
-                .map(String::from),
-            release_date: analysis
-                .get("releaseDate")
-                .and_then(|v| v.as_str())
-                .map(String::from),
+            genre: analysis.get("genre").and_then(|v| v.as_str()).map(String::from),
+            release_date: analysis.get("releaseDate").and_then(|v| v.as_str()).map(String::from),
         },
     };
 
-    let task_id = state
-        .online_media
-        .tasks
-        .create_task(task_request.clone())
-        .await;
+    let task_id = state.online_media.tasks.create_task(task_request.clone()).await;
     spawn_task((*state.online_media).clone(), task_id.clone(), task_request);
 
     info!(record_id, task_id, "Online media task created");
@@ -347,14 +299,9 @@ pub async fn handle(
         let task = state.online_media.tasks.get_task(&task_id).await;
         let Some(task) = task else {
             poll_failure_count += 1;
-            warn!(
-                task_id,
-                attempt = poll_failure_count,
-                "Task not found during polling"
-            );
+            warn!(task_id, attempt = poll_failure_count, "Task not found during polling");
             if poll_failure_count > poll_retry_limit {
-                let err_msg =
-                    format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
+                let err_msg = format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
                 append_download_log(&state.storage, &record_uuid, &task_id, "error", &err_msg, None).await;
                 update_record_failed(db, record_uuid, &err_msg).await;
                 return Err(err_msg.into());
@@ -367,12 +314,13 @@ pub async fn handle(
 
         // Write a log entry whenever the stage changes.
         if resp.stage != last_logged_stage
-            && let Some(ref stage) = resp.stage {
-                let phase = stage_to_log_phase(stage);
-                let msg = stage_to_log_message(stage, resp.progress);
-                append_download_log(&state.storage, &record_uuid, &task_id, phase, &msg, None).await;
-                last_logged_stage = resp.stage.clone();
-            }
+            && let Some(ref stage) = resp.stage
+        {
+            let phase = stage_to_log_phase(stage);
+            let msg = stage_to_log_message(stage, resp.progress);
+            append_download_log(&state.storage, &record_uuid, &task_id, phase, &msg, None).await;
+            last_logged_stage = resp.stage.clone();
+        }
 
         // Update download record with progress.
         let progress_str = to_record_progress(resp.progress);
@@ -434,9 +382,7 @@ pub async fn handle(
 
                 // For non-local sources, copy organised files from local staging to VFS.
                 let vfs_copy_result: Option<VfsCopyResult> =
-                    if let (Some(stage_dir), Some(sid)) =
-                        (&vfs_stage_dir, download_source_id)
-                    {
+                    if let (Some(stage_dir), Some(sid)) = (&vfs_stage_dir, download_source_id) {
                         match copy_staged_to_vfs(
                             &state.sources,
                             &state.storage,
@@ -456,15 +402,7 @@ pub async fn handle(
                             Err(e) => {
                                 let msg = format!("上传到 VFS 失败: {e}");
                                 error!(record_id, task_id, %e, "Failed to copy to VFS");
-                                append_download_log(
-                                    &state.storage,
-                                    &record_uuid,
-                                    &task_id,
-                                    "error",
-                                    &msg,
-                                    None,
-                                )
-                                .await;
+                                append_download_log(&state.storage, &record_uuid, &task_id, "error", &msg, None).await;
                                 update_record_failed(db, record_uuid, &msg).await;
                                 return Err(msg.into());
                             }
@@ -540,10 +478,7 @@ pub async fn handle(
                             )
                             .await
                             {
-                                warn!(
-                                    "Failed to dispatch file_scrape for {}: {e}",
-                                    file.vfs_path
-                                );
+                                warn!("Failed to dispatch file_scrape for {}: {e}", file.vfs_path);
                             }
                         }
                     } else {
@@ -553,16 +488,9 @@ pub async fn handle(
                             if !is_media_file(&output.path) {
                                 continue;
                             }
-                            create_media_file_for_output(
-                                db,
-                                output,
-                                source_id,
-                                fs_driver_root.as_deref(),
-                            )
-                            .await;
+                            create_media_file_for_output(db, output, source_id, fs_driver_root.as_deref()).await;
 
-                            let rel_path =
-                                to_relative_path(&output.path, fs_driver_root.as_deref());
+                            let rel_path = to_relative_path(&output.path, fs_driver_root.as_deref());
                             let dir_path = rel_path
                                 .rsplit_once('/')
                                 .map(|(d, _)| d.to_string())
@@ -582,10 +510,7 @@ pub async fn handle(
                             )
                             .await
                             {
-                                warn!(
-                                    "Failed to dispatch file_scrape for {}: {e}",
-                                    output.path
-                                );
+                                warn!("Failed to dispatch file_scrape for {}: {e}", output.path);
                             }
                         }
                     }
@@ -634,7 +559,9 @@ fn stage_to_log_phase(stage: &str) -> &'static str {
 }
 
 fn stage_to_log_message(stage: &str, progress: Option<f64>) -> String {
-    let pct = progress.map(|p| format!(" ({:.0}%)", p.clamp(0.0, 100.0))).unwrap_or_default();
+    let pct = progress
+        .map(|p| format!(" ({:.0}%)", p.clamp(0.0, 100.0)))
+        .unwrap_or_default();
     match stage {
         "preparing" => "准备下载环境".into(),
         "queued" => "已加入下载队列".into(),
@@ -691,15 +618,8 @@ async fn copy_staged_to_vfs(
         let mut entries = tokio::fs::read_dir(&dir)
             .await
             .map_err(|e| format!("读取目录失败 {}: {e}", dir.display()))?;
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .map_err(|e| format!("遍历目录失败: {e}"))?
-        {
-            let ft = entry
-                .file_type()
-                .await
-                .map_err(|e| format!("获取文件类型失败: {e}"))?;
+        while let Some(entry) = entries.next_entry().await.map_err(|e| format!("遍历目录失败: {e}"))? {
+            let ft = entry.file_type().await.map_err(|e| format!("获取文件类型失败: {e}"))?;
             if ft.is_dir() {
                 stack.push(entry.path());
             } else if ft.is_file() {
@@ -725,7 +645,8 @@ async fn copy_staged_to_vfs(
         .unwrap_or(first_vfs_path.as_str());
     let top_dir = rel_from_root
         .split('/')
-        .next().map_or_else(|| vfs_root.to_string(), |d| format!("{vfs_root}/{d}"));
+        .next()
+        .map_or_else(|| vfs_root.to_string(), |d| format!("{vfs_root}/{d}"));
 
     // Ensure directories exist and upload each file.
     let mut created_dirs: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -756,10 +677,7 @@ async fn copy_staged_to_vfs(
             .map_err(|e| format!("读取文件元数据失败: {e}"))?;
         let size = metadata.len();
 
-        if vfs
-            .has_put_stream(std::path::Path::new(vfs_path))
-            .await
-        {
+        if vfs.has_put_stream(std::path::Path::new(vfs_path)).await {
             let (tx, rx) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
             let local = local_path.clone();
             tokio::spawn(async move {
@@ -849,16 +767,12 @@ async fn update_record_failed(db: &DatabaseConnection, record_id: Uuid, message:
 }
 
 const MEDIA_EXTENSIONS: &[&str] = &[
-    "mp4", "m4v", "mkv", "avi", "wmv", "flv", "mov", "webm", "ts", "m2ts", "mts", "mpg", "mpeg",
-    "3gp", "rmvb", "rm", "mp3", "flac", "wav", "aac", "ogg", "opus", "m4a", "wma", "alac",
+    "mp4", "m4v", "mkv", "avi", "wmv", "flv", "mov", "webm", "ts", "m2ts", "mts", "mpg", "mpeg", "3gp", "rmvb", "rm",
+    "mp3", "flac", "wav", "aac", "ogg", "opus", "m4a", "wma", "alac",
 ];
 
 fn is_media_file(path: &str) -> bool {
-    let ext = path
-        .rsplit('.')
-        .next()
-        .map(str::to_ascii_lowercase)
-        .unwrap_or_default();
+    let ext = path.rsplit('.').next().map(str::to_ascii_lowercase).unwrap_or_default();
     MEDIA_EXTENSIONS.contains(&ext.as_str())
 }
 
@@ -893,12 +807,14 @@ fn guess_mime(filename: &str) -> Option<String> {
 /// the file system's driver root (e.g. `root_folder_path`).
 fn to_relative_path(abs_path: &str, driver_root: Option<&str>) -> String {
     if let Some(root) = driver_root
-        && abs_path.starts_with(root) && abs_path.len() > root.len() {
-            let rel = &abs_path[root.len()..];
-            if rel.starts_with('/') {
-                return rel.to_string();
-            }
+        && abs_path.starts_with(root)
+        && abs_path.len() > root.len()
+    {
+        let rel = &abs_path[root.len()..];
+        if rel.starts_with('/') {
+            return rel.to_string();
         }
+    }
     abs_path.to_string()
 }
 
@@ -916,12 +832,7 @@ async fn create_media_file_for_output(
     }
 
     let rel_path = to_relative_path(&output.path, driver_root);
-    let filename = output
-        .path
-        .rsplit('/')
-        .next()
-        .unwrap_or(&output.path)
-        .to_string();
+    let filename = output.path.rsplit('/').next().unwrap_or(&output.path).to_string();
     let size = output.size_bytes.map(|s| s as i64);
     let mime = guess_mime(&filename);
     let video_file_id = Uuid::new_v4();

@@ -11,16 +11,18 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::entities::{
-    episodes, vfs, music_album_artists, music_artists, video_files, music_files, book_files, books,
-    video_items, music_albums, music_tracks, photo_albums, photo_persons, photos, seasons, tv_shows, videos, musics,
+    book_files, books, episodes, music_album_artists, music_albums, music_artists, music_files, music_tracks, musics,
+    photo_albums, photo_persons, photos, seasons, tv_shows, vfs, video_files, video_items, videos,
 };
-use crate::db::repos::job_repo::JobRepo;
-use crate::db::repos::media::VideoRepo;
-use crate::db::repos::media::MusicRepo;
 use crate::db::repos::book_repo::BookRepo;
+use crate::db::repos::job_repo::JobRepo;
+use crate::db::repos::media::MusicRepo;
+use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::vfs::ops::{walk_video_files_streaming, walk_files_streaming, AUDIO_EXTENSIONS, BOOK_EXTENSIONS, PHOTO_EXTENSIONS};
+use crate::handlers::vfs::ops::{
+    AUDIO_EXTENSIONS, BOOK_EXTENSIONS, PHOTO_EXTENSIONS, walk_files_streaming, walk_video_files_streaming,
+};
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS `AppType`).
@@ -47,9 +49,8 @@ fn is_tmdb_movie_type(lib_type: &str) -> bool {
 fn infer_show_dir(dir_path: &str) -> &str {
     use std::sync::OnceLock;
     static SEASON_RE: OnceLock<Regex> = OnceLock::new();
-    let re = SEASON_RE.get_or_init(|| {
-        Regex::new(r"(?i)^(s\d+|season\s*\d*|specials?|ova|extras?|第\d+季|\d{1,2})$").unwrap()
-    });
+    let re = SEASON_RE
+        .get_or_init(|| Regex::new(r"(?i)^(s\d+|season\s*\d*|specials?|ova|extras?|第\d+季|\d{1,2})$").unwrap());
     if let Some(pos) = dir_path.rfind('/')
         && re.is_match(&dir_path[pos + 1..])
     {
@@ -74,11 +75,7 @@ fn is_photo_type(lib_type: &str) -> bool {
 fn is_remote_fs_type(source_type: &str) -> bool {
     matches!(
         source_type,
-        "smb" | "nfs" | "webdav" | "ftp" | "sftp" | "s3"
-            | "115cloud"
-            | "aliyundrive"
-            | "baidu_netdisk"
-            | "quark"
+        "smb" | "nfs" | "webdav" | "ftp" | "sftp" | "s3" | "115cloud" | "aliyundrive" | "baidu_netdisk" | "quark"
     )
 }
 
@@ -116,7 +113,6 @@ fn to_vfs_path(root_path: &str, source: &vfs::Model) -> String {
     }
     root_path.to_string()
 }
-
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -185,9 +181,7 @@ impl AppSyncService {
         clear_data: bool,
         _http_client: reqwest::Client,
     ) -> Result<SyncResult, AppError> {
-        let video = VideoRepo::get_by_id(db, video_id)
-            .await?
-            .not_found("video not found")?;
+        let video = VideoRepo::get_by_id(db, video_id).await?.not_found("video not found")?;
 
         let lib_type = &video.r#type;
         let is_movie = is_movie_type(lib_type);
@@ -198,10 +192,7 @@ impl AppSyncService {
             video.name, video_id, lib_type
         );
 
-        let result = Self::do_video_sync(
-            db, sources, storage, &video, lib_type, is_movie, is_tv, clear_data,
-        )
-        .await;
+        let result = Self::do_video_sync(db, sources, storage, &video, lib_type, is_movie, is_tv, clear_data).await;
 
         match &result {
             Ok(sync_result) => {
@@ -333,10 +324,10 @@ impl AppSyncService {
             };
 
             let jobs = Self::sync_fs_source(
-                db, sources, storage, book_id, lib_type,
-                false, false, false, // is_movie, is_tv, is_music = false
+                db, sources, storage, book_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
                 &source, root_path,
-            ).await?;
+            )
+            .await?;
             total_jobs += jobs;
         }
 
@@ -354,10 +345,7 @@ impl AppSyncService {
         let music_id = music.id;
 
         if clear_data {
-            info!(
-                "  Clearing existing albums for music library \"{}\"",
-                music.name
-            );
+            info!("  Clearing existing albums for music library \"{}\"", music.name);
             let deleted = music_albums::Entity::delete_many()
                 .filter(music_albums::Column::MusicId.eq(music_id))
                 .exec(db)
@@ -420,21 +408,11 @@ impl AppSyncService {
             let source = vfs::Entity::find_by_id(*source_id)
                 .one(db)
                 .await?
-                .ok_or_else(|| {
-                    AppError::NotFound(format!("source {source_id} not found"))
-                })?;
+                .ok_or_else(|| AppError::NotFound(format!("source {source_id} not found")))?;
 
             let jobs = Self::sync_fs_source(
-                db,
-                sources,
-                storage,
-                video_id,
-                lib_type,
-                is_movie,
-                is_tv,
-                false, // is_music = false for video
-                &source,
-                root_path,
+                db, sources, storage, video_id, lib_type, is_movie, is_tv, false, // is_music = false for video
+                &source, root_path,
             )
             .await?;
             total_jobs += jobs;
@@ -445,11 +423,7 @@ impl AppSyncService {
 
     // ── clear library data ──────────────────────────────────────────────
 
-    pub async fn clear_library_data(
-        db: &DatabaseConnection,
-        app_id: Uuid,
-        lib_type: &str,
-    ) -> Result<(), AppError> {
+    pub async fn clear_library_data(db: &DatabaseConnection, app_id: Uuid, lib_type: &str) -> Result<(), AppError> {
         info!("Clearing data for library {app_id} (type={lib_type})");
 
         // Cancel all pending/running jobs for this library
@@ -788,8 +762,7 @@ impl AppSyncService {
 
         // For books: buffer .txt files grouped by directory, emit one job per directory.
         // Non-txt book files (epub/mobi/etc.) get individual jobs like before.
-        let mut book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> =
-            HashMap::new();
+        let mut book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> = HashMap::new();
 
         // Pre-load existing photo paths for this source to skip already-indexed photos
         // without creating 170K+ redundant file_scrape jobs every sync.
@@ -820,16 +793,12 @@ impl AppSyncService {
 
             // Video/TV/Movie libraries: check video_files table with checksum.
             if !is_photo && !is_book {
-                let existing =
-                    Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv)
-                        .await?;
+                let existing = Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv).await?;
 
                 if let Some(existing) = existing {
                     let checksum_matches = existing.checksum.as_deref() == Some(&checksum);
 
-                    if checksum_matches
-                        && !Self::needs_artwork_backfill(db, &existing, is_movie, is_tv).await?
-                    {
+                    if checksum_matches && !Self::needs_artwork_backfill(db, &existing, is_movie, is_tv).await? {
                         skipped += 1;
                         continue; // Unchanged and has artwork — skip
                     }
@@ -842,10 +811,7 @@ impl AppSyncService {
 
             // Book .txt files: group by parent directory for chapter-based books
             if is_book && video.file_path.to_lowercase().ends_with(".txt") {
-                book_dir_files
-                    .entry(video.dir_path.clone())
-                    .or_default()
-                    .push(video);
+                book_dir_files.entry(video.dir_path.clone()).or_default().push(video);
                 continue;
             }
 
@@ -890,8 +856,7 @@ impl AppSyncService {
 
             // Flush batch periodically
             if jobs_batch.len() >= Self::JOB_BATCH_FLUSH_SIZE {
-                total_jobs +=
-                    JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
+                total_jobs += JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
             }
         }
 
@@ -916,12 +881,7 @@ impl AppSyncService {
         // Wait for walk to complete and check for errors
         let walk_stats = walk_handle
             .await
-            .map_err(|e| {
-                AppError::Internal(format!(
-                    "Walk task panicked for source \"{}\": {}",
-                    source.name, e
-                ))
-            })?
+            .map_err(|e| AppError::Internal(format!("Walk task panicked for source \"{}\": {}", source.name, e)))?
             .map_err(|e| {
                 AppError::Internal(format!(
                     "Failed to walk source \"{}\" root={}: {}",
@@ -931,24 +891,14 @@ impl AppSyncService {
 
         info!(
             "[{}({})] Walk done: {} dirs, {} videos found, {} unchanged (skipped), {} jobs queued under \"{}\"",
-            source.name, source_type, walk_stats.visited_dirs, walk_stats.found_videos,
-            skipped, total_jobs, vfs_root
+            source.name, source_type, walk_stats.visited_dirs, walk_stats.found_videos, skipped, total_jobs, vfs_root
         );
 
         // Cleanup missing files (use vfs_root so DB paths match walk output)
         if is_photo {
-            Self::cleanup_missing_photos(db, app_id, source_id, &vfs_root, &seen_paths)
-                .await?;
+            Self::cleanup_missing_photos(db, app_id, source_id, &vfs_root, &seen_paths).await?;
         } else {
-            Self::cleanup_missing_files(
-                db,
-                app_id,
-                source_id,
-                source_type,
-                &vfs_root,
-                &seen_paths,
-            )
-            .await?;
+            Self::cleanup_missing_files(db, app_id, source_id, source_type, &vfs_root, &seen_paths).await?;
         }
 
         Ok(total_jobs)
@@ -958,11 +908,7 @@ impl AppSyncService {
 
     /// Audio MIME types by extension.
     fn audio_mime_type(file_path: &str) -> &'static str {
-        let ext = file_path
-            .rsplit('.')
-            .next()
-            .unwrap_or("")
-            .to_lowercase();
+        let ext = file_path.rsplit('.').next().unwrap_or("").to_lowercase();
         match ext.as_str() {
             "flac" => "audio/flac",
             "mp3" => "audio/mpeg",
@@ -1006,14 +952,17 @@ impl AppSyncService {
                 (
                     tag.title().map(|s| s.to_string()),
                     tag.artist().map(|s| s.to_string()),
-                    tag.get_string(&lofty::tag::ItemKey::AlbumArtist).map(std::string::ToString::to_string),
+                    tag.get_string(&lofty::tag::ItemKey::AlbumArtist)
+                        .map(std::string::ToString::to_string),
                     tag.album().map(|s| s.to_string()),
                     tag.track().map(|n| n as i32),
                     tag.disk().map(|n| n as i32),
                     tag.year().map(|n| n as i32),
                     tag.genre().map(|s| s.to_string()),
-                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzRecordingId).map(std::string::ToString::to_string),
-                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzReleaseId).map(std::string::ToString::to_string),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzRecordingId)
+                        .map(std::string::ToString::to_string),
+                    tag.get_string(&lofty::tag::ItemKey::MusicBrainzReleaseId)
+                        .map(std::string::ToString::to_string),
                 )
             } else {
                 (None, None, None, None, None, None, None, None, None, None)
@@ -1053,7 +1002,10 @@ impl AppSyncService {
 
     /// Parse music filename to extract track number, title, and artist.
     /// Patterns: "01. Artist - Title", "01 - Title", "01 Title", fallback to filename.
-    fn parse_music_filename(file_name: &str, parent_dir: Option<&str>) -> (Option<i32>, Option<String>, Option<String>, Option<String>) {
+    fn parse_music_filename(
+        file_name: &str,
+        parent_dir: Option<&str>,
+    ) -> (Option<i32>, Option<String>, Option<String>, Option<String>) {
         let dot_pos = file_name.rfind('.');
         let name = if let Some(pos) = dot_pos {
             &file_name[..pos]
@@ -1122,14 +1074,9 @@ impl AppSyncService {
         }) {
             let before = &t[..pos];
             let is_date_prefix = !before.is_empty()
-                && before.chars().all(|c| {
-                    c.is_ascii_digit()
-                        || c == '年'
-                        || c == '月'
-                        || c == '日'
-                        || c == '-'
-                        || c == ' '
-                });
+                && before
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '年' || c == '月' || c == '日' || c == '-' || c == ' ');
             if is_date_prefix {
                 // Skip the separator (either " - " or "- ")
                 let rest = if t[pos..].starts_with(" - ") {
@@ -1147,14 +1094,10 @@ impl AppSyncService {
         if let (Some(start), Some(end)) = (t.find('《'), t.rfind('》')) {
             let pre = &t[..start];
             let is_date_prefix = pre.trim().is_empty()
-                || pre.trim().chars().all(|c| {
-                    c.is_ascii_digit()
-                        || c == '年'
-                        || c == '月'
-                        || c == '日'
-                        || c == '-'
-                        || c == ' '
-                });
+                || pre
+                    .trim()
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '年' || c == '月' || c == '日' || c == '-' || c == ' ');
             if is_date_prefix && end > start {
                 let inside = &t[start + '《'.len_utf8()..end];
                 let suffix = t[end + '》'.len_utf8()..].trim();
@@ -1170,35 +1113,27 @@ impl AppSyncService {
 
     fn get_album_info(file: &CollectedAudioFile) -> (String, String, Option<i32>) {
         if let Some(ref tags) = file.tags
-            && let Some(ref album) = tags.album {
-                let artist_name = tags
-                    .album_artist
-                    .clone()
-                    .or_else(|| tags.artist.clone())
-                    .unwrap_or_else(|| "Unknown Artist".to_string());
-                let clean_album = Self::extract_clean_title(album);
-                return (artist_name, clean_album, tags.year);
-            }
+            && let Some(ref album) = tags.album
+        {
+            let artist_name = tags
+                .album_artist
+                .clone()
+                .or_else(|| tags.artist.clone())
+                .unwrap_or_else(|| "Unknown Artist".to_string());
+            let clean_album = Self::extract_clean_title(album);
+            return (artist_name, clean_album, tags.year);
+        }
 
-        let file_name = file
-            .file_path
-            .rsplit('/')
-            .next()
-            .unwrap_or(&file.file_path);
+        let file_name = file.file_path.rsplit('/').next().unwrap_or(&file.file_path);
         let parent_dir = file.dir_path.rsplit('/').next();
 
-        let (_, _, parsed_artist, _) =
-            Self::parse_music_filename(file_name, parent_dir);
+        let (_, _, parsed_artist, _) = Self::parse_music_filename(file_name, parent_dir);
 
         let artist_name = parsed_artist
             .or_else(|| file.tags.as_ref().and_then(|t| t.artist.clone()))
             .unwrap_or_else(|| "Unknown Artist".to_string());
 
-        let dir_name = file
-            .dir_path
-            .rsplit('/')
-            .next()
-            .unwrap_or("Unknown Album");
+        let dir_name = file.dir_path.rsplit('/').next().unwrap_or("Unknown Album");
         let album_title = Self::extract_clean_title(dir_name);
 
         let year = file.tags.as_ref().and_then(|t| t.year);
@@ -1210,11 +1145,7 @@ impl AppSyncService {
         let mut groups: HashMap<String, AlbumGroup> = HashMap::new();
         for file in files {
             let (artist_name, album_title, year) = Self::get_album_info(&file);
-            let key = format!(
-                "{}||{}",
-                artist_name.to_lowercase(),
-                album_title.to_lowercase()
-            );
+            let key = format!("{}||{}", artist_name.to_lowercase(), album_title.to_lowercase());
             let group = groups.entry(key).or_insert_with(|| AlbumGroup {
                 artist_name: artist_name.clone(),
                 album_title: album_title.clone(),
@@ -1232,10 +1163,7 @@ impl AppSyncService {
 
     /// Find or create a `MusicArtist` record by name.
     #[allow(dead_code)]
-    async fn find_or_create_music_artist(
-        db: &DatabaseConnection,
-        name: &str,
-    ) -> Result<Uuid, AppError> {
+    async fn find_or_create_music_artist(db: &DatabaseConnection, name: &str) -> Result<Uuid, AppError> {
         if let Some(a) = music_artists::Entity::find()
             .filter(music_artists::Column::Name.eq(name))
             .one(db)
@@ -1270,11 +1198,7 @@ impl AppSyncService {
     }
 
     /// Find or create a `MusicAlbum` for the given group.
-    async fn find_or_create_album(
-        db: &DatabaseConnection,
-        app_id: Uuid,
-        group: &AlbumGroup,
-    ) -> Result<Uuid, AppError> {
+    async fn find_or_create_album(db: &DatabaseConnection, app_id: Uuid, group: &AlbumGroup) -> Result<Uuid, AppError> {
         // Find existing albums with matching title in this library
         let candidates = music_albums::Entity::find()
             .filter(music_albums::Column::MusicId.eq(app_id))
@@ -1292,12 +1216,11 @@ impl AppSyncService {
                 continue;
             }
             for artist_link in artists {
-                if let Some(artist) = music_artists::Entity::find_by_id(artist_link.artist_id)
-                    .one(db)
-                    .await?
-                    && artist.name.to_lowercase() == group.artist_name.to_lowercase() {
-                        return Ok(album.id);
-                    }
+                if let Some(artist) = music_artists::Entity::find_by_id(artist_link.artist_id).one(db).await?
+                    && artist.name.to_lowercase() == group.artist_name.to_lowercase()
+                {
+                    return Ok(album.id);
+                }
             }
         }
         if let Some(id) = unscraped_stub {
@@ -1336,11 +1259,7 @@ impl AppSyncService {
 
     /// Ensure an "artist" link exists between a music artist and an album.
     #[allow(dead_code)]
-    async fn ensure_artist_credit(
-        db: &DatabaseConnection,
-        album_id: Uuid,
-        artist_id: Uuid,
-    ) -> Result<(), AppError> {
+    async fn ensure_artist_credit(db: &DatabaseConnection, album_id: Uuid, artist_id: Uuid) -> Result<(), AppError> {
         let existing = music_album_artists::Entity::find()
             .filter(music_album_artists::Column::ArtistId.eq(artist_id))
             .filter(music_album_artists::Column::AlbumId.eq(album_id))
@@ -1370,15 +1289,10 @@ impl AppSyncService {
         album_id: Uuid,
         file: &CollectedAudioFile,
     ) -> Result<Uuid, AppError> {
-        let file_name = file
-            .file_path
-            .rsplit('/')
-            .next()
-            .unwrap_or(&file.file_path);
+        let file_name = file.file_path.rsplit('/').next().unwrap_or(&file.file_path);
         let parent_dir = file.dir_path.rsplit('/').next();
 
-        let (parsed_track_num, parsed_title, _, _) =
-            Self::parse_music_filename(file_name, parent_dir);
+        let (parsed_track_num, parsed_title, _, _) = Self::parse_music_filename(file_name, parent_dir);
 
         let track_title = file
             .tags
@@ -1395,11 +1309,7 @@ impl AppSyncService {
                 }
             });
 
-        let track_number = file
-            .tags
-            .as_ref()
-            .and_then(|t| t.track_number)
-            .or(parsed_track_num);
+        let track_number = file.tags.as_ref().and_then(|t| t.track_number).or(parsed_track_num);
         let disc_number = file.tags.as_ref().and_then(|t| t.disc_number);
 
         // Try to find existing track
@@ -1451,18 +1361,12 @@ impl AppSyncService {
         }
 
         // Check mbTrackId uniqueness before creating
-        let safe_mb_track_id = if let Some(ref mb_id) =
-            file.tags.as_ref().and_then(|t| t.mb_track_id.clone())
-        {
+        let safe_mb_track_id = if let Some(ref mb_id) = file.tags.as_ref().and_then(|t| t.mb_track_id.clone()) {
             let conflict = music_tracks::Entity::find()
                 .filter(music_tracks::Column::MbTrackId.eq(mb_id.as_str()))
                 .one(db)
                 .await?;
-            if conflict.is_none() {
-                Some(mb_id.clone())
-            } else {
-                None
-            }
+            if conflict.is_none() { Some(mb_id.clone()) } else { None }
         } else {
             None
         };
@@ -1493,11 +1397,7 @@ impl AppSyncService {
         track_id: Uuid,
     ) -> Result<(), AppError> {
         let checksum = format!("{}:{}", file.file_size, file.mtime);
-        let file_name = file
-            .file_path
-            .rsplit('/')
-            .next()
-            .unwrap_or(&file.file_path);
+        let file_name = file.file_path.rsplit('/').next().unwrap_or(&file.file_path);
         let mime_type = Self::audio_mime_type(&file.file_path);
         let now = Utc::now().fixed_offset();
 
@@ -1508,9 +1408,7 @@ impl AppSyncService {
             .await?;
 
         if let Some(existing) = existing {
-            if existing.checksum.as_deref() == Some(&checksum)
-                && existing.track_id == Some(track_id)
-            {
+            if existing.checksum.as_deref() == Some(&checksum) && existing.track_id == Some(track_id) {
                 return Ok(());
             }
             let mut active: music_files::ActiveModel = existing.into();
@@ -1607,28 +1505,21 @@ impl AppSyncService {
         active.update(db).await?;
 
         // Try to find local cover art
-        if is_local
-            && let Some(vfs) = vfs {
-                for cover_name in Self::COVER_ART_NAMES {
-                    let cover_path = format!(
-                        "{}/{}",
-                        group.dir_path.trim_end_matches('/'),
-                        cover_name
-                    );
-                    if vfs.stat(std::path::Path::new(&cover_path)).await.is_ok() {
-                        // Store VFS-relative cover path
-                        let album = music_albums::Entity::find_by_id(album_id)
-                            .one(db)
-                            .await?;
-                        if let Some(album) = album {
-                            let mut active: music_albums::ActiveModel = album.into();
-                            active.cover_path = Set(Some(cover_path));
-                            active.update(db).await?;
-                        }
-                        break;
+        if is_local && let Some(vfs) = vfs {
+            for cover_name in Self::COVER_ART_NAMES {
+                let cover_path = format!("{}/{}", group.dir_path.trim_end_matches('/'), cover_name);
+                if vfs.stat(std::path::Path::new(&cover_path)).await.is_ok() {
+                    // Store VFS-relative cover path
+                    let album = music_albums::Entity::find_by_id(album_id).one(db).await?;
+                    if let Some(album) = album {
+                        let mut active: music_albums::ActiveModel = album.into();
+                        active.cover_path = Set(Some(cover_path));
+                        active.update(db).await?;
                     }
+                    break;
                 }
             }
+        }
 
         Ok(())
     }
@@ -1650,10 +1541,7 @@ impl AppSyncService {
                     if let Err(e) = Self::upsert_music_media_file(db, file, track_id).await {
                         error!(
                             "Failed to upsert media file \"{}\": {}",
-                            file.file_path
-                                .rsplit('/')
-                                .next()
-                                .unwrap_or(&file.file_path),
+                            file.file_path.rsplit('/').next().unwrap_or(&file.file_path),
                             e
                         );
                     }
@@ -1661,10 +1549,7 @@ impl AppSyncService {
                 Err(e) => {
                     error!(
                         "Track upsert failed \"{}\": {}",
-                        file.file_path
-                            .rsplit('/')
-                            .next()
-                            .unwrap_or(&file.file_path),
+                        file.file_path.rsplit('/').next().unwrap_or(&file.file_path),
                         e
                     );
                 }
@@ -1713,8 +1598,7 @@ impl AppSyncService {
         let walk_source_id = source_id_str.clone();
         let walk_vfs = vfs.clone();
         let walk_handle = tokio::spawn(async move {
-            walk_files_streaming(walk_vfs, &walk_root, &walk_source_id, &AUDIO_EXTENSIONS, tx)
-                .await
+            walk_files_streaming(walk_vfs, &walk_root, &walk_source_id, &AUDIO_EXTENSIONS, tx).await
         });
 
         // Collect audio files
@@ -1735,9 +1619,10 @@ impl AppSyncService {
                 .await?;
 
             if let Some(ref ex) = existing
-                && ex.checksum.as_deref() == Some(&checksum) {
-                    continue;
-                }
+                && ex.checksum.as_deref() == Some(&checksum)
+            {
+                continue;
+            }
 
             // Read tags for local sources using lofty (in blocking task)
             let tags = if is_local {
@@ -1753,17 +1638,9 @@ impl AppSyncService {
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 let full_path = if audio_file.file_path.starts_with('/') {
-                    format!(
-                        "{}{}",
-                        driver_root.trim_end_matches('/'),
-                        &audio_file.file_path
-                    )
+                    format!("{}{}", driver_root.trim_end_matches('/'), &audio_file.file_path)
                 } else {
-                    format!(
-                        "{}/{}",
-                        driver_root.trim_end_matches('/'),
-                        &audio_file.file_path
-                    )
+                    format!("{}/{}", driver_root.trim_end_matches('/'), &audio_file.file_path)
                 };
                 let path = std::path::PathBuf::from(&full_path);
                 tokio::task::spawn_blocking(move || Self::read_audio_tags(&path))
@@ -1802,14 +1679,16 @@ impl AppSyncService {
 
         info!(
             "[{}({})] Music walk done: {} dirs, {} audio files found, {} new/changed",
-            source.name, source_type, walk_stats.visited_dirs, walk_stats.found_videos,
+            source.name,
+            source_type,
+            walk_stats.visited_dirs,
+            walk_stats.found_videos,
             collected.len()
         );
 
         if collected.is_empty() {
             // Still run cleanup even if no new files
-            Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths)
-                .await?;
+            Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths).await?;
             return Ok(0);
         }
 
@@ -1857,11 +1736,7 @@ impl AppSyncService {
                 }
             }
             if (i + 1) % 10 == 0 {
-                info!(
-                    "Music sync progress: {}/{} albums processed",
-                    i + 1,
-                    album_groups.len()
-                );
+                info!("Music sync progress: {}/{} albums processed", i + 1, album_groups.len());
             }
         }
 
@@ -1870,12 +1745,14 @@ impl AppSyncService {
         }
 
         // Cleanup missing files
-        Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths)
-            .await?;
+        Self::cleanup_missing_music_files(db, app_id, source_id, &vfs_root, &seen_paths).await?;
 
         info!(
             "[{}({})] Music sync done: {} albums processed, {} scrape jobs enqueued",
-            source.name, source_type, album_groups.len(), total_jobs
+            source.name,
+            source_type,
+            album_groups.len(),
+            total_jobs
         );
 
         // Return number of scrape jobs enqueued
@@ -1905,10 +1782,7 @@ impl AppSyncService {
             .all(db)
             .await?;
 
-        let stale_files: Vec<&music_files::Model> = db_files
-            .iter()
-            .filter(|f| !seen_paths.contains(&f.path))
-            .collect();
+        let stale_files: Vec<&music_files::Model> = db_files.iter().filter(|f| !seen_paths.contains(&f.path)).collect();
 
         if stale_files.is_empty() {
             return Ok(());
@@ -1938,15 +1812,11 @@ impl AppSyncService {
                 .count(db)
                 .await?;
             if remaining == 0
-                && let Some(track) = music_tracks::Entity::find_by_id(*track_id)
-                    .one(db)
-                    .await?
-                {
-                    album_ids.insert(track.album_id);
-                    music_tracks::Entity::delete_by_id(*track_id)
-                        .exec(db)
-                        .await?;
-                }
+                && let Some(track) = music_tracks::Entity::find_by_id(*track_id).one(db).await?
+            {
+                album_ids.insert(track.album_id);
+                music_tracks::Entity::delete_by_id(*track_id).exec(db).await?;
+            }
         }
 
         // Cascade: delete orphan albums (no remaining tracks)
@@ -1956,9 +1826,7 @@ impl AppSyncService {
                 .count(db)
                 .await?;
             if remaining == 0 {
-                music_albums::Entity::delete_by_id(*album_id)
-                    .exec(db)
-                    .await?;
+                music_albums::Entity::delete_by_id(*album_id).exec(db).await?;
             }
         }
 
@@ -2006,18 +1874,15 @@ impl AppSyncService {
                     return Ok(movie.poster_path.is_none());
                 }
             }
-        } else if is_tv
-            && let Some(episode_id) = file.episode_id {
-                let episode = episodes::Entity::find_by_id(episode_id).one(db).await?;
-                if let Some(episode) = episode {
-                    let tv_show = tv_shows::Entity::find_by_id(episode.tv_show_id)
-                        .one(db)
-                        .await?;
-                    if let Some(tv_show) = tv_show {
-                        return Ok(tv_show.poster_path.is_none());
-                    }
+        } else if is_tv && let Some(episode_id) = file.episode_id {
+            let episode = episodes::Entity::find_by_id(episode_id).one(db).await?;
+            if let Some(episode) = episode {
+                let tv_show = tv_shows::Entity::find_by_id(episode.tv_show_id).one(db).await?;
+                if let Some(tv_show) = tv_show {
+                    return Ok(tv_show.poster_path.is_none());
                 }
             }
+        }
         Ok(false)
     }
 
@@ -2025,11 +1890,7 @@ impl AppSyncService {
 
     /// When a file's checksum changed, clear its linked movie/episode so it
     /// gets re-scraped.
-    async fn reset_video_file_link(
-        db: &DatabaseConnection,
-        file_id: Uuid,
-        new_checksum: &str,
-    ) -> Result<(), AppError> {
+    async fn reset_video_file_link(db: &DatabaseConnection, file_id: Uuid, new_checksum: &str) -> Result<(), AppError> {
         let model = video_files::Entity::find_by_id(file_id)
             .one(db)
             .await?
@@ -2091,10 +1952,8 @@ impl AppSyncService {
         );
 
         // Collect related IDs for cascade cleanup
-        let stale_files: Vec<&video_files::Model> = db_files
-            .iter()
-            .filter(|f| stale_file_ids.contains(&f.id))
-            .collect();
+        let stale_files: Vec<&video_files::Model> =
+            db_files.iter().filter(|f| stale_file_ids.contains(&f.id)).collect();
 
         let movie_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.video_item_id).collect();
         let episode_ids: HashSet<Uuid> = stale_files.iter().filter_map(|f| f.episode_id).collect();
@@ -2126,11 +1985,12 @@ impl AppSyncService {
                 .count(db)
                 .await?;
             if remaining == 0
-                && let Some(ep) = episodes::Entity::find_by_id(*episode_id).one(db).await? {
-                    season_ids.insert(ep.season_id);
-                    tv_show_ids.insert(ep.tv_show_id);
-                    episodes::Entity::delete_by_id(*episode_id).exec(db).await?;
-                }
+                && let Some(ep) = episodes::Entity::find_by_id(*episode_id).one(db).await?
+            {
+                season_ids.insert(ep.season_id);
+                tv_show_ids.insert(ep.tv_show_id);
+                episodes::Entity::delete_by_id(*episode_id).exec(db).await?;
+            }
         }
 
         for season_id in &season_ids {
@@ -2202,6 +2062,4 @@ impl AppSyncService {
 
         Ok(())
     }
-
 }
-

@@ -1,8 +1,8 @@
 use rust_client_api::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
-use sea_orm::prelude::Expr;
 use sea_orm::DatabaseConnection;
+use sea_orm::prelude::Expr;
 use sea_orm::*;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
 use tracing::warn;
 use uuid::Uuid;
@@ -22,10 +22,7 @@ pub async fn handle(
     let person_uuid = Uuid::parse_str(person_id)?;
 
     // "movie" | "tv" — determines which table to read/write
-    let person_type = payload
-        .get("personType")
-        .and_then(|v| v.as_str())
-        .unwrap_or("movie");
+    let person_type = payload.get("personType").and_then(|v| v.as_str()).unwrap_or("movie");
 
     let api_key = get_tmdb_api_key(db).await?;
     let Some(api_key) = api_key else {
@@ -123,14 +120,16 @@ async fn persist_tmdb_id(
             .col_expr(tv_persons::Column::TmdbId, Expr::value(tmdb_str))
             .col_expr(tv_persons::Column::UpdatedAt, Expr::cust("NOW()"))
             .filter(tv_persons::Column::Id.eq(person_uuid))
-            .exec(db).await?;
+            .exec(db)
+            .await?;
     } else {
         use crate::db::entities::video_persons;
         video_persons::Entity::update_many()
             .col_expr(video_persons::Column::TmdbId, Expr::value(tmdb_str))
             .col_expr(video_persons::Column::UpdatedAt, Expr::cust("NOW()"))
             .filter(video_persons::Column::Id.eq(person_uuid))
-            .exec(db).await?;
+            .exec(db)
+            .await?;
     }
     Ok(())
 }
@@ -150,13 +149,15 @@ async fn apply_person_detail(
                 $active.biography = Set(Some(bio.clone()));
             }
             if let Some(s) = &detail.birthday
-                && let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                    $active.birthday = Set(Some(d));
-                }
+                && let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            {
+                $active.birthday = Set(Some(d));
+            }
             if let Some(s) = &detail.deathday
-                && let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                    $active.deathday = Set(Some(d));
-                }
+                && let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            {
+                $active.deathday = Set(Some(d));
+            }
             if let Some(place) = &detail.place_of_birth {
                 $active.birthplace = Set(Some(place.clone()));
             }
@@ -167,10 +168,19 @@ async fn apply_person_detail(
                 $active.known_for_dept = Set(Some(dept.clone()));
             }
             if let Some(g) = detail.gender {
-                let label = match g { 1 => Some("female"), 2 => Some("male"), 3 => Some("non-binary"), _ => None };
-                if let Some(l) = label { $active.gender = Set(Some(l.to_string())); }
+                let label = match g {
+                    1 => Some("female"),
+                    2 => Some("male"),
+                    3 => Some("non-binary"),
+                    _ => None,
+                };
+                if let Some(l) = label {
+                    $active.gender = Set(Some(l.to_string()));
+                }
             }
-            if let Some(aka) = &detail.also_known_as && !aka.is_empty() {
+            if let Some(aka) = &detail.also_known_as
+                && !aka.is_empty()
+            {
                 $active.aliases = Set(Some(aka.clone()));
             }
             // imdb_id is handled separately to avoid unique constraint violations
@@ -195,7 +205,9 @@ async fn apply_person_detail(
             if conflict == 0 {
                 active.imdb_id = Set(Some(imdb_id.clone()));
             } else {
-                warn!("[tmdb_person_scrape] Skipping imdb_id {imdb_id} for tv_person {person_uuid}: already used by another record");
+                warn!(
+                    "[tmdb_person_scrape] Skipping imdb_id {imdb_id} for tv_person {person_uuid}: already used by another record"
+                );
             }
         }
         active.update(db).await?;
@@ -214,7 +226,9 @@ async fn apply_person_detail(
             if conflict == 0 {
                 active.imdb_id = Set(Some(imdb_id.clone()));
             } else {
-                warn!("[tmdb_person_scrape] Skipping imdb_id {imdb_id} for video_person {person_uuid}: already used by another record");
+                warn!(
+                    "[tmdb_person_scrape] Skipping imdb_id {imdb_id} for video_person {person_uuid}: already used by another record"
+                );
             }
         }
         active.update(db).await?;
@@ -222,9 +236,7 @@ async fn apply_person_detail(
     Ok(())
 }
 
-async fn get_tmdb_api_key(
-    db: &DatabaseConnection,
-) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+async fn get_tmdb_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     use crate::config::TmdbSettings;
     use crate::db::repos::system_config_repo::SystemConfigRepo;
     let setting = SystemConfigRepo::get::<TmdbSettings>(db).await?;

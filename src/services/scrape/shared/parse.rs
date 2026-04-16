@@ -16,20 +16,17 @@ static RE_NX_NN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:^|[.\s\-])(\d{1,2})x(\d{1,4})(?:[.\s\-]|$)").unwrap());
 
 /// Multi-episode range: E01-E05, E01-05
-static RE_MULTI_EPISODE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)E(\d{1,4})[-–]E?(\d{1,4})").unwrap());
+static RE_MULTI_EPISODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)E(\d{1,4})[-–]E?(\d{1,4})").unwrap());
 
 /// Season only: S01, Season 1, Season.1
 static RE_SEASON_ONLY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)(?:S|Season[\s.]?)(\d{1,2})(?:\D|$)").unwrap());
 
 /// Episode only: E01, EP01, EP.01
-static RE_EPISODE_ONLY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)(?:E|EP[\s.]?)(\d{1,4})").unwrap());
+static RE_EPISODE_ONLY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)(?:E|EP[\s.]?)(\d{1,4})").unwrap());
 
 /// Year in brackets/separators
-static RE_YEAR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?:^|[\s.\(\[\-])(\d{4})(?:[\s.\)\]\-]|$)").unwrap());
+static RE_YEAR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:^|[\s.\(\[\-])(\d{4})(?:[\s.\)\]\-]|$)").unwrap());
 
 /// CJK season: 第1季, 第一季, 第01季
 static RE_CJK_SEASON: LazyLock<Regex> =
@@ -45,9 +42,8 @@ static RE_CJK_TITLE_CLEAN: LazyLock<Regex> =
 
 /// Strips season/episode suffix from a space-normalized title (fallback path).
 /// e.g. "Ever Night s01 e37" → "Ever Night", "Show S01E02 720p" → "Show"
-static RE_TITLE_SE_SUFFIX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\s+(?:s\d{1,2}(?:[\s.]*e\d{1,4})?|ep?\s*\d{1,4}).*$").unwrap()
-});
+static RE_TITLE_SE_SUFFIX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\s+(?:s\d{1,2}(?:[\s.]*e\d{1,4})?|ep?\s*\d{1,4}).*$").unwrap());
 
 // ── CJK detection helpers ──
 
@@ -73,9 +69,18 @@ fn parse_cjk_number(s: &str) -> Option<i32> {
         return s.parse().ok();
     }
     let map = |c| match c {
-        '零' => Some(0), '一' => Some(1), '二' => Some(2), '三' => Some(3),
-        '四' => Some(4), '五' => Some(5), '六' => Some(6), '七' => Some(7),
-        '八' => Some(8), '九' => Some(9), '十' => Some(10), '百' => Some(100),
+        '零' => Some(0),
+        '一' => Some(1),
+        '二' => Some(2),
+        '三' => Some(3),
+        '四' => Some(4),
+        '五' => Some(5),
+        '六' => Some(6),
+        '七' => Some(7),
+        '八' => Some(8),
+        '九' => Some(9),
+        '十' => Some(10),
+        '百' => Some(100),
         c if c.is_ascii_digit() => c.to_digit(10).map(|d| d as i32),
         _ => None,
     };
@@ -124,9 +129,10 @@ pub fn parse_media_filename(filename: &str, parent_dir: Option<&str>) -> ParsedM
     // 2. CJK title extraction (if filename contains CJK but extracted title is all ASCII)
     if has_cjk(name)
         && let Some(cjk_title) = extract_cjk_title(name)
-            && !cjk_title.is_empty() {
-                title = cjk_title;
-            }
+        && !cjk_title.is_empty()
+    {
+        title = cjk_title;
+    }
 
     // 3. Season / Episode parsing (enhanced with CJK)
     let (mut season, mut episodes) = (None::<i32>, None::<Vec<i32>>);
@@ -145,79 +151,91 @@ pub fn parse_media_filename(filename: &str, parent_dir: Option<&str>) -> ParsedM
 
     // NxNN format: 1x02
     if season.is_none()
-        && let Some(caps) = RE_NX_NN.captures(name) {
-            season = caps.get(1).and_then(|m| m.as_str().parse().ok());
-            if let Some(ep) = caps.get(2).and_then(|m| m.as_str().parse::<i32>().ok()) {
-                episodes = Some(vec![ep]);
-            }
+        && let Some(caps) = RE_NX_NN.captures(name)
+    {
+        season = caps.get(1).and_then(|m| m.as_str().parse().ok());
+        if let Some(ep) = caps.get(2).and_then(|m| m.as_str().parse::<i32>().ok()) {
+            episodes = Some(vec![ep]);
         }
+    }
 
     // Multi-episode range: E01-E05
     if episodes.as_ref().is_none_or(|e| e.len() <= 1)
-        && let Some(caps) = RE_MULTI_EPISODE.captures(name) {
-            let start: Option<i32> = caps.get(1).and_then(|m| m.as_str().parse().ok());
-            let end: Option<i32> = caps.get(2).and_then(|m| m.as_str().parse().ok());
-            if let (Some(s), Some(e)) = (start, end) {
-                episodes = Some((s..=e).collect());
-            }
+        && let Some(caps) = RE_MULTI_EPISODE.captures(name)
+    {
+        let start: Option<i32> = caps.get(1).and_then(|m| m.as_str().parse().ok());
+        let end: Option<i32> = caps.get(2).and_then(|m| m.as_str().parse().ok());
+        if let (Some(s), Some(e)) = (start, end) {
+            episodes = Some((s..=e).collect());
         }
+    }
 
     // CJK season: 第X季
     if season.is_none()
-        && let Some(caps) = RE_CJK_SEASON.captures(name) {
-            season = caps.get(1).and_then(|m| parse_cjk_number(m.as_str()));
-        }
+        && let Some(caps) = RE_CJK_SEASON.captures(name)
+    {
+        season = caps.get(1).and_then(|m| parse_cjk_number(m.as_str()));
+    }
 
     // CJK episode: 第X集/话/話/期
     if episodes.is_none()
         && let Some(caps) = RE_CJK_EPISODE.captures(name)
-            && let Some(ep) = caps.get(1).and_then(|m| parse_cjk_number(m.as_str())) {
-                episodes = Some(vec![ep]);
-            }
+        && let Some(ep) = caps.get(1).and_then(|m| parse_cjk_number(m.as_str()))
+    {
+        episodes = Some(vec![ep]);
+    }
 
     // Parent dir season inference: "Season 1", "S01", "第1季"
     if season.is_none()
-        && let Some(pdir) = parent_dir {
-            if let Some(caps) = RE_SEASON_ONLY.captures(pdir) {
-                season = caps.get(1).and_then(|m| m.as_str().parse().ok());
-            }
-            if season.is_none()
-                && let Some(caps) = RE_CJK_SEASON.captures(pdir) {
-                    season = caps.get(1).and_then(|m| parse_cjk_number(m.as_str()));
-                }
+        && let Some(pdir) = parent_dir
+    {
+        if let Some(caps) = RE_SEASON_ONLY.captures(pdir) {
+            season = caps.get(1).and_then(|m| m.as_str().parse().ok());
         }
+        if season.is_none()
+            && let Some(caps) = RE_CJK_SEASON.captures(pdir)
+        {
+            season = caps.get(1).and_then(|m| parse_cjk_number(m.as_str()));
+        }
+    }
 
     // Season only (no episode) from filename
     if season.is_none()
-        && let Some(caps) = RE_SEASON_ONLY.captures(name) {
-            season = caps.get(1).and_then(|m| m.as_str().parse().ok());
-        }
+        && let Some(caps) = RE_SEASON_ONLY.captures(name)
+    {
+        season = caps.get(1).and_then(|m| m.as_str().parse().ok());
+    }
 
     // Bare episode: E01, EP01
     if episodes.is_none()
         && let Some(caps) = RE_EPISODE_ONLY.captures(name)
-            && let Some(ep) = caps.get(1).and_then(|m| m.as_str().parse().ok()) {
-                episodes = Some(vec![ep]);
-            }
+        && let Some(ep) = caps.get(1).and_then(|m| m.as_str().parse().ok())
+    {
+        episodes = Some(vec![ep]);
+    }
 
     // 4. Year fallback
     if year.is_none()
         && let Some(caps) = RE_YEAR.captures(name)
-            && let Some(m) = caps.get(1)
-                && let Ok(y) = m.as_str().parse::<i32>()
-                    && (1900..=2100).contains(&y) {
-                        year = Some(y);
-                    }
+        && let Some(m) = caps.get(1)
+        && let Ok(y) = m.as_str().parse::<i32>()
+        && (1900..=2100).contains(&y)
+    {
+        year = Some(y);
+    }
 
-    ParsedMediaInfo { title, year, season, episodes }
+    ParsedMediaInfo {
+        title,
+        year,
+        season,
+        episodes,
+    }
 }
 
 /// Extract CJK title from brackets or filename start.
 fn extract_cjk_title(name: &str) -> Option<String> {
     // Try brackets first: 【CJK...】 [CJK...] 「CJK...」 （CJK...） (CJK...)
-    let bracket_pairs: &[(char, char)] = &[
-        ('【', '】'), ('[', ']'), ('「', '」'), ('（', '）'), ('(', ')'),
-    ];
+    let bracket_pairs: &[(char, char)] = &[('【', '】'), ('[', ']'), ('「', '」'), ('（', '）'), ('(', ')')];
     for &(open, close) in bracket_pairs {
         if let Some(start) = name.find(open) {
             let after = &name[start + open.len_utf8()..];
@@ -240,9 +258,17 @@ fn extract_cjk_title(name: &str) -> Option<String> {
         if is_cjk_char(c) {
             found_cjk = true;
             last_cjk_or_digit_idx = i + c.len_utf8();
-        } else if found_cjk && (c.is_ascii_digit() || c.is_ascii_alphabetic()
-            || c == ' ' || c == '·' || c == '：' || c == ':' || c == '—'
-            || c == '-' || c == '~' || c == '～')
+        } else if found_cjk
+            && (c.is_ascii_digit()
+                || c.is_ascii_alphabetic()
+                || c == ' '
+                || c == '·'
+                || c == '：'
+                || c == ':'
+                || c == '—'
+                || c == '-'
+                || c == '~'
+                || c == '～')
         {
             if c.is_ascii_digit() || is_cjk_char(c) {
                 last_cjk_or_digit_idx = i + c.len_utf8();
@@ -281,12 +307,13 @@ fn extract_year_in_brackets(name: &str) -> Option<(String, Option<i32>)> {
         if let Some(pos) = name.rfind(open) {
             let after = &name[pos + 1..];
             if let Some(end) = after.find(close)
-                && let Some(year) = parse_year_str(&after[..end]) {
-                    let title = name[..pos].trim();
-                    if !title.is_empty() {
-                        return Some((title.to_string(), Some(year)));
-                    }
+                && let Some(year) = parse_year_str(&after[..end])
+            {
+                let title = name[..pos].trim();
+                if !title.is_empty() {
+                    return Some((title.to_string(), Some(year)));
                 }
+            }
         }
     }
     None
@@ -321,9 +348,10 @@ fn extract_year_with_spaces(name: &str) -> Option<(String, Option<i32>)> {
 fn parse_year_str(s: &str) -> Option<i32> {
     if s.len() == 4
         && let Ok(y) = s.parse::<i32>()
-            && (1900..=2099).contains(&y) {
-                return Some(y);
-            }
+        && (1900..=2099).contains(&y)
+    {
+        return Some(y);
+    }
     None
 }
 
@@ -356,12 +384,15 @@ pub fn detect_subtitle_language(filename: &str) -> String {
     let without_ext = filename.rsplit_once('.').map_or(filename, |(s, _)| s);
     let parts: Vec<&str> = without_ext.split('.').collect();
     if let Some(&last) = parts.last()
-        && last != without_ext && last.len() >= 2 && last.len() <= 16 {
-            let is_lang = last.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
-            if is_lang && !last.chars().all(|c| c.is_ascii_digit()) {
-                return last.to_string();
-            }
+        && last != without_ext
+        && last.len() >= 2
+        && last.len() <= 16
+    {
+        let is_lang = last.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+        if is_lang && !last.chars().all(|c| c.is_ascii_digit()) {
+            return last.to_string();
         }
+    }
     "und".to_string()
 }
 

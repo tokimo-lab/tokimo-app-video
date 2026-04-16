@@ -5,8 +5,8 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tracing::warn;
 
-use crate::AppState;
 use super::artwork::DiscoveredArtwork;
+use crate::AppState;
 use crate::queue::handlers::nfo_parser::NfoInfo;
 
 pub async fn get_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
@@ -31,39 +31,29 @@ pub fn build_client(state: &Arc<AppState>, api_key: &str) -> TmdbClient {
 }
 
 /// Score a TMDB candidate against parsed title/year.
-fn score_candidate(
-    candidate: &TmdbMedia,
-    title: &str,
-    year: Option<i32>,
-    is_tv: bool,
-) -> f64 {
+fn score_candidate(candidate: &TmdbMedia, title: &str, year: Option<i32>, is_tv: bool) -> f64 {
     let mut score = 0.0f64;
     let parsed_lower = title.to_lowercase();
     let cand_lower = candidate.title.to_lowercase();
-    let orig_lower = candidate
-        .original_title
-        .as_deref()
-        .unwrap_or("")
-        .to_lowercase();
+    let orig_lower = candidate.original_title.as_deref().unwrap_or("").to_lowercase();
 
     if cand_lower == parsed_lower || orig_lower == parsed_lower {
         score += 100.0;
     } else if cand_lower.contains(&parsed_lower) || parsed_lower.contains(&cand_lower) {
         score += 60.0;
-    } else if !orig_lower.is_empty()
-        && (orig_lower.contains(&parsed_lower) || parsed_lower.contains(&orig_lower))
-    {
+    } else if !orig_lower.is_empty() && (orig_lower.contains(&parsed_lower) || parsed_lower.contains(&orig_lower)) {
         score += 50.0;
     }
 
     if let (Some(py), Some(rd)) = (year, &candidate.release_date)
-        && let Ok(cy) = rd.get(..4).unwrap_or("").parse::<i32>() {
-            if cy == py {
-                score += 30.0;
-            } else if (cy - py).abs() <= 1 {
-                score += 15.0;
-            }
+        && let Ok(cy) = rd.get(..4).unwrap_or("").parse::<i32>()
+    {
+        if cy == py {
+            score += 30.0;
+        } else if (cy - py).abs() <= 1 {
+            score += 15.0;
         }
+    }
 
     let expected = if is_tv { "tv" } else { "movie" };
     if candidate.media_type == expected {
@@ -79,12 +69,7 @@ fn score_candidate(
 }
 
 /// Pick the best TMDB match from candidates using scoring.
-fn pick_best_match(
-    candidates: &[TmdbMedia],
-    title: &str,
-    year: Option<i32>,
-    is_tv: bool,
-) -> Option<i64> {
+fn pick_best_match(candidates: &[TmdbMedia], title: &str, year: Option<i32>, is_tv: bool) -> Option<i64> {
     if candidates.is_empty() {
         return None;
     }
@@ -95,9 +80,7 @@ fn pick_best_match(
         .collect();
     scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    if scored.len() == 1
-        || (scored[0].1 >= 80.0 && scored[0].1 - scored.get(1).map_or(0.0, |s| s.1) >= 30.0)
-    {
+    if scored.len() == 1 || (scored[0].1 >= 80.0 && scored[0].1 - scored.get(1).map_or(0.0, |s| s.1) >= 30.0) {
         return Some(candidates[scored[0].0].id);
     }
     Some(candidates[scored[0].0].id)
@@ -118,16 +101,18 @@ pub async fn scrape_movie(
 
     if let Some(nfo) = nfo {
         if let Some(ref tmdb_id) = nfo.tmdb_id
-            && let Ok(id) = tmdb_id.parse::<i64>() {
-                if nfo.is_sufficient() && !needs_remote_art {
-                    return None;
-                }
-                return tmdb.get_movie_detail(id).await.ok();
+            && let Ok(id) = tmdb_id.parse::<i64>()
+        {
+            if nfo.is_sufficient() && !needs_remote_art {
+                return None;
             }
+            return tmdb.get_movie_detail(id).await.ok();
+        }
         if let Some(ref imdb_id) = nfo.imdb_id
-            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
-                return tmdb.get_movie_detail(found.id).await.ok();
-            }
+            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await
+        {
+            return tmdb.get_movie_detail(found.id).await.ok();
+        }
     }
 
     let mut candidates = tmdb
@@ -169,16 +154,18 @@ pub async fn scrape_tv(
 
     if let Some(nfo) = nfo {
         if let Some(ref tmdb_id) = nfo.tmdb_id
-            && let Ok(id) = tmdb_id.parse::<i64>() {
-                if nfo.is_sufficient() && !needs_remote_art {
-                    return None;
-                }
-                return tmdb.get_tv_detail(id).await.ok();
+            && let Ok(id) = tmdb_id.parse::<i64>()
+        {
+            if nfo.is_sufficient() && !needs_remote_art {
+                return None;
             }
+            return tmdb.get_tv_detail(id).await.ok();
+        }
         if let Some(ref imdb_id) = nfo.imdb_id
-            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await {
-                return tmdb.get_tv_detail(found.id).await.ok();
-            }
+            && let Ok(Some(found)) = tmdb.find_by_imdb_id(imdb_id).await
+        {
+            return tmdb.get_tv_detail(found.id).await.ok();
+        }
     }
 
     let mut candidates = tmdb

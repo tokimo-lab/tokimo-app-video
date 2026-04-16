@@ -1,5 +1,5 @@
 use sea_orm::DatabaseConnection;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use tracing::{error, info};
@@ -34,9 +34,14 @@ pub async fn handle(
         .and_then(|v| v.as_str())
         .ok_or("Missing showDir")?;
     let app_id = payload.get("appId").and_then(|v| v.as_str()).ok_or("Missing appId")?;
-    let source_id =
-        payload.get("sourceId").and_then(|v| v.as_str()).ok_or("Missing sourceId")?;
-    let lib_type = payload.get("libType").and_then(|v| v.as_str()).ok_or("Missing libType")?;
+    let source_id = payload
+        .get("sourceId")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing sourceId")?;
+    let lib_type = payload
+        .get("libType")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing libType")?;
     let files = payload
         .get("files")
         .and_then(|v| v.as_array())
@@ -60,7 +65,9 @@ pub async fn handle(
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
         let file_payload = make_file_payload(file, app_id, source_id, lib_type);
         match file_scrape::handle(db, state, job_id, &file_payload).await {
-            Ok(_) => { processed.fetch_add(1, Ordering::Relaxed); }
+            Ok(_) => {
+                processed.fetch_add(1, Ordering::Relaxed);
+            }
             Err(e) => {
                 error!("[tv_scrape] Error on \"{file_path}\": {e}");
                 errors.fetch_add(1, Ordering::Relaxed);
@@ -80,9 +87,15 @@ pub async fn handle(
             let processed = processed.clone();
             let errors = errors.clone();
             handles.push(tokio::spawn(async move {
-                let file_path = file_payload.get("filePath").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let file_path = file_payload
+                    .get("filePath")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 match file_scrape::handle(&db, &state, job_id, &file_payload).await {
-                    Ok(_) => { processed.fetch_add(1, Ordering::Relaxed); }
+                    Ok(_) => {
+                        processed.fetch_add(1, Ordering::Relaxed);
+                    }
                     Err(e) => {
                         error!("[tv_scrape] Error on \"{file_path}\": {e}");
                         errors.fetch_add(1, Ordering::Relaxed);

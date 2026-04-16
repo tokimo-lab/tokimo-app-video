@@ -6,16 +6,13 @@ use serde::Deserialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::repos::media_playback_state_repo::MediaPlaybackStateRepo;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{ok, ok_empty};
-use crate::AppState;
 
 /// GET /api/playback/state — load persisted playback state
-pub async fn get_playback_state(
-    State(state): State<Arc<AppState>>,
-    AuthUser(auth): AuthUser,
-) -> Response {
+pub async fn get_playback_state(State(state): State<Arc<AppState>>, AuthUser(auth): AuthUser) -> Response {
     let user_id: Uuid = match auth.user_id.parse() {
         Ok(u) => u,
         Err(_) => return axum::http::StatusCode::BAD_REQUEST.into_response(),

@@ -1,5 +1,5 @@
 use sea_orm::DatabaseConnection;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -32,9 +32,14 @@ pub async fn handle(
         .and_then(|v| v.as_str())
         .ok_or("Missing movieDir")?;
     let app_id = payload.get("appId").and_then(|v| v.as_str()).ok_or("Missing appId")?;
-    let source_id =
-        payload.get("sourceId").and_then(|v| v.as_str()).ok_or("Missing sourceId")?;
-    let lib_type = payload.get("libType").and_then(|v| v.as_str()).ok_or("Missing libType")?;
+    let source_id = payload
+        .get("sourceId")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing sourceId")?;
+    let lib_type = payload
+        .get("libType")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing libType")?;
     let files = payload
         .get("files")
         .and_then(|v| v.as_array())

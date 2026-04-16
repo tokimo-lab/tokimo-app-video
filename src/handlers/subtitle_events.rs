@@ -1,8 +1,8 @@
 use axum::{
     extract::{Path, Query, State},
     response::{
-        sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
+        sse::{Event, KeepAlive, Sse},
     },
 };
 use std::sync::Arc;

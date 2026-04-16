@@ -1,13 +1,13 @@
-pub mod crud;
 pub mod browse;
-pub mod sync;
-pub mod subtitle;
-pub mod subtitle_events;
+pub mod crud;
+pub mod file_stream;
+pub mod hls;
+pub mod iso_reader;
 pub mod playback;
 pub mod playback_state;
-pub mod hls;
-pub mod file_stream;
-pub mod iso_reader;
+pub mod subtitle;
+pub mod subtitle_events;
+pub mod sync;
 pub(super) mod udfread_ffi;
 
 use serde::Deserialize;
@@ -19,8 +19,8 @@ use crate::db::repos::media::VideoRepo;
 use crate::db::{ApiDateTimeExt, OptionalApiDateTimeExt};
 use crate::error::AppError;
 
-pub use crud::*;
 pub use browse::*;
+pub use crud::*;
 pub use sync::*;
 
 // ── Input DTOs ──
@@ -164,7 +164,7 @@ pub(crate) async fn to_video_output(
     }
 
     // Count items (movies + tv shows)
-    use crate::db::entities::{video_items, tv_shows};
+    use crate::db::entities::{tv_shows, video_items};
     use sea_orm::*;
     let video_item_count = video_items::Entity::find()
         .filter(video_items::Column::VideoId.eq(video_id))

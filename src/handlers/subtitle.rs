@@ -3,25 +3,23 @@ use std::{convert::Infallible, env, sync::Arc};
 
 use async_stream::stream;
 use axum::{
+    Json,
     extract::{Path, State},
     response::sse::{Event, KeepAlive, Sse},
-    Json,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use bytes::Bytes;
 use futures_util::stream::Stream;
 use serde::Deserialize;
-use subtitle_aggregator::models::{
-    SubtitleDownloadRequest as AggDownloadRequest, SubtitleSearchRequest,
-};
+use subtitle_aggregator::models::{SubtitleDownloadRequest as AggDownloadRequest, SubtitleSearchRequest};
 use tokio::sync::mpsc;
 
 use crate::{
+    AppState,
     db::models::subtitle::SubtitleRecord,
     db::repos::subtitle_repo::{CreateSubtitleInput, SubtitleRepo},
-    handlers::{err500, ok, ApiResponse},
+    handlers::{ApiResponse, err500, ok},
     services::storage::UploadOptions,
-    AppState,
 };
 
 // ── Download request wrapper (adds file_id + aggregator routing fields) ───────
@@ -58,13 +56,7 @@ fn storage_base_url() -> String {
 pub async fn get_file_subtitles(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
-) -> Result<
-    Json<ApiResponse<Vec<SubtitleRecord>>>,
-    (
-        axum::http::StatusCode,
-        Json<ApiResponse<Vec<SubtitleRecord>>>,
-    ),
-> {
+) -> Result<Json<ApiResponse<Vec<SubtitleRecord>>>, (axum::http::StatusCode, Json<ApiResponse<Vec<SubtitleRecord>>>)> {
     let base = storage_base_url();
     match SubtitleRepo::get_all_file_subtitles(&state.db, &file_id, &base).await {
         Ok(records) => Ok(ok(records)),
@@ -100,10 +92,7 @@ pub async fn search(
 pub async fn download(
     State(state): State<Arc<AppState>>,
     Json(input): Json<SubtitleDownloadHandlerRequest>,
-) -> Result<
-    Json<ApiResponse<SubtitleRecord>>,
-    (axum::http::StatusCode, Json<ApiResponse<SubtitleRecord>>),
-> {
+) -> Result<Json<ApiResponse<SubtitleRecord>>, (axum::http::StatusCode, Json<ApiResponse<SubtitleRecord>>)> {
     let agg_request = AggDownloadRequest {
         subtitle_id: input.subtitle_id.clone(),
         detail_path: input.detail_path.clone(),
@@ -127,12 +116,7 @@ pub async fn download(
     };
 
     let format = downloaded.format.clone();
-    let s3_key = format!(
-        "subtitles/{}/{}.{}",
-        input.file_id,
-        uuid::Uuid::new_v4(),
-        format
-    );
+    let s3_key = format!("subtitles/{}/{}.{}", input.file_id, uuid::Uuid::new_v4(), format);
 
     let content_type = if format == "vtt" {
         "text/vtt; charset=utf-8".to_string()
@@ -201,10 +185,7 @@ pub async fn download(
 pub async fn delete_subtitle(
     State(state): State<Arc<AppState>>,
     Path(subtitle_id): Path<String>,
-) -> Result<
-    Json<ApiResponse<serde_json::Value>>,
-    (axum::http::StatusCode, Json<ApiResponse<serde_json::Value>>),
-> {
+) -> Result<Json<ApiResponse<serde_json::Value>>, (axum::http::StatusCode, Json<ApiResponse<serde_json::Value>>)> {
     match SubtitleRepo::delete_subtitle(&state.db, &subtitle_id).await {
         Ok(Some(s3_key)) => {
             let _ = state.storage.delete(&s3_key).await;

@@ -1,8 +1,6 @@
 //! Constants for `file_scrape` handler.
 
-pub const SUBTITLE_EXTENSIONS: &[&str] = &[
-    ".srt", ".ass", ".ssa", ".sub", ".idx", ".sup", ".vtt",
-];
+pub const SUBTITLE_EXTENSIONS: &[&str] = &[".srt", ".ass", ".ssa", ".sub", ".idx", ".sup", ".vtt"];
 
 pub const POSTER_NAMES: &[&str] = &["poster.jpg", "poster.png", "folder.jpg", "cover.jpg"];
 pub const POSTER_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"];
@@ -19,13 +17,7 @@ pub const EXTRA_ART: &[ExtraArtDef] = &[
         art_type: "banner",
     },
     ExtraArtDef {
-        names: &[
-            "clearlogo.png",
-            "clearlogo.jpg",
-            "logo.png",
-            "logo.jpg",
-            "clearart.png",
-        ],
+        names: &["clearlogo.png", "clearlogo.jpg", "logo.png", "logo.jpg", "clearart.png"],
         art_type: "clearlogo",
     },
     ExtraArtDef {
@@ -100,17 +92,12 @@ pub fn image_mime(ext: &str) -> &'static str {
 }
 
 pub const PHOTO_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif",
-    "heic", "heif", "avif", "raw", "cr2", "cr3", "nef", "arw",
-    "dng", "orf", "rw2", "pef", "srw", "raf",
+    "jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif", "heic", "heif", "avif", "raw", "cr2", "cr3", "nef",
+    "arw", "dng", "orf", "rw2", "pef", "srw", "raf",
 ];
 
 pub fn is_photo_file(filename: &str) -> bool {
-    let ext = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_ascii_lowercase();
+    let ext = filename.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     PHOTO_EXTENSIONS.contains(&ext.as_str())
 }
 
@@ -133,10 +120,6 @@ pub fn guess_photo_mime(filename: &str) -> Option<String> {
 
 /// Extract image file extension (defaults to "jpg").
 pub fn image_storage_ext(filename: &str) -> String {
-    let ext = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("jpg")
-        .to_ascii_lowercase();
+    let ext = filename.rsplit('.').next().unwrap_or("jpg").to_ascii_lowercase();
     if ext.is_empty() { "jpg".to_string() } else { ext }
 }

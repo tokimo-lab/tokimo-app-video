@@ -17,15 +17,15 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use ffmpeg_tool::{capture_video_screenshot_direct, DirectInput, ImageFormat, VideoScreenshotOptions};
+use ffmpeg_tool::{DirectInput, ImageFormat, VideoScreenshotOptions, capture_video_screenshot_direct};
 use next_fs::Vfs;
 use sea_orm::*;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::{episodes, video_files};
 use crate::services::storage::UploadOptions;
-use crate::AppState;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -93,7 +93,10 @@ async fn do_capture(
         // sources, so no source_type branch is needed here.
         let ra = vfs.to_read_at(std::path::Path::new(file_path)).await;
         let direct = DirectInput::from_read_at(ra, file_size, filename_hint.clone(), None);
-        let opts = VideoScreenshotOptions { offset_secs: pos, ..opts_base.clone() };
+        let opts = VideoScreenshotOptions {
+            offset_secs: pos,
+            ..opts_base.clone()
+        };
 
         // Acquire permit BEFORE entering the blocking thread so we bound how many
         // concurrent FFmpeg decode contexts are alive at once.  The permit is held
@@ -109,12 +112,18 @@ async fn do_capture(
             // Return glibc arenas used by FFmpeg to the OS.  This call is cheap
             // (~1 ms) and reclaims hundreds of MB that ptmalloc would otherwise
             // hold in per-thread arenas indefinitely.
-            #[allow(unsafe_code)] unsafe { libc::malloc_trim(0) };
+            #[allow(unsafe_code)]
+            unsafe {
+                libc::malloc_trim(0)
+            };
             result
         })
         .await
         {
-            Ok(Ok(bytes)) => { screenshot_bytes = Some(bytes); break; }
+            Ok(Ok(bytes)) => {
+                screenshot_bytes = Some(bytes);
+                break;
+            }
             Ok(Err(e)) => warn!("[episode_screenshot] screenshot at {pos:.1}s failed: {e}"),
             Err(e) => warn!("[episode_screenshot] spawn_blocking panic at {pos:.1}s: {e}"),
         }
@@ -132,7 +141,9 @@ async fn do_capture(
         .upload(
             &storage_key,
             Bytes::from(bytes),
-            Some(UploadOptions { content_type: Some("image/jpeg".to_string()) }),
+            Some(UploadOptions {
+                content_type: Some("image/jpeg".to_string()),
+            }),
         )
         .await
         .map_err(|e| format!("storage upload failed: {e}"))?;
@@ -145,4 +156,3 @@ async fn do_capture(
     info!("[episode_screenshot] Captured still for episode {episode_id}");
     Ok(())
 }
-

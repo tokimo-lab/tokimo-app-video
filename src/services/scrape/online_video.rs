@@ -12,12 +12,14 @@ use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::entities::{download_records, video_items};
 use crate::AppState;
+use crate::db::entities::{download_records, video_items};
 
-use crate::services::media::scrape::shared::artwork::{upload_extra_art, upload_poster_and_backdrop, DiscoveredArtwork};
 use crate::queue::handlers::common::is_unique_violation;
 use crate::queue::handlers::nfo_parser::NfoInfo;
+use crate::services::media::scrape::shared::artwork::{
+    DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
+};
 
 pub struct OnlineVideoResult {
     pub video_item_id: Uuid,
@@ -32,11 +34,7 @@ pub async fn fetch_online_record(
     app_id: Uuid,
     dir_path: &str,
 ) -> Result<Option<download_records::Model>, Box<dyn std::error::Error + Send + Sync>> {
-    let dir_basename = dir_path
-        .trim_end_matches('/')
-        .rsplit('/')
-        .next()
-        .unwrap_or("");
+    let dir_basename = dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");
     if dir_basename.is_empty() {
         return Ok(None);
     }
@@ -108,63 +106,57 @@ pub async fn find_or_create_online_video(
                         .col_expr(video_items::Column::ScrapedAt, Expr::cust("NOW()"))
                         .filter(video_items::Column::Id.eq(id));
 
-                    if missing_metadata
-                        && let Some(mj) = build_metadata_json(nfo, online_record) {
-                            update = update.col_expr(video_items::Column::Metadata, Expr::value(mj));
-                        }
+                    if missing_metadata && let Some(mj) = build_metadata_json(nfo, online_record) {
+                        update = update.col_expr(video_items::Column::Metadata, Expr::value(mj));
+                    }
                     if missing_year {
-                        let snapshot_date = online_record
-                            .and_then(|r| r.analysis_snapshot.as_ref())
-                            .and_then(|s| {
-                                s.get("releaseDate")
-                                    .or_else(|| s.get("release_date"))
-                                    .and_then(|v| v.as_str())
-                                    .and_then(normalize_date_to_naive)
-                                    .or_else(|| {
-                                        s.get("rawMetadata")
-                                            .and_then(|rm| rm.get("upload_date"))
-                                            .and_then(|v| v.as_str())
-                                            .and_then(normalize_date_to_naive)
-                                    })
-                            });
+                        let snapshot_date = online_record.and_then(|r| r.analysis_snapshot.as_ref()).and_then(|s| {
+                            s.get("releaseDate")
+                                .or_else(|| s.get("release_date"))
+                                .and_then(|v| v.as_str())
+                                .and_then(normalize_date_to_naive)
+                                .or_else(|| {
+                                    s.get("rawMetadata")
+                                        .and_then(|rm| rm.get("upload_date"))
+                                        .and_then(|v| v.as_str())
+                                        .and_then(normalize_date_to_naive)
+                                })
+                        });
                         if let Some(d) = snapshot_date {
-                            update = update.col_expr(
-                                video_items::Column::Year,
-                                Expr::value(d.year()),
-                            );
-                            update = update.col_expr(
-                                video_items::Column::ReleaseDate,
-                                Expr::value(d),
-                            );
+                            update = update.col_expr(video_items::Column::Year, Expr::value(d.year()));
+                            update = update.col_expr(video_items::Column::ReleaseDate, Expr::value(d));
                         }
                     }
                     if missing_overview {
-                        let overview = nfo
-                            .and_then(|n| n.plot.clone())
-                            .or_else(|| {
-                                online_record.and_then(|r| {
-                                    r.analysis_snapshot
-                                        .as_ref()
-                                        .and_then(|s| s.get("description"))
-                                        .and_then(|v| v.as_str())
-                                        .filter(|s| !s.is_empty())
-                                        .map(String::from)
-                                })
-                            });
+                        let overview = nfo.and_then(|n| n.plot.clone()).or_else(|| {
+                            online_record.and_then(|r| {
+                                r.analysis_snapshot
+                                    .as_ref()
+                                    .and_then(|s| s.get("description"))
+                                    .and_then(|v| v.as_str())
+                                    .filter(|s| !s.is_empty())
+                                    .map(String::from)
+                            })
+                        });
                         if let Some(ov) = overview {
-                            update = update.col_expr(
-                                video_items::Column::Overview,
-                                Expr::value(ov),
-                            );
+                            update = update.col_expr(video_items::Column::Overview, Expr::value(ov));
                         }
                     }
 
                     update.exec(&txn).await?;
                     txn.commit().await?;
                     return upload_artwork_and_finish(
-                        db, state, id, app_id, nfo, online_record, artwork,
-                        nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
-                    ).await;
+                        db,
+                        state,
+                        id,
+                        app_id,
+                        nfo,
+                        online_record,
+                        artwork,
+                        nfo_poster_tmdb_path,
+                        nfo_backdrop_tmdb_path,
+                    )
+                    .await;
                 }
             }
         }
@@ -184,9 +176,17 @@ pub async fn find_or_create_online_video(
     };
 
     upload_artwork_and_finish(
-        db, state, movie_id, app_id, nfo, online_record, artwork,
-        nfo_poster_tmdb_path, nfo_backdrop_tmdb_path,
-    ).await
+        db,
+        state,
+        movie_id,
+        app_id,
+        nfo,
+        online_record,
+        artwork,
+        nfo_poster_tmdb_path,
+        nfo_backdrop_tmdb_path,
+    )
+    .await
 }
 
 async fn find_existing(
@@ -221,26 +221,22 @@ async fn create_record(
         .or_else(|| online_record.and_then(|r| r.media_title.clone()));
 
     // Overview: NFO plot → download_records.analysis_snapshot.description
-    let overview = nfo
-        .and_then(|n| n.plot.clone())
-        .or_else(|| {
-            online_record.and_then(|r| {
-                r.analysis_snapshot
-                    .as_ref()
-                    .and_then(|s| s.get("description"))
-                    .and_then(|v| v.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(String::from)
-            })
-        });
+    let overview = nfo.and_then(|n| n.plot.clone()).or_else(|| {
+        online_record.and_then(|r| {
+            r.analysis_snapshot
+                .as_ref()
+                .and_then(|s| s.get("description"))
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+        })
+    });
 
-    let runtime = nfo
-        .and_then(|n| n.runtime)
-        .or_else(|| {
-            online_record
-                .and_then(|r| r.duration_seconds)
-                .map(|s| (f64::from(s) / 60.0).round() as i32)
-        });
+    let runtime = nfo.and_then(|n| n.runtime).or_else(|| {
+        online_record
+            .and_then(|r| r.duration_seconds)
+            .map(|s| (f64::from(s) / 60.0).round() as i32)
+    });
 
     // Year & release_date: NFO → download_records.analysis_snapshot.releaseDate / upload_date
     let (year, release_date) = {
@@ -254,21 +250,19 @@ async fn create_record(
             (nfo_year, nfo_date)
         } else {
             // Fallback: extract from analysis_snapshot.releaseDate or raw upload_date
-            let snapshot_date = online_record
-                .and_then(|r| r.analysis_snapshot.as_ref())
-                .and_then(|s| {
-                    s.get("releaseDate")
-                        .or_else(|| s.get("release_date"))
-                        .and_then(|v| v.as_str())
-                        .and_then(normalize_date_to_naive)
-                        .or_else(|| {
-                            // Try rawMetadata.upload_date (yt-dlp YYYYMMDD format)
-                            s.get("rawMetadata")
-                                .and_then(|rm| rm.get("upload_date"))
-                                .and_then(|v| v.as_str())
-                                .and_then(normalize_date_to_naive)
-                        })
-                });
+            let snapshot_date = online_record.and_then(|r| r.analysis_snapshot.as_ref()).and_then(|s| {
+                s.get("releaseDate")
+                    .or_else(|| s.get("release_date"))
+                    .and_then(|v| v.as_str())
+                    .and_then(normalize_date_to_naive)
+                    .or_else(|| {
+                        // Try rawMetadata.upload_date (yt-dlp YYYYMMDD format)
+                        s.get("rawMetadata")
+                            .and_then(|rm| rm.get("upload_date"))
+                            .and_then(|v| v.as_str())
+                            .and_then(normalize_date_to_naive)
+                    })
+            });
             let year = snapshot_date.map(|d| d.year());
             (year, snapshot_date)
         }
@@ -361,13 +355,15 @@ fn build_metadata_json(
     }
     if let Some(or) = online_record {
         if !metadata.contains_key("uploader")
-            && let Some(ref u) = or.uploader {
-                metadata.insert("uploader".into(), json!(u));
-            }
+            && let Some(ref u) = or.uploader
+        {
+            metadata.insert("uploader".into(), json!(u));
+        }
         if !metadata.contains_key("sourceSite")
-            && let Some(ref s) = or.source_site {
-                metadata.insert("sourceSite".into(), json!(s));
-            }
+            && let Some(ref s) = or.source_site
+        {
+            metadata.insert("sourceSite".into(), json!(s));
+        }
         if let Some(ref e) = or.external_id {
             metadata.insert("externalId".into(), json!(e));
         }
@@ -417,12 +413,13 @@ async fn upload_artwork_and_finish(
             .filter(|u| u.starts_with("http"))
             .or_else(|| online_record.and_then(|r| r.thumbnail_url.as_deref()));
         if let Some(url) = thumb_url
-            && !url.is_empty() {
-                match download_thumbnail(state, url, &movie_id.to_string()).await {
-                    Ok(sp) => poster_path = Some(sp),
-                    Err(e) => tracing::warn!("[online_video] thumbnail download failed: {e}"),
-                }
+            && !url.is_empty()
+        {
+            match download_thumbnail(state, url, &movie_id.to_string()).await {
+                Ok(sp) => poster_path = Some(sp),
+                Err(e) => tracing::warn!("[online_video] thumbnail download failed: {e}"),
             }
+        }
     }
 
     if poster_path.is_some() || backdrop_path.is_some() {
@@ -438,7 +435,9 @@ async fn upload_artwork_and_finish(
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
 
-    Ok(OnlineVideoResult { video_item_id: movie_id })
+    Ok(OnlineVideoResult {
+        video_item_id: movie_id,
+    })
 }
 
 /// Download a remote thumbnail URL and upload to local storage as poster.

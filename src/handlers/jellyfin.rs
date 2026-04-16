@@ -17,13 +17,10 @@ use crate::{
         file_repo::VideoFileRepo,
         playback_session_repo::{CreatePlaybackSessionInput, PlaybackSessionRepo},
     },
-    handlers::media::{
-        utils::resolve_local_path,
-        stream::stream_driver_file,
-    },
+    handlers::media::{stream::stream_driver_file, utils::resolve_local_path},
 };
-use tokimo_jellyfin_api::JellyfinPlaybackSession;
 use sea_orm::EntityTrait;
+use tokimo_jellyfin_api::JellyfinPlaybackSession;
 
 impl tokimo_jellyfin_api::JellyfinAppState for AppState {
     fn db(&self) -> &DatabaseConnection {
@@ -33,23 +30,20 @@ impl tokimo_jellyfin_api::JellyfinAppState for AppState {
     fn server_id(&self) -> &str {
         // Stable per-instance identifier. Falls back to a fixed UUID.
         static ID: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-            std::env::var("JELLYFIN_SERVER_ID")
-                .unwrap_or_else(|_| "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90".to_string())
+            std::env::var("JELLYFIN_SERVER_ID").unwrap_or_else(|_| "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90".to_string())
         });
         &ID
     }
 
     fn server_name(&self) -> &str {
-        static NAME: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-            std::env::var("JELLYFIN_SERVER_NAME").unwrap_or_else(|_| "Tokimo".to_string())
-        });
+        static NAME: std::sync::LazyLock<String> =
+            std::sync::LazyLock::new(|| std::env::var("JELLYFIN_SERVER_NAME").unwrap_or_else(|_| "Tokimo".to_string()));
         &NAME
     }
 
     fn public_base_url(&self) -> &str {
         static URL: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-            std::env::var("PUBLIC_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:5678".to_string())
+            std::env::var("PUBLIC_BASE_URL").unwrap_or_else(|_| "http://localhost:5678".to_string())
         });
         &URL
     }
@@ -68,8 +62,7 @@ impl tokimo_jellyfin_api::JellyfinAppState for AppState {
         // Local filesystem: use ServeFile for efficiency (no subtitle tap for Jellyfin)
         if target.source_type.as_deref() == Some("local") {
             let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
-            let req = axum::http::Request::builder()
-                .method(axum::http::Method::GET);
+            let req = axum::http::Request::builder().method(axum::http::Method::GET);
 
             // Forward Range header
             let mut req = if let Some(range) = headers.get(header::RANGE) {
@@ -105,14 +98,18 @@ impl tokimo_jellyfin_api::JellyfinAppState for AppState {
         };
 
         // No subtitle tap for Jellyfin (Infuse handles subtitles itself)
-        stream_driver_file(vfs, target.path, headers, None, tokio_util::sync::CancellationToken::new()).await
+        stream_driver_file(
+            vfs,
+            target.path,
+            headers,
+            None,
+            tokio_util::sync::CancellationToken::new(),
+        )
+        .await
     }
 
     async fn create_playback_session(&self, session: JellyfinPlaybackSession) {
-        let Ok(Some(file)) = video_files::Entity::find_by_id(session.file_id)
-            .one(&self.db)
-            .await
-        else {
+        let Ok(Some(file)) = video_files::Entity::find_by_id(session.file_id).one(&self.db).await else {
             return;
         };
 
@@ -153,18 +150,13 @@ impl tokimo_jellyfin_api::JellyfinAppState for AppState {
     }
 
     async fn update_playback_session_progress(&self, user_id: Uuid, file_id: Uuid, position: i32) {
-        if let Err(e) =
-            PlaybackSessionRepo::update_progress_by_file(&self.db, file_id, user_id, position)
-                .await
-        {
+        if let Err(e) = PlaybackSessionRepo::update_progress_by_file(&self.db, file_id, user_id, position).await {
             tracing::warn!("[Jellyfin] failed to update playback session progress: {e}");
         }
     }
 
     async fn stop_playback_session(&self, user_id: Uuid, file_id: Uuid, position: i32) {
-        if let Err(e) =
-            PlaybackSessionRepo::stop_by_file_and_user(&self.db, file_id, user_id, position).await
-        {
+        if let Err(e) = PlaybackSessionRepo::stop_by_file_and_user(&self.db, file_id, user_id, position).await {
             tracing::warn!("[Jellyfin] failed to stop playback session: {e}");
         }
     }

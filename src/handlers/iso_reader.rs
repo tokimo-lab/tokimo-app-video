@@ -20,10 +20,9 @@ use tracing::{debug, warn};
 use next_fs::ReadAt;
 
 use super::udfread_ffi::{
-    UdfDirent, UdfreadBlockInput, VfsBlockInput, udfread_closedir, udfread_close,
-    udfread_file_close, udfread_file_lba, udfread_file_open, udfread_file_size, udfread_init,
-    udfread_open_input, udfread_opendir, udfread_readdir, vfs_read_callback, vfs_size_callback,
-    UDF_DT_REG,
+    UDF_DT_REG, UdfDirent, UdfreadBlockInput, VfsBlockInput, udfread_close, udfread_closedir, udfread_file_close,
+    udfread_file_lba, udfread_file_open, udfread_file_size, udfread_init, udfread_open_input, udfread_opendir,
+    udfread_readdir, vfs_read_callback, vfs_size_callback,
 };
 
 // ── Public types (unchanged — callers in playback.rs depend on these) ─────────
@@ -59,10 +58,7 @@ type UdfResult<T> = Result<T, String>;
 ///
 /// Runs synchronous libudfread C calls inside `block_in_place` so it does not
 /// block the async executor beyond what tokio expects for blocking I/O helpers.
-pub fn find_m2ts_files(
-    read_at: ReadAt,
-    iso_size: u64,
-) -> UdfResult<Vec<M2tsFile>> {
+pub fn find_m2ts_files(read_at: ReadAt, iso_size: u64) -> UdfResult<Vec<M2tsFile>> {
     tokio::task::block_in_place(|| find_m2ts_files_sync(read_at, iso_size))
 }
 
@@ -75,10 +71,7 @@ pub fn select_main_m2ts(files: &[M2tsFile]) -> Option<&M2tsFile> {
 
 // ── Internal synchronous implementation ──────────────────────────────────────
 
-fn find_m2ts_files_sync(
-    read_at: ReadAt,
-    iso_size: u64,
-) -> UdfResult<Vec<M2tsFile>> {
+fn find_m2ts_files_sync(read_at: ReadAt, iso_size: u64) -> UdfResult<Vec<M2tsFile>> {
     let iso_size_blocks = (iso_size / 2048) as u32;
 
     // Build a VfsBlockInput that wraps the async-bridging read closure.
@@ -92,8 +85,7 @@ fn find_m2ts_files_sync(
         iso_size_blocks,
     };
 
-    let dir_path =
-        CString::new("/BDMV/STREAM").map_err(|e| format!("invalid dir path: {e}"))?;
+    let dir_path = CString::new("/BDMV/STREAM").map_err(|e| format!("invalid dir path: {e}"))?;
 
     // SAFETY: all pointers live for the duration of this function.
     unsafe {
@@ -115,13 +107,14 @@ fn find_m2ts_files_sync(
         let dir = udfread_opendir(udf, dir_path.as_ptr());
         if dir.is_null() {
             udfread_close(udf);
-            return Err(
-                "BDMV/STREAM directory not found — not a Blu-ray ISO?".to_string()
-            );
+            return Err("BDMV/STREAM directory not found — not a Blu-ray ISO?".to_string());
         }
 
         let mut files = Vec::new();
-        let mut entry = UdfDirent { d_type: 0, d_name: std::ptr::null() };
+        let mut entry = UdfDirent {
+            d_type: 0,
+            d_name: std::ptr::null(),
+        };
 
         loop {
             let ep = udfread_readdir(dir, &raw mut entry);
@@ -155,14 +148,14 @@ fn find_m2ts_files_sync(
             let size = size as u64;
 
             let extents = build_extents(file, size);
-            debug!(
-                "[ISO] {name}: {:.2} GB, {} extent(s)",
-                size as f64 / 1e9,
-                extents.len()
-            );
+            debug!("[ISO] {name}: {:.2} GB, {} extent(s)", size as f64 / 1e9, extents.len());
 
             udfread_file_close(file);
-            files.push(M2tsFile { filename: name, size, extents });
+            files.push(M2tsFile {
+                filename: name,
+                size,
+                extents,
+            });
         }
 
         udfread_closedir(dir);
@@ -191,14 +184,20 @@ unsafe fn build_extents(file: *mut super::udfread_ffi::UdfFile, size: u64) -> Ve
 
     // Single block — trivial.
     if total_blocks == 1 {
-        return vec![IsoExtent { offset: u64::from(first_lba) * 2048, length: size }];
+        return vec![IsoExtent {
+            offset: u64::from(first_lba) * 2048,
+            length: size,
+        }];
     }
 
     let last_lba = unsafe { udfread_file_lba(file, total_blocks - 1) };
 
     // Fast path: single contiguous extent (typical for Blu-ray main M2TS).
     if last_lba == first_lba + total_blocks - 1 {
-        return vec![IsoExtent { offset: u64::from(first_lba) * 2048, length: size }];
+        return vec![IsoExtent {
+            offset: u64::from(first_lba) * 2048,
+            length: size,
+        }];
     }
 
     // Slow path: fragmented — scan block by block.
@@ -235,7 +234,10 @@ unsafe fn build_extents(file: *mut super::udfread_ffi::UdfFile, size: u64) -> Ve
             u64::from(run_len) * 2048
         };
 
-        extents.push(IsoExtent { offset: u64::from(run_start_lba) * 2048, length: byte_len });
+        extents.push(IsoExtent {
+            offset: u64::from(run_start_lba) * 2048,
+            length: byte_len,
+        });
         block += run_len;
     }
 
