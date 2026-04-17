@@ -69,9 +69,10 @@ pub async fn find_or_create_online_video(
     nfo_backdrop_tmdb_path: Option<&str>,
 ) -> Result<OnlineVideoResult, Box<dyn std::error::Error + Send + Sync>> {
     // Title: NFO → download_records → dir name
-    let title = nfo
-        .and_then(|n| n.title.clone())
-        .or_else(|| online_record.and_then(|r| r.media_title.clone()))
+    let nfo_title = nfo.and_then(|n| n.title.clone());
+    let record_title = online_record.and_then(|r| r.media_title.clone());
+    let title = nfo_title
+        .or(record_title)
         .unwrap_or_else(|| dir_folder_name.to_string());
 
     // Advisory lock to prevent duplicate creation
