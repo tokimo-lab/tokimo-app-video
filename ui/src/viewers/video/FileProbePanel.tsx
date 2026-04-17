@@ -5,6 +5,7 @@
  * video/audio stream details, and chapter list.
  */
 
+import { ScrollArea } from "@tokiomo/components";
 import {
   ChevronRight,
   FileText,
@@ -233,7 +234,11 @@ export function FileProbePanel({
   const primaryVideo = videoStreams[0];
 
   return (
-    <div className="custom-scrollbar h-full overflow-y-auto px-4 py-3">
+    <ScrollArea
+      className="h-full"
+      direction="vertical"
+      innerClassName="px-4 py-3"
+    >
       {/* File name */}
       <h3 className="mb-3 break-all text-sm font-semibold text-fg-primary">
         {fileName}
@@ -370,6 +375,6 @@ export function FileProbePanel({
           <p className="break-all text-[13px] text-fg-muted">{filePath}</p>
         </Section>
       </div>
-    </div>
+    </ScrollArea>
   );
 }
