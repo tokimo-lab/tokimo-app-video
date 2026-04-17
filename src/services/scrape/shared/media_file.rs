@@ -226,11 +226,13 @@ pub async fn try_nfo_patch(
     let nfo = read_nfo_for_patch(&ctx, &stem, dir_folder_name).await;
 
     let dir_lower: Vec<String> = dir_entries.iter().map(|e| e.to_ascii_lowercase()).collect();
-    let poster_filename = POSTER_NAMES
-        .iter()
-        .find(|&&name| dir_lower.iter().any(|e| e == name))
-        .map(|&s| s.to_string())
-        .or_else(|| parse::find_stem_poster_filename(&dir_entries, &stem));
+    // Prefer stem-matched poster over directory-level generic names
+    let poster_filename = parse::find_stem_poster_filename(&dir_entries, &stem).or_else(|| {
+        POSTER_NAMES
+            .iter()
+            .find(|&&name| dir_lower.iter().any(|e| e == name))
+            .map(|&s| s.to_string())
+    });
     let poster_buf = match &poster_filename {
         Some(pf) => {
             let path = format!("{}/{}", dir_path.trim_end_matches('/'), pf);

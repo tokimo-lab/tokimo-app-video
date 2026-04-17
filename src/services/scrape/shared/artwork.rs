@@ -82,12 +82,13 @@ pub struct ExtraArtBuf {
 pub async fn discover_artwork(ctx: &DirContext) -> DiscoveredArtwork {
     let dir_lower: Vec<String> = ctx.dir_entries.iter().map(|e| e.to_ascii_lowercase()).collect();
 
-    // Find poster
-    let poster_filename = POSTER_NAMES
-        .iter()
-        .find(|&&name| dir_lower.iter().any(|e| e == name))
-        .map(|&s| s.to_string())
-        .or_else(|| find_stem_poster_filename(&ctx.dir_entries, &ctx.stem));
+    // Find poster: prefer stem-matched (per-file) over directory-level generic names
+    let poster_filename = find_stem_poster_filename(&ctx.dir_entries, &ctx.stem).or_else(|| {
+        POSTER_NAMES
+            .iter()
+            .find(|&&name| dir_lower.iter().any(|e| e == name))
+            .map(|&s| s.to_string())
+    });
 
     let poster_buf = match &poster_filename {
         Some(pf) => read_file_from_dir(ctx, pf).await,
