@@ -20,6 +20,12 @@ use crate::queue::handlers::nfo_parser::{self, NfoInfo, extract_tmdb_path};
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
+/// Detect titles that look like hex folder IDs (e.g. `ph63c44fe5c2c97`, `64d34ed0d5f86`).
+fn looks_like_folder_id(title: &str) -> bool {
+    let t = title.strip_prefix("ph").unwrap_or(title);
+    t.len() >= 10 && t.chars().all(|c| c.is_ascii_hexdigit())
+}
+
 /// Create a new `VideoFile` or re-associate an existing orphan.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_or_update(
@@ -179,6 +185,7 @@ pub async fn try_nfo_patch(
 ) {
     let mut needs_tmdb_id = false;
     let mut needs_poster = false;
+    let mut needs_title = false;
     let mut entity_movie_id: Option<Uuid> = None;
     let mut entity_tv_show_id: Option<Uuid> = None;
 
@@ -188,6 +195,7 @@ pub async fn try_nfo_patch(
         {
             needs_tmdb_id = movie.tmdb_id.is_none();
             needs_poster = movie.poster_path.is_none();
+            needs_title = looks_like_folder_id(&movie.title);
             entity_movie_id = Some(mid);
         }
     } else if lib_type.is_tv_family()
@@ -200,7 +208,8 @@ pub async fn try_nfo_patch(
         entity_tv_show_id = Some(ep.tv_show_id);
     }
 
-    if (!needs_tmdb_id && !needs_poster) || (entity_movie_id.is_none() && entity_tv_show_id.is_none()) {
+    let needs_anything = needs_tmdb_id || needs_poster || needs_title;
+    if !needs_anything || (entity_movie_id.is_none() && entity_tv_show_id.is_none()) {
         return;
     }
 
@@ -241,9 +250,30 @@ pub async fn try_nfo_patch(
         None => None,
     };
 
-    if nfo.is_none() && poster_buf.is_none() {
+    if nfo.is_none() && poster_buf.is_none() && !needs_title {
         return;
     }
+
+    // Compute a better title when the current one looks like a folder ID
+    let dir_folder_name = dir_path
+        .trim_end_matches('/')
+        .rsplit_once('/')
+        .map_or(dir_path, |(_, name)| name);
+    let better_title = if needs_title {
+        nfo.as_ref()
+            .and_then(|n| n.title.clone())
+            .or_else(|| {
+                // Parse title from filename stem
+                let parsed = parse::parse_media_filename(&indexed.filename, Some(dir_folder_name));
+                if !parsed.title.is_empty() && !looks_like_folder_id(&parsed.title) {
+                    Some(parsed.title)
+                } else {
+                    None
+                }
+            })
+    } else {
+        None
+    };
 
     if let Some(mid) = entity_movie_id {
         patch_movie(
@@ -252,6 +282,7 @@ pub async fn try_nfo_patch(
             mid,
             needs_tmdb_id,
             needs_poster,
+            better_title.as_deref(),
             &nfo,
             &poster_buf,
             &poster_filename,
@@ -279,10 +310,21 @@ async fn patch_movie(
     mid: Uuid,
     needs_tmdb_id: bool,
     needs_poster: bool,
+    better_title: Option<&str>,
     nfo: &Option<nfo_parser::NfoInfo>,
     poster_buf: &Option<Vec<u8>>,
     poster_filename: &Option<String>,
 ) {
+    // Patch title if it looks like a folder ID
+    if let Some(title) = better_title {
+        let _ = video_items::Entity::update_many()
+            .col_expr(video_items::Column::Title, Expr::value(title))
+            .filter(video_items::Column::Id.eq(mid))
+            .exec(db)
+            .await;
+        info!("[nfo_patch] movie {mid}: fixed title → {title}");
+    }
+
     if needs_tmdb_id
         && let Some(nfo) = nfo
         && (nfo.tmdb_id.is_some() || nfo.imdb_id.is_some())
