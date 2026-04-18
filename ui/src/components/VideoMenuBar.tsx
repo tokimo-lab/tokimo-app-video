@@ -75,7 +75,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
             parentWindowId: windowId,
             title: "添加在线媒体",
             width: 680,
-            height: 520,
+            height: 680,
             noResize: true,
             noMinimize: true,
             metadata: activeLibrary.id

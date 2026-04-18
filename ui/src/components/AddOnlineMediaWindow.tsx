@@ -78,22 +78,28 @@ function AnalysisCard({
   selectedLibrary: VideoOutput | null;
 }) {
   const { t } = useTranslation();
+  const [imgFailed, setImgFailed] = useState(false);
   const isMusic =
     analysis.contentType === "music" || selectedLibrary?.type === "music";
 
+  const placeholderEl = (
+    <div className="flex h-40 w-full shrink-0 items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-white/[0.10] sm:h-24 sm:w-40">
+      <PlusOutlined />
+    </div>
+  );
+
   return (
     <div className="rounded-xl border border-[var(--glass-border)] bg-surface-glass p-4 shadow-sm">
-      <div className="flex gap-4">
-        {analysis.thumbnailUrl ? (
+      <div className="flex flex-col gap-4 sm:flex-row">
+        {analysis.thumbnailUrl && !imgFailed ? (
           <img
             src={buildProxiedImageUrl(analysis.thumbnailUrl)}
             alt={analysis.title ?? analysis.sourceSite ?? "thumbnail"}
-            className="h-24 w-40 shrink-0 rounded-lg object-cover"
+            className="h-40 w-full shrink-0 rounded-lg object-cover sm:h-24 sm:w-40"
+            onError={() => setImgFailed(true)}
           />
         ) : (
-          <div className="flex h-24 w-40 shrink-0 items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-white/[0.10]">
-            <PlusOutlined />
-          </div>
+          placeholderEl
         )}
 
         <div className="min-w-0 flex-1 space-y-2">
