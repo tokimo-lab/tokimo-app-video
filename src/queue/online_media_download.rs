@@ -475,6 +475,7 @@ pub async fn handle(
                                     "libType": lib_type,
                                 }),
                                 None,
+                                None,
                             )
                             .await
                             {
@@ -506,6 +507,7 @@ pub async fn handle(
                                     "sourceId": source_id.to_string(),
                                     "libType": lib_type,
                                 }),
+                                None,
                                 None,
                             )
                             .await

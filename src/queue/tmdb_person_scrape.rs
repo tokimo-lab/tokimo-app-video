@@ -89,6 +89,7 @@ pub async fn handle(
                 "field": "profilePath",
             }),
             None,
+            None,
         )
         .await?;
     }

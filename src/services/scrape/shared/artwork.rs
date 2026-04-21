@@ -60,6 +60,7 @@ pub async fn dispatch_tmdb_image_job(
             "field": field,
         }),
         None,
+        None,
     )
     .await?;
     Ok(())

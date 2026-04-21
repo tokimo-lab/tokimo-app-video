@@ -616,6 +616,7 @@ async fn upsert_season(
             json!({ "plexUrl": url, "storageKey": storage_key,
                 "entity": "season", "entityId": season_id.to_string(), "field": "posterPath" }),
             None,
+            None,
         )
         .await;
     }
@@ -705,6 +706,7 @@ async fn upsert_episode(
             "image_upload",
             json!({ "plexUrl": url, "storageKey": storage_key,
                 "entity": "episode", "entityId": episode_id.to_string(), "field": "stillPath" }),
+            None,
             None,
         )
         .await;

@@ -326,7 +326,7 @@ impl AppSyncService {
 
             let jobs = Self::sync_fs_source(
                 db, sources, storage, book_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
-                &source, root_path,
+                &source, root_path, None,
             )
             .await?;
             total_jobs += jobs;
@@ -345,6 +345,7 @@ impl AppSyncService {
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
         library_id: Uuid,
         clear_data: bool,
+        user_id: Option<Uuid>,
     ) -> Result<SyncResult, AppError> {
         let library = PhotoLibraryRepo::get_by_id(db, library_id)
             .await?
@@ -355,7 +356,7 @@ impl AppSyncService {
             library.name, library_id
         );
 
-        let result = Self::do_photo_sync(db, sources, storage, &library, clear_data).await;
+        let result = Self::do_photo_sync(db, sources, storage, &library, clear_data, user_id).await;
 
         match &result {
             Ok(sync_result) => {
@@ -382,6 +383,7 @@ impl AppSyncService {
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
         library: &photo_libraries::Model,
         clear_data: bool,
+        user_id: Option<Uuid>,
     ) -> Result<SyncResult, AppError> {
         let library_id = library.id;
         let lib_type = "photo";
@@ -410,7 +412,7 @@ impl AppSyncService {
 
             let jobs = Self::sync_fs_source(
                 db, sources, storage, library_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
-                &source, root_path,
+                &source, root_path, user_id,
             )
             .await?;
             total_jobs += jobs;
@@ -497,7 +499,7 @@ impl AppSyncService {
 
             let jobs = Self::sync_fs_source(
                 db, sources, storage, video_id, lib_type, is_movie, is_tv, false, // is_music = false for video
-                &source, root_path,
+                &source, root_path, None,
             )
             .await?;
             total_jobs += jobs;
@@ -714,13 +716,14 @@ impl AppSyncService {
     #[allow(clippy::too_many_arguments)]
     async fn flush_grouped_jobs<'a>(
         db: &DatabaseConnection,
-        jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>)>,
+        jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)>,
         tv_groups: HashMap<String, Vec<serde_json::Value>>,
         movie_groups: HashMap<String, Vec<serde_json::Value>>,
         book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>>,
         app_id: Uuid,
         source_id: Uuid,
         lib_type: &'a str,
+        user_id: Option<Uuid>,
     ) -> Result<u64, AppError> {
         let mut total = 0u64;
         let flush_size = Self::JOB_BATCH_FLUSH_SIZE;
@@ -735,6 +738,7 @@ impl AppSyncService {
                 "book_scrape",
                 json!({ "dirPath": dir_path, "chapterFiles": chapter_files, "totalSize": total_size, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type }),
                 None,
+                user_id,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -746,6 +750,7 @@ impl AppSyncService {
                 "tv_scrape",
                 json!({ "showDir": show_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
                 None,
+                user_id,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -757,6 +762,7 @@ impl AppSyncService {
                 "movie_scrape",
                 json!({ "movieDir": movie_dir, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
                 None,
+                user_id,
             ));
             if jobs_batch.len() >= flush_size {
                 total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
@@ -778,6 +784,7 @@ impl AppSyncService {
         is_music: bool,
         source: &vfs::Model,
         root_path: &str,
+        user_id: Option<Uuid>,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
 
@@ -835,7 +842,7 @@ impl AppSyncService {
         let source_id = source.id;
         let is_tmdb_movie = is_tmdb_movie_type(lib_type);
         let mut seen_paths = HashSet::new();
-        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
+        let mut jobs_batch: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)> = Vec::new();
         let mut total_jobs = 0u64;
         let mut skipped = 0u64;
 
@@ -937,6 +944,7 @@ impl AppSyncService {
                     "libType": lib_type,
                 }),
                 None,
+                user_id,
             ));
 
             // Flush batch periodically
@@ -955,6 +963,7 @@ impl AppSyncService {
             app_id,
             source_id,
             lib_type,
+            user_id,
         )
         .await?;
 
@@ -1788,7 +1797,7 @@ impl AppSyncService {
         // Process each album group — enqueue async scrape jobs
         let vfs_ref = if is_local { Some(&vfs) } else { None };
         let mut total_jobs = 0u64;
-        let mut scrape_jobs: Vec<(&str, serde_json::Value, Option<serde_json::Value>)> = Vec::new();
+        let mut scrape_jobs: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)> = Vec::new();
 
         for (i, group) in album_groups.iter().enumerate() {
             match Self::process_album_group(db, app_id, storage, group, is_local, vfs_ref).await {
@@ -1806,6 +1815,7 @@ impl AppSyncService {
                                 "albumId": album_id.to_string(),
                                 "appId": app_id.to_string(),
                             }),
+                            None,
                             None,
                         ));
                         if scrape_jobs.len() >= Self::JOB_BATCH_FLUSH_SIZE {
