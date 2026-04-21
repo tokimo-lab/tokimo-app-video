@@ -10,9 +10,10 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::apps::photo::repos::PhotoLibraryRepo;
 use crate::db::entities::{
     book_files, books, episodes, music_album_artists, music_albums, music_artists, music_files, music_tracks, musics,
-    photo_albums, photo_persons, photos, seasons, tv_shows, vfs, video_files, video_items, videos,
+    photo_albums, photo_libraries, photo_persons, photos, seasons, tv_shows, vfs, video_files, video_items, videos,
 };
 use crate::db::repos::book_repo::BookRepo;
 use crate::db::repos::job_repo::JobRepo;
@@ -325,6 +326,90 @@ impl AppSyncService {
 
             let jobs = Self::sync_fs_source(
                 db, sources, storage, book_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
+                &source, root_path,
+            )
+            .await?;
+            total_jobs += jobs;
+        }
+
+        Ok(SyncResult { total_jobs })
+    }
+
+    /// Execute sync for a photo library.
+    ///
+    /// Mirrors `execute_book_sync` — walks configured sources for image files
+    /// and dispatches `file_scrape` jobs.
+    pub async fn execute_photo_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        library_id: Uuid,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let library = PhotoLibraryRepo::get_by_id(db, library_id)
+            .await?
+            .not_found("photo library not found")?;
+
+        info!(
+            "Starting photo sync for \"{}\" (id={})",
+            library.name, library_id
+        );
+
+        let result = Self::do_photo_sync(db, sources, storage, &library, clear_data).await;
+
+        match &result {
+            Ok(sync_result) => {
+                let now = Utc::now().fixed_offset();
+                PhotoLibraryRepo::update_sync_status(db, library_id, "completed", Some(now)).await?;
+                info!(
+                    "Photo sync completed: \"{}\" — {} jobs dispatched",
+                    library.name, sync_result.total_jobs
+                );
+            }
+            Err(err) => {
+                error!("Photo sync failed for \"{}\": {}", library.name, err);
+                let _ = PhotoLibraryRepo::update_sync_status(db, library_id, "failed", None).await;
+            }
+        }
+
+        result
+    }
+
+    /// Core photo sync logic: parses sources from JSON and walks each.
+    async fn do_photo_sync(
+        db: &DatabaseConnection,
+        sources: &SourceRegistry,
+        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        library: &photo_libraries::Model,
+        clear_data: bool,
+    ) -> Result<SyncResult, AppError> {
+        let library_id = library.id;
+        let lib_type = "photo";
+
+        if clear_data {
+            Self::clear_library_data(db, library_id, lib_type).await?;
+        }
+
+        // Clean up old finished jobs so progress counts only reflect this sync run
+        JobRepo::delete_finished_jobs_by_app_id(db, library_id).await?;
+
+        let source_tuples = PhotoLibraryRepo::parse_sources(&library.sources);
+        if source_tuples.is_empty() {
+            info!("  No sources configured for photo library, skipping");
+            return Ok(SyncResult { total_jobs: 0 });
+        }
+
+        let mut total_jobs = 0u64;
+
+        for (source_id, root_path, _is_default) in &source_tuples {
+            let source = vfs::Entity::find_by_id(*source_id).one(db).await?;
+            let Some(source) = source else {
+                warn!("  Source {source_id} not found, skipping");
+                continue;
+            };
+
+            let jobs = Self::sync_fs_source(
+                db, sources, storage, library_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
                 &source, root_path,
             )
             .await?;
