@@ -4,13 +4,7 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Button,
-  Card,
-  HistoryOutlined,
-  Modal,
-  ScanOutlined,
-} from "@tokiomo/components";
+import { Button, Card, HistoryOutlined, Modal, ScanOutlined } from "@tokimo/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

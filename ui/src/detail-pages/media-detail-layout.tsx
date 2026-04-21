@@ -1,4 +1,4 @@
-import { ArrowLeftOutlined, Button } from "@tokiomo/components";
+import { ArrowLeftOutlined, Button } from "@tokimo/ui";
 import type { ReactNode } from "react";
 import { posterThumbUrl } from "@/lib/thumb";
 import type { CollectionOutput, GenreOutput } from "@/types";

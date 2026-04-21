@@ -1,4 +1,4 @@
-import { AppSidebar, CircularProgress, Tooltip } from "@tokiomo/components";
+import { AppSidebar, CircularProgress, Tooltip } from "@tokimo/ui";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
 import type { VideoOutput } from "@/generated/rust-api";
 import { getAvatarColor, getAvatarIcon } from "@/shared/avatar-utils";

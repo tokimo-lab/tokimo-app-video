@@ -1,4 +1,4 @@
-import { Avatar, Spin } from "@tokiomo/components";
+import { Avatar, Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { api } from "@/generated/rust-api";

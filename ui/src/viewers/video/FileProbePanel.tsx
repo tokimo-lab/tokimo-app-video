@@ -5,7 +5,7 @@
  * video/audio stream details, and chapter list.
  */
 
-import { ScrollArea } from "@tokiomo/components";
+import { ScrollArea } from "@tokimo/ui";
 import {
   ChevronRight,
   FileText,

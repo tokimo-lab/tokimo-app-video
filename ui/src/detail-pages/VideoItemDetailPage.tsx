@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, Modal, Spin } from "@tokiomo/components";
+import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
 import { posterThumbUrl } from "@/lib/thumb";

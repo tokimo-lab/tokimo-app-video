@@ -1,4 +1,4 @@
-import { cn, Empty, PosterCard, Spin } from "@tokiomo/components";
+import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
 import { getGenreName } from "@tokiomo/types";
 import { motion } from "framer-motion";
 

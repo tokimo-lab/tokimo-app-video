@@ -7,7 +7,7 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
-import { cn, Popover, ScrollArea, Tag } from "@tokiomo/components";
+import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
 import { getGenreName } from "@tokiomo/types";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";

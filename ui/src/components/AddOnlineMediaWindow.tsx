@@ -16,7 +16,7 @@ import {
   Select,
   Spin,
   Tag,
-} from "@tokiomo/components";
+} from "@tokimo/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {

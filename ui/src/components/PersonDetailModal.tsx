@@ -1,4 +1,4 @@
-import { Modal, ScrollArea, Spin } from "@tokiomo/components";
+import { Modal, ScrollArea, Spin } from "@tokimo/ui";
 import { ExternalLink, Film } from "lucide-react";
 import { useState } from "react";
 import {

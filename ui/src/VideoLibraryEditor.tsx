@@ -5,14 +5,7 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Button,
-  cn,
-  Form,
-  type FormInstance,
-  Input,
-  Modal,
-} from "@tokiomo/components";
+import { Button, cn, Form, type FormInstance, Input, Modal } from "@tokimo/ui";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarPicker } from "@/components/avatar-picker";

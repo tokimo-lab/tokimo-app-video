@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Checkbox, Modal } from "@tokiomo/components";
+import { Checkbox, Modal } from "@tokimo/ui";
 import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { api } from "@/generated/rust-api";
