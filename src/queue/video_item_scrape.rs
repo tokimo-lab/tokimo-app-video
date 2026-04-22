@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 
+use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
 
 /// Process all new/changed files for a single movie directory in one sequential job.
@@ -26,7 +27,9 @@ pub async fn handle(
     state: &Arc<AppState>,
     job_id: Uuid,
     payload: &JsonValue,
+    cancel: &JobCancel,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
+    check_cancel(cancel)?;
     let movie_dir = payload
         .get("movieDir")
         .and_then(|v| v.as_str())
@@ -52,6 +55,7 @@ pub async fn handle(
     let mut errors = 0u32;
 
     for file in files {
+        check_cancel(cancel)?;
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
         let file_payload = json!({
             "filePath": file.get("filePath"),
@@ -63,7 +67,7 @@ pub async fn handle(
             "libType": lib_type,
         });
 
-        match file_scrape::handle(db, state, job_id, &file_payload).await {
+        match file_scrape::handle(db, state, job_id, &file_payload, cancel).await {
             Ok(_) => processed += 1,
             Err(e) => {
                 error!("[movie_scrape] Error on \"{file_path}\": {e}");

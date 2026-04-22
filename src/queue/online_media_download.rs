@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::db::entities::{download_records, vfs, video_files};
 use crate::db::repos::job_repo::JobRepo;
+use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::services::storage::{StorageProvider, UploadOptions};
 
 // ── Download log helpers ──────────────────────────────────────────────────────
@@ -67,7 +68,9 @@ pub async fn handle(
     state: &Arc<AppState>,
     job_id: Uuid,
     payload: &JsonValue,
+    cancel: &JobCancel,
 ) -> HandlerResult {
+    check_cancel(cancel)?;
     let record_id = payload
         .get("recordId")
         .and_then(|v| v.as_str())
@@ -294,6 +297,7 @@ pub async fn handle(
     let mut last_logged_stage: Option<String> = None;
 
     loop {
+        check_cancel(cancel)?;
         tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval)).await;
 
         let task = state.online_media.tasks.get_task(&task_id).await;

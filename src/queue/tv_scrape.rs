@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 
+use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
 
 /// Process all new/changed files for a single TV show.
@@ -28,7 +29,9 @@ pub async fn handle(
     state: &Arc<AppState>,
     job_id: Uuid,
     payload: &JsonValue,
+    cancel: &JobCancel,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
+    check_cancel(cancel)?;
     let show_dir = payload
         .get("showDir")
         .and_then(|v| v.as_str())
@@ -64,7 +67,7 @@ pub async fn handle(
         let file = &files[0];
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
         let file_payload = make_file_payload(file, app_id, source_id, lib_type);
-        match file_scrape::handle(db, state, job_id, &file_payload).await {
+        match file_scrape::handle(db, state, job_id, &file_payload, cancel).await {
             Ok(_) => {
                 processed.fetch_add(1, Ordering::Relaxed);
             }
@@ -79,6 +82,7 @@ pub async fn handle(
     const CONCURRENCY: usize = 8;
     let remaining = &files[1..];
     for chunk in remaining.chunks(CONCURRENCY) {
+        check_cancel(cancel)?;
         let mut handles = Vec::with_capacity(chunk.len());
         for file in chunk {
             let file_payload = make_file_payload(file, app_id, source_id, lib_type);
@@ -86,13 +90,14 @@ pub async fn handle(
             let state = state.clone();
             let processed = processed.clone();
             let errors = errors.clone();
+            let cancel = cancel.clone();
             handles.push(tokio::spawn(async move {
                 let file_path = file_payload
                     .get("filePath")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                match file_scrape::handle(&db, &state, job_id, &file_payload).await {
+                match file_scrape::handle(&db, &state, job_id, &file_payload, &cancel).await {
                     Ok(_) => {
                         processed.fetch_add(1, Ordering::Relaxed);
                     }

@@ -8,13 +8,16 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::queue::cancellation::{JobCancel, check_cancel};
 
 pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     _job_id: Uuid,
     payload: &JsonValue,
+    cancel: &JobCancel,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
+    check_cancel(cancel)?;
     let person_id = payload
         .get("personId")
         .and_then(|v| v.as_str())
@@ -58,6 +61,7 @@ pub async fn handle(
     let tmdb_id_num: i64 = if let Some(tmdb_id) = tmdb_id_opt.as_deref() {
         tmdb_id.parse()?
     } else {
+        check_cancel(cancel)?;
         let results = client.search_person(&person_name).await?;
         let first = results
             .into_iter()
@@ -71,6 +75,7 @@ pub async fn handle(
     };
 
     // debug!("[tmdb_person_scrape] Fetching TMDB person {tmdb_id_num} for {person_id} ({person_type})");
+    check_cancel(cancel)?;
     let detail = client.get_person_detail(tmdb_id_num).await?;
 
     // ── Dispatch image_upload job for the profile image ──
