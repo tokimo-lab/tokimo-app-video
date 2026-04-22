@@ -15,7 +15,7 @@ import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
 } from "@/apps/finder/components/FileDetailsModal";
-import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailModal";
+import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailPopover";
 import { posterThumbUrl } from "@/lib/thumb";
 import { useLang, usePlayer } from "@/system";
 import type { CreditOutput, GenreOutput, MediaFileOutput } from "@/types";
