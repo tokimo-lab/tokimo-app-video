@@ -14,6 +14,9 @@ import VideoSidebar from "./VideoSidebar";
 
 const STORAGE_KEY = "video-active-category";
 
+/** See PHOTO_SCAN_JOB_TYPES for rationale. Backend: apps/video/handlers/sync.rs */
+const VIDEO_SCAN_JOB_TYPES = ["movie_scrape", "tv_scrape"] as const;
+
 const LoadingFallback = (
   <div className="flex h-full items-center justify-center">
     <Spin />
@@ -106,6 +109,7 @@ export default function VideoApp() {
     libraries: categories,
     progressQueryKey: (id) => api.video.getSyncProgress.queryKey({ id }),
     fetchProgress: (id) => api.video.getSyncProgress.fetch({ id }),
+    scanJobTypes: VIDEO_SCAN_JOB_TYPES,
     onContentRefresh: () => {
       api.video.listVideoItems.invalidate(queryClient);
       api.video.listTvShows.invalidate(queryClient);
