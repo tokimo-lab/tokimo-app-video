@@ -5,7 +5,15 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, cn, Form, type FormInstance, Input, Modal } from "@tokimo/ui";
+import {
+  Button,
+  cn,
+  Form,
+  type FormInstance,
+  Input,
+  Modal,
+  ScrollArea,
+} from "@tokimo/ui";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarPicker } from "@/components/avatar-picker";
@@ -194,12 +202,16 @@ export default function VideoLibraryEditor({
   if (showTypeSelect) {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <ScrollArea
+          direction="vertical"
+          className="flex-1"
+          innerClassName="px-5 py-5"
+        >
           <VideoTypeSelector
             value={selectedType}
             onChange={(t) => setSelectedType(t)}
           />
-        </div>
+        </ScrollArea>
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border-base px-5 py-3">
           <Button variant="default" onClick={onCancel}>
             取消
@@ -264,7 +276,11 @@ export default function VideoLibraryEditor({
         autoComplete="off"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+        <ScrollArea
+          direction="vertical"
+          className="min-h-0 flex-1"
+          innerClassName="space-y-5 px-5 py-5"
+        >
           {/* 基本信息 */}
           <div className="rounded-lg border border-border-base p-5">
             <h4 className="mb-4 text-sm font-semibold text-fg-primary">
@@ -313,7 +329,7 @@ export default function VideoLibraryEditor({
             </h4>
             <VideoOrganizeFields form={form as FormInstance} />
           </div>
-        </div>
+        </ScrollArea>
 
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-between border-t border-border-base px-5 py-3">
