@@ -42,6 +42,7 @@ function VfsVideoViewer({
   const { updateMetadata } = useWindowActions();
 
   const videoSrc =
+    win.metadata.directUrl ??
     buildFileUrl(filePath, fileSystemId) ??
     buildSshFileUrl(win.metadata.sshTerminalId, filePath);
 
