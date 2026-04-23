@@ -11,7 +11,7 @@ use crate::AppState;
 use crate::db::entities::{download_records, vfs, video_files};
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
-use crate::services::storage::{StorageProvider, UploadOptions};
+use crate::services::storage::UploadOptions;
 
 // ── Download log helpers ──────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ fn download_log_key(record_id: &Uuid) -> String {
 }
 
 async fn append_download_log(
-    storage: &Arc<dyn StorageProvider>,
+    state: &Arc<AppState>,
     record_id: &Uuid,
     run_id: &str,
     phase: &str,
@@ -39,11 +39,12 @@ async fn append_download_log(
     let new_line = format!("{}\n", serde_json::to_string(&entry).unwrap_or_default());
 
     // Download existing content, append new line, re-upload.
-    let existing = storage.download(&key).await.unwrap_or_default();
+    let existing = state.storage.download(&key).await.unwrap_or_default();
     let mut content = existing.to_vec();
     content.extend_from_slice(new_line.as_bytes());
 
-    if let Err(e) = storage
+    if let Err(e) = state
+        .storage
         .upload(
             &key,
             Bytes::from(content),
@@ -54,6 +55,15 @@ async fn append_download_log(
         .await
     {
         warn!(%record_id, "Failed to write download log: {e}");
+    }
+
+    // Fan out to any live SSE subscribers. Cheap no-op when no one is watching.
+    state.download_log_bus.publish_append(*record_id, entry);
+
+    // "completed"/"error" are terminal phases — notify subscribers so the UI
+    // can flip the "running" indicator without polling `/is-active`.
+    if phase == "completed" || phase == "error" {
+        state.download_log_bus.publish_completed(*record_id);
     }
 }
 
@@ -128,7 +138,7 @@ pub async fn handle(
         let err_msg = "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径";
         update_record_failed(db, record_uuid, err_msg).await;
         let run_id = record_uuid.to_string();
-        append_download_log(&state.storage, &record_uuid, &run_id, "error", err_msg, None).await;
+        append_download_log(state, &record_uuid, &run_id, "error", err_msg, None).await;
         return Err("该应用未配置文件系统源".into());
     }
     let default_source = parsed_sources.iter().find(|s| s.2).or(parsed_sources.first());
@@ -251,7 +261,7 @@ pub async fn handle(
 
     info!(record_id, task_id, "Online media task created");
     append_download_log(
-        &state.storage,
+        state,
         &record_uuid,
         &task_id,
         "download-started",
@@ -306,7 +316,7 @@ pub async fn handle(
             warn!(task_id, attempt = poll_failure_count, "Task not found during polling");
             if poll_failure_count > poll_retry_limit {
                 let err_msg = format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
-                append_download_log(&state.storage, &record_uuid, &task_id, "error", &err_msg, None).await;
+                append_download_log(state, &record_uuid, &task_id, "error", &err_msg, None).await;
                 update_record_failed(db, record_uuid, &err_msg).await;
                 return Err(err_msg.into());
             }
@@ -322,7 +332,7 @@ pub async fn handle(
         {
             let phase = stage_to_log_phase(stage);
             let msg = stage_to_log_message(stage, resp.progress);
-            append_download_log(&state.storage, &record_uuid, &task_id, phase, &msg, None).await;
+            append_download_log(state, &record_uuid, &task_id, phase, &msg, None).await;
             last_logged_stage = resp.stage.clone();
         }
 
@@ -389,7 +399,7 @@ pub async fn handle(
                     if let (Some(stage_dir), Some(sid)) = (&vfs_stage_dir, download_source_id) {
                         match copy_staged_to_vfs(
                             &state.sources,
-                            &state.storage,
+                            state,
                             &sid.to_string(),
                             stage_dir,
                             &organize_target_path,
@@ -406,7 +416,7 @@ pub async fn handle(
                             Err(e) => {
                                 let msg = format!("上传到 VFS 失败: {e}");
                                 error!(record_id, task_id, %e, "Failed to copy to VFS");
-                                append_download_log(&state.storage, &record_uuid, &task_id, "error", &msg, None).await;
+                                append_download_log(state, &record_uuid, &task_id, "error", &msg, None).await;
                                 update_record_failed(db, record_uuid, &msg).await;
                                 return Err(msg.into());
                             }
@@ -421,7 +431,7 @@ pub async fn handle(
                     .or_else(|| resp.target_path.clone());
 
                 append_download_log(
-                    &state.storage,
+                    state,
                     &record_uuid,
                     &task_id,
                     "completed",
@@ -532,7 +542,7 @@ pub async fn handle(
             | rust_online_media_ingest::models::TaskState::Cancelled => {
                 let message = resp.error.unwrap_or_else(|| "在线媒体下载失败".into());
                 error!(record_id, task_id, %message, "Online media task failed");
-                append_download_log(&state.storage, &record_uuid, &task_id, "error", &message, None).await;
+                append_download_log(state, &record_uuid, &task_id, "error", &message, None).await;
                 update_record_failed(db, record_uuid, &message).await;
                 return Err(message.into());
             }
@@ -598,7 +608,7 @@ struct VfsCopyResult {
 /// Returns the top-level VFS directory path and the list of uploaded files.
 async fn copy_staged_to_vfs(
     sources: &crate::services::media::source::SourceRegistry,
-    storage: &Arc<dyn StorageProvider>,
+    state: &Arc<AppState>,
     source_id: &str,
     local_stage_dir: &std::path::Path,
     vfs_target_root: &str,
@@ -716,7 +726,7 @@ async fn copy_staged_to_vfs(
         }
 
         append_download_log(
-            storage,
+            state,
             record_id,
             task_id,
             "manifest-import",
