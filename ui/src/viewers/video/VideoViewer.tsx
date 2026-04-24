@@ -7,7 +7,7 @@
 
 import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildFileUrl } from "@/apps/finder/components/types";
+import { buildFileUrl } from "@/lib/file-url";
 import { useWindowActions, type WindowState } from "@/system";
 import { buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";
