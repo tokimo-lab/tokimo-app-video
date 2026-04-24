@@ -108,7 +108,7 @@ function AnalysisCard({
               <Tag color="blue">{analysis.contentType}</Tag>
             )}
             {isMusic && (
-              <Tag color="green">
+              <Tag color="success">
                 {t(`${ns}.onlineMedia.audioOnly`, { defaultValue: "纯音频" })}
               </Tag>
             )}
