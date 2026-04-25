@@ -647,7 +647,7 @@ pub(crate) async fn build_iso_m2ts_input(
     file_size: Option<i64>,
     iso_meta: Option<&IsoMeta>,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
-) -> Result<Arc<ffmpeg_tool::DirectInput>, String> {
+) -> Result<Arc<tokimo_package_ffmpeg::DirectInput>, String> {
     let source_id = source_id.ok_or("ISO file has no source ID")?;
     let file_size = file_size.filter(|&s| s > 0).ok_or("ISO file has unknown size")? as u64;
 
@@ -713,7 +713,7 @@ async fn build_direct_input_from_m2ts(
     iso_path: String,
     m2ts: iso_reader::M2tsFile,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
-) -> Arc<ffmpeg_tool::DirectInput> {
+) -> Arc<tokimo_package_ffmpeg::DirectInput> {
     let m2ts_size = m2ts.size;
     let filename = m2ts.filename.clone();
     let extents = m2ts.extents;
@@ -721,7 +721,7 @@ async fn build_direct_input_from_m2ts(
     // Get a sync ReadAt for the raw ISO file (handles local/remote transparently)
     let iso_ra: tokimo_vfs::ReadAt = vfs.to_read_at(std::path::Path::new(&iso_path)).await;
 
-    let input = ffmpeg_tool::DirectInput {
+    let input = tokimo_package_ffmpeg::DirectInput {
         read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
             let result =
                 read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| iso_ra(iso_offset, len))?;
@@ -732,7 +732,7 @@ async fn build_direct_input_from_m2ts(
         }),
         size: m2ts_size,
         filename_hint: Some(filename),
-        readahead_bytes: Some(ffmpeg_tool::READAHEAD_HLS),
+        readahead_bytes: Some(tokimo_package_ffmpeg::READAHEAD_HLS),
     };
 
     Arc::new(input)
@@ -933,7 +933,7 @@ async fn build_direct_input(
     file_path: &str,
     file_size: Option<i64>,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
-) -> Option<Arc<ffmpeg_tool::DirectInput>> {
+) -> Option<Arc<tokimo_package_ffmpeg::DirectInput>> {
     let source_id = source_id?;
     let file_size = file_size.filter(|&s| s > 0)? as u64;
 
@@ -956,9 +956,9 @@ async fn build_direct_input(
             let _ = tap.try_send((shared.clone(), offset));
             Ok(shared.to_vec())
         });
-        ffmpeg_tool::DirectInput::from_read_at(tapped_ra, file_size, filename_hint, Some(ffmpeg_tool::READAHEAD_HLS))
+        tokimo_package_ffmpeg::DirectInput::from_read_at(tapped_ra, file_size, filename_hint, Some(tokimo_package_ffmpeg::READAHEAD_HLS))
     } else {
-        ffmpeg_tool::DirectInput::from_read_at(ra, file_size, filename_hint, Some(ffmpeg_tool::READAHEAD_HLS))
+        tokimo_package_ffmpeg::DirectInput::from_read_at(ra, file_size, filename_hint, Some(tokimo_package_ffmpeg::READAHEAD_HLS))
     };
 
     info!("[HLS] DirectInput: {} ({}MB)", file_path, file_size / 1024 / 1024,);
