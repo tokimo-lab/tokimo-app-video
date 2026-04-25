@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 /// Shared directory context for VFS operations.
 pub struct DirContext {
-    pub vfs: Arc<next_fs::Vfs>,
+    pub vfs: Arc<tokimo_vfs::Vfs>,
     pub dir_path: String,
     pub dir_entries: Vec<String>,
     pub stem: String,

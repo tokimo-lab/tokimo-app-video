@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use ffmpeg_tool::{DirectInput, ImageFormat, VideoScreenshotOptions, capture_video_screenshot_direct};
-use next_fs::Vfs;
+use tokimo_vfs::Vfs;
 use sea_orm::*;
 use tracing::{info, warn};
 use uuid::Uuid;

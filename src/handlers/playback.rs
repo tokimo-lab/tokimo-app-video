@@ -690,7 +690,7 @@ pub(crate) async fn build_iso_m2ts_input(
 /// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
 /// not in DB yet) and from the ffprobe scan (to populate `iso_meta`).
 pub(crate) async fn parse_iso_m2ts(
-    vfs: &Arc<next_fs::Vfs>,
+    vfs: &Arc<tokimo_vfs::Vfs>,
     iso_path: &str,
     file_size: u64,
 ) -> Result<iso_reader::M2tsFile, String> {
@@ -709,7 +709,7 @@ pub(crate) async fn parse_iso_m2ts(
 }
 
 async fn build_direct_input_from_m2ts(
-    vfs: Arc<next_fs::Vfs>,
+    vfs: Arc<tokimo_vfs::Vfs>,
     iso_path: String,
     m2ts: iso_reader::M2tsFile,
     subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
@@ -719,7 +719,7 @@ async fn build_direct_input_from_m2ts(
     let extents = m2ts.extents;
 
     // Get a sync ReadAt for the raw ISO file (handles local/remote transparently)
-    let iso_ra: next_fs::ReadAt = vfs.to_read_at(std::path::Path::new(&iso_path)).await;
+    let iso_ra: tokimo_vfs::ReadAt = vfs.to_read_at(std::path::Path::new(&iso_path)).await;
 
     let input = ffmpeg_tool::DirectInput {
         read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
@@ -950,7 +950,7 @@ async fn build_direct_input(
     let input = if let Some(tap) = subtitle_tap {
         // Wrap ReadAt with subtitle tapping
         let inner_ra = ra;
-        let tapped_ra: next_fs::ReadAt = Arc::new(move |offset: u64, size: usize| {
+        let tapped_ra: tokimo_vfs::ReadAt = Arc::new(move |offset: u64, size: usize| {
             let buf = inner_ra(offset, size)?;
             let shared = bytes::Bytes::from(buf);
             let _ = tap.try_send((shared.clone(), offset));

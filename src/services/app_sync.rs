@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::Utc;
-use next_fs::Vfs;
+use tokimo_vfs::Vfs;
 use regex::Regex;
 use sea_orm::*;
 use serde_json::json;

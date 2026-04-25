@@ -17,7 +17,7 @@
 use std::ffi::{CStr, CString};
 use tracing::{debug, warn};
 
-use next_fs::ReadAt;
+use tokimo_vfs::ReadAt;
 
 use super::udfread_ffi::{
     UDF_DT_REG, UdfDirent, UdfreadBlockInput, VfsBlockInput, udfread_close, udfread_closedir, udfread_file_close,
