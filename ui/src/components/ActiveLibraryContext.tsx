@@ -5,7 +5,7 @@
  * so a React context from VideoApp can't reach VideoMenuBar.
  * We use useSyncExternalStore with a module-level snapshot instead.
  */
-import { useCallback, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 interface ActiveLibraryInfo {
   id: string | null;
@@ -41,10 +41,7 @@ export function useSetActiveLibrary(
   id: string | null | undefined,
   type: string | null | undefined,
 ) {
-  const sync = useCallback(() => {
+  useEffect(() => {
     setActiveLibrary(id ?? null, type ?? null);
   }, [id, type]);
-
-  // Sync immediately on mount and when values change
-  sync();
 }
