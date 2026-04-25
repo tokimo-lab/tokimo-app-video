@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Spin } from "@tokimo/ui";
 import { Film, Plus } from "lucide-react";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect } from "react";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
@@ -11,8 +11,6 @@ import type { TaskMetadata } from "@/system/window/window-types";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
-
-const STORAGE_KEY = "video-active-category";
 
 /** See PHOTO_SCAN_JOB_TYPES for rationale. Backend: apps/video/handlers/sync.rs */
 const VIDEO_SCAN_JOB_TYPES = ["movie_scrape", "tv_scrape"] as const;
@@ -24,18 +22,31 @@ const LoadingFallback = (
 );
 
 export default function VideoApp() {
-  const { LazyViewComponent, route, navigate, updateTitle } = useWindowNav();
+  const { LazyViewComponent, params, replace, updateTitle } = useWindowNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
   const { collapsed: sidebarCollapsed, onToggleCollapse } = useSidebarCollapsed(
     "video",
     containerWidth > 0 && containerWidth < 720,
   );
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const initialized = useRef(false);
 
   const windowId = useWindowId();
   const { openModalWindow } = useWindowActions();
+
+  // Active category is stored in the window route (persisted in DB via user_tasks).
+  const activeCategoryId = params.categoryId ?? null;
+
+  // Auto-select: navigate to the first valid category when none is in the route.
+  useEffect(() => {
+    if (!categories?.length) return;
+    if (params.categoryId) {
+      // Validate the stored category still exists; redirect to first if not.
+      const valid = categories.some((c) => c.id === params.categoryId);
+      if (!valid) replace(`/library/${categories[0].id}`);
+      return;
+    }
+    replace(`/library/${categories[0].id}`);
+  }, [categories, params.categoryId, replace]);
 
   const openLibraryEditor = useCallback(
     (videoId?: string) => {
@@ -71,35 +82,20 @@ export default function VideoApp() {
     });
   }, [openModalWindow, windowId]);
 
-  useEffect(() => {
-    if (!categories?.length || initialized.current) return;
-    initialized.current = true;
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const id =
-      saved && categories.some((c) => c.id === saved)
-        ? saved
-        : categories[0].id;
-    setActiveCategoryId(id);
-  }, [categories]);
-
   const activeCategory = categories?.find((c) => c.id === activeCategoryId);
 
   // Sync active library to module-level store (consumed by VideoMenuBar)
   useSetActiveLibrary(activeCategory?.id, activeCategory?.type);
 
-  // Keep window title in sync with the active library when on the root route
+  // Keep window title in sync with active library
   useEffect(() => {
-    if (route === "/" && activeCategory) {
+    if (activeCategory) {
       updateTitle(`TokimoVideo · ${activeCategory.name}`);
     }
-  }, [route, activeCategory, updateTitle]);
+  }, [activeCategory, updateTitle]);
 
   const handleSelectCategory = (id: string) => {
-    setActiveCategoryId(id);
-    localStorage.setItem(STORAGE_KEY, id);
-    if (route !== "/") {
-      navigate("/");
-    }
+    replace(`/library/${id}`);
   };
 
   // ── Sync progress tracking (WS-driven + fallback polling) ──
@@ -156,7 +152,9 @@ export default function VideoApp() {
     );
   }
 
-  const isDetailPage = route !== "/" && LazyViewComponent;
+  // Detail routes (/movies/:videoItemId, /tv/:tvShowId) are rendered directly
+  // by PageViewRouter; VideoApp is only the view for "/" and "/library/:categoryId".
+  const isDetailPage = !!(params.videoItemId ?? params.tvShowId);
 
   return (
     <div ref={containerRef} className="relative flex h-full">
@@ -173,7 +171,7 @@ export default function VideoApp() {
       <div
         className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
       >
-        {isDetailPage ? (
+        {isDetailPage && LazyViewComponent ? (
           <Suspense fallback={LoadingFallback}>
             <LazyViewComponent />
           </Suspense>
