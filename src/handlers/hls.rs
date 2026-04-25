@@ -5,7 +5,7 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use rust_hls::{CreateSessionRequest, HlsSessionInfo};
+use tokimo_package_hls::{CreateSessionRequest, HlsSessionInfo};
 use std::sync::Arc;
 use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};

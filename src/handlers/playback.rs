@@ -4,7 +4,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use rust_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
+use tokimo_package_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use rust_subtitle::{
     resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
@@ -24,7 +24,7 @@ use crate::db::repos::subtitle_repo::SubtitleRepo;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
-use rust_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
+use tokimo_package_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
 
 // ── Request body ──────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ pub async fn stream_url(
     let audio_streams = AudioStreamInfo::from_json_array(file.audio_streams.as_ref());
     let audio_index = body.audio_index.unwrap_or(0);
     let selected_audio = audio_streams.get(audio_index).or(audio_streams.first());
-    let selected_audio_info = selected_audio.map(|a| rust_hls::transcode_decision::AudioInfo {
+    let selected_audio_info = selected_audio.map(|a| tokimo_package_hls::transcode_decision::AudioInfo {
         channels: a.channels,
         bitrate: a.bitrate,
         sample_rate: a.sample_rate,
