@@ -1,7 +1,7 @@
 /**
  * VideoLibraryEditor — inline panel for creating / editing a video library.
  *
- * Can be embedded in VideoSettingsPage (right panel) or wrapped in a modal.
+ * Embedded in VideoApp's right pane via the inline-settings mode pattern.
  */
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,7 +36,7 @@ import { getVideoTypeInfo } from "./video-library/video-types";
 
 interface VideoLibraryEditorProps {
   videoId?: string;
-  onSaved?: () => void;
+  onSaved?: (savedId: string) => void;
   onDeleted?: () => void;
   onCancel?: () => void;
 }
@@ -122,23 +122,8 @@ export default function VideoLibraryEditor({
   }, [video, form]);
 
   // ── Mutations ──
-  const createMutation = api.video.create.useMutation({
-    onSuccess: () => {
-      message.success("视频库已创建");
-      api.video.list.invalidate(qc);
-      onSaved?.();
-    },
-    onError: (e) => message.error(e.message || "创建失败"),
-  });
-
-  const updateMutation = api.video.update.useMutation({
-    onSuccess: () => {
-      message.success("已保存");
-      api.video.list.invalidate(qc);
-      onSaved?.();
-    },
-    onError: (e) => message.error(e.message || "保存失败"),
-  });
+  const createMutation = api.video.create.useMutation();
+  const updateMutation = api.video.update.useMutation();
 
   const deleteMutation = api.video.delete.useMutation({
     onSuccess: () => {
@@ -173,27 +158,50 @@ export default function VideoLibraryEditor({
       strictYearMatch: values.strictYearMatch ?? false,
     };
 
-    if (video) {
-      await updateMutation.mutateAsync({
-        id: video.id,
-        type: selectedType,
-        name: values.name as string,
-        avatar: avatar as Record<string, unknown> | null,
-        description: (values.description as string) || null,
-        settings,
-        sources,
-      });
-    } else {
-      await createMutation.mutateAsync({
-        name: values.name as string,
-        type: selectedType!,
-        avatar: avatar as Record<string, unknown> | null,
-        description: (values.description as string) || null,
-        settings,
-        sources,
-      });
+    try {
+      let savedId: string;
+      if (video) {
+        await updateMutation.mutateAsync({
+          id: video.id,
+          type: selectedType,
+          name: values.name as string,
+          avatar: avatar as Record<string, unknown> | null,
+          description: (values.description as string) || null,
+          settings,
+          sources,
+        });
+        savedId = video.id;
+        message.success("已保存");
+      } else {
+        const created = await createMutation.mutateAsync({
+          name: values.name as string,
+          type: selectedType!,
+          avatar: avatar as Record<string, unknown> | null,
+          description: (values.description as string) || null,
+          settings,
+          sources,
+        });
+        savedId = created.id;
+        message.success("视频库已创建");
+      }
+      api.video.list.invalidate(qc);
+      onSaved?.(savedId);
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : video ? "保存失败" : "创建失败";
+      message.error(msg);
     }
-  }, [form, video, selectedType, avatar, createMutation, updateMutation]);
+  }, [
+    form,
+    video,
+    selectedType,
+    avatar,
+    createMutation,
+    updateMutation,
+    qc,
+    message,
+    onSaved,
+  ]);
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const typeInfo = selectedType ? getVideoTypeInfo(selectedType) : null;
@@ -335,12 +343,8 @@ export default function VideoLibraryEditor({
         <div className="flex shrink-0 items-center justify-between border-t border-border-base px-5 py-3">
           <div>
             {video && (
-              <Button
-                variant="danger"
-                size="small"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 size={13} className="mr-1" />
+              <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+                <Trash2 size={14} className="mr-1" />
                 删除
               </Button>
             )}
