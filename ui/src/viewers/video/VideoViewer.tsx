@@ -9,7 +9,7 @@ import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildFileUrl } from "@/lib/file-url";
 import { useWindowActions, type WindowState } from "@/system";
-import { buildSshFileUrl } from "../file-url";
+import { buildAgentFileUrl, buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";
 import { FileProbePanel } from "./FileProbePanel";
 
@@ -44,7 +44,8 @@ function VfsVideoViewer({
   const videoSrc =
     win.metadata.directUrl ??
     buildFileUrl(filePath, fileSystemId) ??
-    buildSshFileUrl(win.metadata.sshTerminalId, filePath);
+    buildSshFileUrl(win.metadata.sshTerminalId, filePath) ??
+    buildAgentFileUrl(win.metadata.agentId, filePath);
 
   // Saved position from metadata (read once per file)
   const savedPosition = useRef(win.metadata.playbackPosition ?? 0);
