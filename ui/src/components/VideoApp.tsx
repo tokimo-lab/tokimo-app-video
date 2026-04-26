@@ -3,6 +3,7 @@ import { Spin } from "@tokimo/ui";
 import { Film, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import VideoLibraryEditor from "@/apps/settings/admin/VideoLibraryEditor";
+import { AnimatedSettingsPane } from "@/apps/_framework/AnimatedSettingsPane";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
@@ -202,39 +203,40 @@ export default function VideoApp() {
         settingsActive={isSettingsView}
       />
       <div
-        className={`min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
+        className={`relative min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
       >
         {isDetailPage && LazyViewComponent ? (
           <Suspense fallback={LoadingFallback}>
             <LazyViewComponent />
           </Suspense>
-        ) : mode === "settings-new" ? (
-          <div className="animate-settings-pane-in h-full">
-            <VideoLibraryEditor
-              key="__new__"
-              onSaved={handleSaved}
-              onCancel={handleCancel}
-            />
-          </div>
-        ) : mode === "settings" && activeCategoryId ? (
-          <div className="animate-settings-pane-in h-full">
-            <VideoLibraryEditor
-              key={activeCategoryId}
-              videoId={activeCategoryId}
-              onSaved={handleSaved}
-              onDeleted={handleDeleted}
-              onCancel={handleCancel}
-            />
-          </div>
         ) : (
-          activeCategoryId &&
-          activeCategory && (
-            <VideoContent
-              key={activeCategoryId}
-              category={activeCategory}
-              syncing={!!syncProgress[activeCategoryId]?.isActive}
-            />
-          )
+          <>
+            {activeCategoryId && activeCategory && mode === "content" && (
+              <VideoContent
+                key={activeCategoryId}
+                category={activeCategory}
+                syncing={!!syncProgress[activeCategoryId]?.isActive}
+              />
+            )}
+            <AnimatedSettingsPane open={mode === "settings-new"}>
+              <VideoLibraryEditor
+                key="__new__"
+                onSaved={handleSaved}
+                onCancel={handleCancel}
+              />
+            </AnimatedSettingsPane>
+            <AnimatedSettingsPane
+              open={mode === "settings" && !!activeCategoryId}
+            >
+              <VideoLibraryEditor
+                key={activeCategoryId ?? "edit"}
+                videoId={activeCategoryId ?? undefined}
+                onSaved={handleSaved}
+                onDeleted={handleDeleted}
+                onCancel={handleCancel}
+              />
+            </AnimatedSettingsPane>
+          </>
         )}
       </div>
     </div>
