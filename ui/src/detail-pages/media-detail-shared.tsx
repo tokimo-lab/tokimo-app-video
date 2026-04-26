@@ -514,7 +514,7 @@ export function MediaFileCard({
       trigger="click"
       placement="bottomLeft"
       fitViewport
-      popupClassName="z-[9999] overflow-hidden border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[720px] p-3 bg-[rgba(255,255,255,calc(var(--window-opacity,85)/100))] dark:bg-[rgba(15,15,25,calc(var(--window-opacity,85)/100))]"
+      popupClassName="border border-black/[0.06] dark:border-white/[0.08] shadow-xl w-[720px] p-3 bg-white/90 dark:bg-[rgba(15,15,25,0.9)]"
       content={<FileDetailsTooltipContent file={file} />}
     >
       <div className="group relative cursor-pointer rounded-lg border border-border-base bg-white/40 p-3 backdrop-blur-sm transition-all hover:border-black/10 hover:bg-white/70 hover:shadow-sm dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.08]">
