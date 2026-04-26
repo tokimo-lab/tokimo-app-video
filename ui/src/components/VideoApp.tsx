@@ -209,19 +209,23 @@ export default function VideoApp() {
             <LazyViewComponent />
           </Suspense>
         ) : mode === "settings-new" ? (
-          <VideoLibraryEditor
-            key="__new__"
-            onSaved={handleSaved}
-            onCancel={handleCancel}
-          />
+          <div className="animate-settings-pane-in h-full">
+            <VideoLibraryEditor
+              key="__new__"
+              onSaved={handleSaved}
+              onCancel={handleCancel}
+            />
+          </div>
         ) : mode === "settings" && activeCategoryId ? (
-          <VideoLibraryEditor
-            key={activeCategoryId}
-            videoId={activeCategoryId}
-            onSaved={handleSaved}
-            onDeleted={handleDeleted}
-            onCancel={handleCancel}
-          />
+          <div className="animate-settings-pane-in h-full">
+            <VideoLibraryEditor
+              key={activeCategoryId}
+              videoId={activeCategoryId}
+              onSaved={handleSaved}
+              onDeleted={handleDeleted}
+              onCancel={handleCancel}
+            />
+          </div>
         ) : (
           activeCategoryId &&
           activeCategory && (
