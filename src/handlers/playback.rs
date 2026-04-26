@@ -4,13 +4,13 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use tokimo_package_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use rust_subtitle::{
     resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokimo_package_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -24,8 +24,8 @@ use crate::db::repos::subtitle_repo::SubtitleRepo;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
-use tokimo_package_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 use sea_orm::EntityTrait;
+use tokimo_package_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
 
 // ── Request body ──────────────────────────────────────────────────────────────
 
@@ -956,9 +956,19 @@ async fn build_direct_input(
             let _ = tap.try_send((shared.clone(), offset));
             Ok(shared.to_vec())
         });
-        tokimo_package_ffmpeg::DirectInput::from_read_at(tapped_ra, file_size, filename_hint, Some(tokimo_package_ffmpeg::READAHEAD_HLS))
+        tokimo_package_ffmpeg::DirectInput::from_read_at(
+            tapped_ra,
+            file_size,
+            filename_hint,
+            Some(tokimo_package_ffmpeg::READAHEAD_HLS),
+        )
     } else {
-        tokimo_package_ffmpeg::DirectInput::from_read_at(ra, file_size, filename_hint, Some(tokimo_package_ffmpeg::READAHEAD_HLS))
+        tokimo_package_ffmpeg::DirectInput::from_read_at(
+            ra,
+            file_size,
+            filename_hint,
+            Some(tokimo_package_ffmpeg::READAHEAD_HLS),
+        )
     };
 
     info!("[HLS] DirectInput: {} ({}MB)", file_path, file_size / 1024 / 1024,);

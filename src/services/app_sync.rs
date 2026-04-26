@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::Utc;
-use tokimo_vfs::Vfs;
 use regex::Regex;
 use sea_orm::*;
 use serde_json::json;
+use tokimo_vfs::Vfs;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -351,10 +351,7 @@ impl AppSyncService {
             .await?
             .not_found("photo library not found")?;
 
-        info!(
-            "Starting photo sync for \"{}\" (id={})",
-            library.name, library_id
-        );
+        info!("Starting photo sync for \"{}\" (id={})", library.name, library_id);
 
         let result = Self::do_photo_sync(db, sources, storage, &library, clear_data, user_id).await;
 
@@ -411,7 +408,8 @@ impl AppSyncService {
             };
 
             let jobs = Self::sync_fs_source(
-                db, sources, storage, library_id, lib_type, false, false, false, // is_movie, is_tv, is_music = false
+                db, sources, storage, library_id, lib_type, false, false,
+                false, // is_movie, is_tv, is_music = false
                 &source, root_path, user_id,
             )
             .await?;

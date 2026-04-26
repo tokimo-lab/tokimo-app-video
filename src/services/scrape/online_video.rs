@@ -71,9 +71,7 @@ pub async fn find_or_create_online_video(
     // Title: NFO → download_records → fallback (parsed filename / dir name)
     let nfo_title = nfo.and_then(|n| n.title.clone());
     let record_title = online_record.and_then(|r| r.media_title.clone());
-    let title = nfo_title
-        .or(record_title)
-        .unwrap_or_else(|| fallback_title.to_string());
+    let title = nfo_title.or(record_title).unwrap_or_else(|| fallback_title.to_string());
 
     // Advisory lock to prevent duplicate creation
     let lock_key = {
