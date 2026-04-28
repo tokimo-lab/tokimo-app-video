@@ -4,7 +4,7 @@ use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -294,24 +294,30 @@ async fn patch_movie(
         if let Some(ref iid) = nfo.imdb_id {
             update = update.col_expr(video_items::Column::ImdbId, Expr::value(iid.as_str()));
         }
-        let _ = update.exec(db).await;
-        info!(
-            "[nfo_patch] movie {mid}: set tmdbId={} imdbId={}",
-            nfo.tmdb_id.as_deref().unwrap_or("-"),
-            nfo.imdb_id.as_deref().unwrap_or("-")
-        );
+        match update.exec(db).await {
+            Ok(_) => info!(
+                "[nfo_patch] movie {mid}: set tmdbId={} imdbId={}",
+                nfo.tmdb_id.as_deref().unwrap_or("-"),
+                nfo.imdb_id.as_deref().unwrap_or("-")
+            ),
+            Err(e) => warn!("[nfo_patch] movie {mid}: failed to update tmdb/imdb id: {e}"),
+        }
     }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
             let key = format!("library-images/movies/{mid}/poster.{ext}");
             if let Ok(sp) = artwork::upload_image_buffer(&state.storage, buf, &key).await {
-                let _ = video_items::Entity::update_many()
+                if let Err(e) = video_items::Entity::update_many()
                     .col_expr(video_items::Column::PosterPath, Expr::value(sp.as_str()))
                     .filter(video_items::Column::Id.eq(mid))
                     .exec(db)
-                    .await;
-                info!("[nfo_patch] movie {mid}: uploaded poster {pf}");
+                    .await
+                {
+                    warn!("[nfo_patch] movie {mid}: failed to set poster_path: {e}");
+                } else {
+                    info!("[nfo_patch] movie {mid}: uploaded poster {pf}");
+                }
             }
         } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
             let _ = artwork::dispatch_tmdb_image_job(db, &tmdb_path, "movie", &mid.to_string(), "posterPath").await;
@@ -342,24 +348,30 @@ async fn patch_tv_show(
         if let Some(ref imdb) = nfo.imdb_id {
             update = update.col_expr(tv_shows::Column::ImdbId, Expr::value(imdb.as_str()));
         }
-        let _ = update.exec(db).await;
-        info!(
-            "[nfo_patch] tvShow {tid}: set tmdbId={} imdbId={}",
-            nfo.tmdb_id.as_deref().unwrap_or("-"),
-            nfo.imdb_id.as_deref().unwrap_or("-")
-        );
+        match update.exec(db).await {
+            Ok(_) => info!(
+                "[nfo_patch] tvShow {tid}: set tmdbId={} imdbId={}",
+                nfo.tmdb_id.as_deref().unwrap_or("-"),
+                nfo.imdb_id.as_deref().unwrap_or("-")
+            ),
+            Err(e) => warn!("[nfo_patch] tvShow {tid}: failed to update tmdb/imdb id: {e}"),
+        }
     }
     if needs_poster {
         if let (Some(buf), Some(pf)) = (poster_buf, poster_filename) {
             let ext = image_storage_ext(pf);
             let key = format!("library-images/tvshows/{tid}/poster.{ext}");
             if let Ok(sp) = artwork::upload_image_buffer(&state.storage, buf, &key).await {
-                let _ = tv_shows::Entity::update_many()
+                if let Err(e) = tv_shows::Entity::update_many()
                     .col_expr(tv_shows::Column::PosterPath, Expr::value(sp.as_str()))
                     .filter(tv_shows::Column::Id.eq(tid))
                     .exec(db)
-                    .await;
-                info!("[nfo_patch] tvShow {tid}: uploaded poster {pf}");
+                    .await
+                {
+                    warn!("[nfo_patch] tvShow {tid}: failed to set poster_path: {e}");
+                } else {
+                    info!("[nfo_patch] tvShow {tid}: uploaded poster {pf}");
+                }
             }
         } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
             let _ = artwork::dispatch_tmdb_image_job(db, &tmdb_path, "tvShow", &tid.to_string(), "posterPath").await;
