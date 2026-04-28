@@ -681,8 +681,10 @@ async fn copy_staged_to_vfs(
                     if curr_str == "/" || curr_str.is_empty() {
                         continue;
                     }
-                    // Ignore errors — the directory may already exist.
-                    let _ = vfs.mkdir(std::path::Path::new(curr_str.as_ref())).await;
+                    // Ignore "already exists" errors but log other failures.
+                    if let Err(e) = vfs.mkdir(std::path::Path::new(curr_str.as_ref())).await {
+                        warn!("online_media_download: failed to mkdir {}: {e}", curr_str.as_ref());
+                    }
                 }
             }
         }

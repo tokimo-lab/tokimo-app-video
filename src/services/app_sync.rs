@@ -206,7 +206,9 @@ impl AppSyncService {
             }
             Err(err) => {
                 error!("Video sync failed for \"{}\": {}", video.name, err);
-                let _ = VideoRepo::update_sync_status(db, video_id, "failed", None).await;
+                if let Err(e) = VideoRepo::update_sync_status(db, video_id, "failed", None).await {
+                    warn!("app_sync video {video_id}: failed to mark sync_status=failed: {e}");
+                }
             }
         }
 
@@ -243,7 +245,9 @@ impl AppSyncService {
             }
             Err(err) => {
                 error!("Music sync failed for \"{}\": {}", music.name, err);
-                let _ = MusicRepo::update_sync_status(db, music_id, "failed", None).await;
+                if let Err(e) = MusicRepo::update_sync_status(db, music_id, "failed", None).await {
+                    warn!("app_sync music {music_id}: failed to mark sync_status=failed: {e}");
+                }
             }
         }
 
@@ -284,7 +288,9 @@ impl AppSyncService {
             }
             Err(err) => {
                 error!("Book sync failed for \"{}\": {}", book.name, err);
-                let _ = BookRepo::update_sync_status(db, book_id, "failed", None).await;
+                if let Err(e) = BookRepo::update_sync_status(db, book_id, "failed", None).await {
+                    warn!("app_sync book {book_id}: failed to mark sync_status=failed: {e}");
+                }
             }
         }
 
@@ -366,7 +372,9 @@ impl AppSyncService {
             }
             Err(err) => {
                 error!("Photo sync failed for \"{}\": {}", library.name, err);
-                let _ = PhotoLibraryRepo::update_sync_status(db, library_id, "failed", None).await;
+                if let Err(e) = PhotoLibraryRepo::update_sync_status(db, library_id, "failed", None).await {
+                    warn!("app_sync photo library {library_id}: failed to mark sync_status=failed: {e}");
+                }
             }
         }
 
