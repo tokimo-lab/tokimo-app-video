@@ -8,6 +8,7 @@
 //! `VfsBlockInput` (same layout, extra Rust fields after the vtable) so the C
 //! callbacks can reach the VFS closure via a plain pointer cast.
 
+#![cfg(unix)]
 #![allow(unsafe_code)]
 
 use std::ffi::c_int;

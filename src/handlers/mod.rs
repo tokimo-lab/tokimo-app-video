@@ -2,12 +2,17 @@ pub mod browse;
 pub mod crud;
 pub mod file_stream;
 pub mod hls;
+#[cfg(unix)]
+pub mod iso_reader;
+#[cfg(not(unix))]
+#[path = "iso_reader_stub.rs"]
 pub mod iso_reader;
 pub mod playback;
 pub mod playback_state;
 pub mod subtitle;
 pub mod subtitle_events;
 pub mod sync;
+#[cfg(unix)]
 pub(super) mod udfread_ffi;
 
 use serde::Deserialize;

@@ -12,6 +12,7 @@
 //!   via a VFS read callback, locates the main M2TS stream, and returns its byte
 //!   extents inside the ISO so ffmpeg can read it via the existing AVIO mechanism.
 
+#![cfg(unix)]
 #![allow(unsafe_code)]
 
 use std::ffi::{CStr, CString};
