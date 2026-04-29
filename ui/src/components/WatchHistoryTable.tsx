@@ -1,9 +1,8 @@
-import { Avatar, Spin } from "@tokimo/ui";
+import { Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { UserAvatar } from "@/components/UserAvatar";
 import { api } from "@/generated/rust-api";
-import { getAvatarColor, getAvatarInitial } from "@/lib/avatar";
-import { thumbUrl } from "@/lib/thumb";
 import { parseUserAgent } from "@/lib/ua-parser";
 import { useAuth, useDateFormat } from "@/system";
 
@@ -46,9 +45,6 @@ export function WatchHistoryTable({
 }: WatchHistoryTableProps) {
   const { formatLong } = useDateFormat();
   const { user } = useAuth();
-  const avatarSrc = user ? thumbUrl("user", user.id, 44, 44) : undefined;
-  const avatarColor = getAvatarColor(user?.name || user?.email);
-  const avatarInitial = getAvatarInitial(user?.name, user?.email);
   const { data, isLoading, refetch } = api.playback.watchHistory.useQuery(
     { videoItemId, episodeId, tvShowId, limit: 20 },
     { enabled: !!(videoItemId || episodeId || tvShowId) },
@@ -115,15 +111,7 @@ export function WatchHistoryTable({
                 <td className="py-2 pr-4">
                   {item.userName ? (
                     <div className="flex items-center gap-2">
-                      <Avatar
-                        size={22}
-                        src={avatarSrc}
-                        style={{
-                          backgroundColor: avatarSrc ? undefined : avatarColor,
-                        }}
-                      >
-                        {avatarInitial}
-                      </Avatar>
+                      <UserAvatar user={user} size={22} />
                       <span className="text-fg-secondary">{item.userName}</span>
                     </div>
                   ) : (
