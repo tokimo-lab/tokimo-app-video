@@ -14,7 +14,7 @@ use crate::{
     handlers::{err_resp, err404, err500},
 };
 
-use rust_subtitle::{
+use tokimo_package_subtitle::{
     resolve::{extract_start_time_ms, resolve_subtitle_tracks},
     tap_builder::build_stream_tap,
 };

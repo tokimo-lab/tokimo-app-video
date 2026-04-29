@@ -13,7 +13,7 @@ use crate::AppState;
 pub async fn get_subtitle_events(
     State(state): State<Arc<AppState>>,
     Path(subtitle_id): Path<String>,
-    Query(query): Query<rust_subtitle::types::SubtitleEventsQuery>,
+    Query(query): Query<tokimo_package_subtitle::types::SubtitleEventsQuery>,
 ) -> Response {
     let start_ms = query.start_ms.unwrap_or(0.0) as i64;
     let end_ms = query.end_ms.unwrap_or(i64::MAX as f64) as i64;
@@ -30,7 +30,7 @@ pub async fn get_subtitle_events(
 pub async fn subtitle_events_sse(
     State(state): State<Arc<AppState>>,
     Path(subtitle_id): Path<String>,
-    Query(_query): Query<rust_subtitle::types::SubtitleEventsQuery>,
+    Query(_query): Query<tokimo_package_subtitle::types::SubtitleEventsQuery>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let (snapshot, mut rx) = state.subtitle_cache.subscribe(&subtitle_id);
 

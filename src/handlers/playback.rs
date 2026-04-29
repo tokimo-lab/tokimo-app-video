@@ -4,13 +4,13 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use rust_subtitle::{
-    resolve::{extract_start_time_ms, resolve_subtitle_tracks},
-    tap_builder::build_stream_tap,
-};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokimo_package_hls::types::{AudioStreamInfo as HlsAudioStream, CreateSessionRequest, TonemapOptions};
+use tokimo_package_subtitle::{
+    resolve::{extract_start_time_ms, resolve_subtitle_tracks},
+    tap_builder::build_stream_tap,
+};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
