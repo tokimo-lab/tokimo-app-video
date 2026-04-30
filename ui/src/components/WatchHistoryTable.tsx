@@ -1,7 +1,6 @@
-import { Spin } from "@tokimo/ui";
+import { Avatar, Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { UserAvatar } from "@/components/UserAvatar";
 import { api } from "@/generated/rust-api";
 import { parseUserAgent } from "@/lib/ua-parser";
 import { useAuth, useDateFormat } from "@/system";
@@ -111,7 +110,7 @@ export function WatchHistoryTable({
                 <td className="py-2 pr-4">
                   {item.userName ? (
                     <div className="flex items-center gap-2">
-                      <UserAvatar user={user} size={22} />
+                      <Avatar user={user} size={22} />
                       <span className="text-fg-secondary">{item.userName}</span>
                     </div>
                   ) : (
