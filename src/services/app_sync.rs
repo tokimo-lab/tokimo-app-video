@@ -5,6 +5,7 @@ use chrono::Utc;
 use regex::Regex;
 use sea_orm::*;
 use serde_json::json;
+use tokimo_package_utils::is_local_source;
 use tokimo_vfs::Vfs;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
@@ -87,23 +88,10 @@ fn is_remote_fs_type(source_type: &str) -> bool {
 /// `/home/william/media`. The VFS expects a path relative to the driver root
 /// (e.g. `/movie`), so we strip the driver root prefix.
 fn to_vfs_path(root_path: &str, source: &vfs::Model) -> String {
-    if source.r#type != "local" {
-        return root_path.to_string();
-    }
-    let driver_root = source
-        .config
-        .as_ref()
-        .and_then(|c| {
-            c.get("root")
-                .or_else(|| c.get("root_folder_path"))
-                .or_else(|| c.get("path"))
-        })
-        .and_then(|v| v.as_str());
-    let Some(driver_root) = driver_root else {
+    let Some(driver_root) = crate::handlers::media::utils::local_driver_root(source) else {
         return root_path.to_string();
     };
-    let driver_root = driver_root.trim_end_matches('/');
-    if root_path.starts_with(driver_root) && root_path.len() > driver_root.len() {
+    if root_path.starts_with(&driver_root) && root_path.len() > driver_root.len() {
         let rel = &root_path[driver_root.len()..];
         if rel.starts_with('/') {
             return rel.to_string();
@@ -805,7 +793,7 @@ impl AppSyncService {
             return Self::sync_music_source(db, sources, storage, app_id, source, root_path).await;
         }
 
-        let is_local = source_type == "local";
+        let is_local = is_local_source(source_type);
         let is_remote = is_remote_fs_type(source_type);
 
         if !is_local && !is_remote {
@@ -1671,7 +1659,7 @@ impl AppSyncService {
         root_path: &str,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
-        let is_local = source_type == "local";
+        let is_local = is_local_source(source_type);
         let is_remote = is_remote_fs_type(source_type);
 
         if !is_local && !is_remote {
@@ -1727,21 +1715,8 @@ impl AppSyncService {
             // Read tags for local sources using lofty (in blocking task)
             let tags = if is_local {
                 // Resolve full filesystem path for local tag reading
-                let driver_root = source
-                    .config
-                    .as_ref()
-                    .and_then(|c| {
-                        c.get("root")
-                            .or_else(|| c.get("root_folder_path"))
-                            .or_else(|| c.get("path"))
-                    })
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let full_path = if audio_file.file_path.starts_with('/') {
-                    format!("{}{}", driver_root.trim_end_matches('/'), &audio_file.file_path)
-                } else {
-                    format!("{}/{}", driver_root.trim_end_matches('/'), &audio_file.file_path)
-                };
+                let full_path =
+                    crate::handlers::media::utils::resolve_local_path(&audio_file.file_path, source.config.as_ref());
                 let path = std::path::PathBuf::from(&full_path);
                 tokio::task::spawn_blocking(move || Self::read_audio_tags(&path))
                     .await

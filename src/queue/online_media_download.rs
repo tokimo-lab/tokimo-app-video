@@ -4,6 +4,7 @@ use bytes::Bytes;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::*;
 use serde_json::{Value as JsonValue, json};
+use tokimo_package_utils::is_local_source;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -150,15 +151,7 @@ pub async fn handle(
     // requires VFS (SMB, SFTP, S3, etc.).
     let (fs_driver_root, fs_source_type) = if let Some(sid) = download_source_id {
         let fs = vfs::Entity::find_by_id(sid).one(db).await?;
-        let root = fs.as_ref().and_then(|f| {
-            f.config.as_ref().and_then(|c| {
-                c.get("root")
-                    .or_else(|| c.get("root_folder_path"))
-                    .or_else(|| c.get("path"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.trim_end_matches('/').to_string())
-            })
-        });
+        let root = fs.as_ref().and_then(crate::handlers::media::utils::local_driver_root);
         let fs_type = fs.map_or_else(|| "local".into(), |f| f.r#type);
         (root, fs_type)
     } else {
@@ -168,8 +161,8 @@ pub async fn handle(
     // For non-local sources (SMB, SFTP, S3…) yt-dlp cannot write to the VFS path
     // directly. We use a temporary local staging directory as the download target,
     // then push the organised files to the VFS after the task completes.
-    let is_local_source = fs_source_type == "local";
-    let vfs_stage_dir: Option<std::path::PathBuf> = if is_local_source {
+    let is_local_source_fs = is_local_source(&fs_source_type);
+    let vfs_stage_dir: Option<std::path::PathBuf> = if is_local_source_fs {
         None
     } else {
         Some(
