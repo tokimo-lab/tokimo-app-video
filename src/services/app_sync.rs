@@ -5,7 +5,6 @@ use chrono::Utc;
 use regex::Regex;
 use sea_orm::*;
 use serde_json::json;
-use tokimo_package_utils::is_local_source;
 use tokimo_vfs::Vfs;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
@@ -793,7 +792,7 @@ impl AppSyncService {
             return Self::sync_music_source(db, sources, storage, app_id, source, root_path).await;
         }
 
-        let is_local = is_local_source(source_type);
+        let is_local = source_type == "local";
         let is_remote = is_remote_fs_type(source_type);
 
         if !is_local && !is_remote {
@@ -1659,7 +1658,7 @@ impl AppSyncService {
         root_path: &str,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
-        let is_local = is_local_source(source_type);
+        let is_local = source_type == "local";
         let is_remote = is_remote_fs_type(source_type);
 
         if !is_local && !is_remote {

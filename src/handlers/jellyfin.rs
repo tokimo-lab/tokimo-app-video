@@ -21,7 +21,6 @@ use crate::{
 };
 use sea_orm::EntityTrait;
 use tokimo_jellyfin_api::JellyfinPlaybackSession;
-use tokimo_package_utils::is_local_source;
 
 impl tokimo_jellyfin_api::JellyfinAppState for AppState {
     fn db(&self) -> &DatabaseConnection {
@@ -61,7 +60,7 @@ impl tokimo_jellyfin_api::JellyfinAppState for AppState {
         };
 
         // Local filesystem: use ServeFile for efficiency (no subtitle tap for Jellyfin)
-        if target.source_type.as_deref().is_some_and(is_local_source) {
+        if target.source_type.as_deref().is_some_and(|t| t == "local") {
             let abs_path = resolve_local_path(&target.path, target.source_config.as_ref());
             let req = axum::http::Request::builder().method(axum::http::Method::GET);
 

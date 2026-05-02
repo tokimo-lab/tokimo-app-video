@@ -26,7 +26,6 @@ use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use sea_orm::EntityTrait;
 use tokimo_package_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
-use tokimo_package_utils::is_local_source;
 
 // ── Request body ──────────────────────────────────────────────────────────────
 
@@ -247,7 +246,7 @@ pub async fn stream_url(
     };
 
     let source_type = source.r#type.as_str();
-    if !is_local_source(source_type) && !transcode_decision::is_net_fs_source(source_type) {
+    if !source_type == "local" && !transcode_decision::is_net_fs_source(source_type) {
         return err_resp::<StreamUrlDto>(
             StatusCode::BAD_REQUEST,
             format!("Unsupported source type: {source_type}"),
@@ -539,7 +538,7 @@ pub async fn stream_url(
             target_audio_codec,
             tonemap_opts,
             &vs,
-            is_local_source(source_type),
+            source_type == "local",
             source.config.as_ref(),
             &auth.user_id,
             file.source_id.as_ref().map(std::string::ToString::to_string).as_deref(),
