@@ -246,7 +246,7 @@ pub async fn stream_url(
     };
 
     let source_type = source.r#type.as_str();
-    if !source_type == "local" && !transcode_decision::is_net_fs_source(source_type) {
+    if source_type != "local" && !transcode_decision::is_net_fs_source(source_type) {
         return err_resp::<StreamUrlDto>(
             StatusCode::BAD_REQUEST,
             format!("Unsupported source type: {source_type}"),
