@@ -95,8 +95,8 @@ pub async fn download(
 ) -> Result<Json<ApiResponse<SubtitleRecord>>, (axum::http::StatusCode, Json<ApiResponse<SubtitleRecord>>)> {
     let agg_request = AggDownloadRequest {
         subtitle_id: input.subtitle_id.clone(),
-        detail_path: input.detail_path.clone(),
-        download_path: input.download_path.clone(),
+        detail_path: input.detail_path,
+        download_path: input.download_path,
         language: input.language.clone(),
         format: input.format.clone(),
         name: input.name.clone(),

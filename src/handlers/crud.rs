@@ -53,34 +53,34 @@ pub async fn create_video(
     let mut update_fields = UpdateVideoFields {
         name: None,
         r#type: None,
-        description: body.description.clone(),
-        avatar: body.avatar.clone(),
+        description: body.description,
+        avatar: body.avatar,
         poster_path: None,
         scrape_enabled: body.scrape_enabled,
-        scrape_agents: body.scrape_agents.clone(),
+        scrape_agents: body.scrape_agents,
         settings: None,
         sources: None,
     };
 
-    if body.avatar.is_some()
-        || body.description.is_some()
-        || body.scrape_enabled.is_some()
-        || body.scrape_agents.is_some()
+    if update_fields.avatar.is_some()
+        || update_fields.description.is_some()
+        || update_fields.scrape_enabled.is_some()
+        || update_fields.scrape_agents.is_some()
     {
         needs_update = true;
     }
 
     // Build and set sources JSON
-    if let Some(ref sources) = body.sources {
+    if let Some(sources) = body.sources {
         // Validate source UUIDs and paths
-        for s in sources {
+        for s in &sources {
             let _: Uuid = s
                 .source_id
                 .parse()
                 .map_err(|_| AppError::BadRequest("invalid source_id".into()))?;
             normalize_source_path(&s.root_path).map_err(AppError::BadRequest)?;
         }
-        update_fields.sources = Some(sources_to_json(sources));
+        update_fields.sources = Some(sources_to_json(&sources));
         needs_update = true;
     }
 
