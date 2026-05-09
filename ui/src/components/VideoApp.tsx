@@ -3,7 +3,6 @@ import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import VideoLibraryEditor from "@/apps/settings/admin/VideoLibraryEditor";
 import { api } from "@/generated/rust-api";
 import { useContainerWidth } from "@/shared/hooks/use-container-width";
 import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
@@ -60,9 +59,7 @@ export default function VideoApp() {
         component: () =>
           import("@/apps/settings/admin/VideoLibraryEditorWindow"),
         parentWindowId: windowId,
-        title: opts.videoId
-          ? `TokimoVideo · 设置`
-          : "TokimoVideo · 新建视频库",
+        title: opts.videoId ? `TokimoVideo · 设置` : "TokimoVideo · 新建视频库",
         width: 720,
         height: 640,
         noResize: true,
