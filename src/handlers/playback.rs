@@ -14,7 +14,6 @@ use tokimo_package_subtitle::{
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
-use super::iso_reader;
 use crate::AppState;
 use crate::db::entities::{vfs, video_files};
 use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
@@ -26,6 +25,7 @@ use crate::handlers::user::AuthUser;
 use crate::handlers::{err_resp, ok};
 use sea_orm::EntityTrait;
 use tokimo_package_hls::transcode_decision::{self, ClientProfile, VideoStreamInfo};
+use tokimo_package_iso::IsoMeta;
 
 // ── Request body ──────────────────────────────────────────────────────────────
 
@@ -588,59 +588,11 @@ fn detect_iso_type(path: &str) -> &'static str {
     "bluray" // modern ISOs are almost always Blu-ray
 }
 
-/// Build a `DirectInput` for a remote Blu-ray ISO by parsing the UDF filesystem
-/// to locate the main M2TS stream within the ISO, then returning an AVIO reader
-/// that maps M2TS-local byte offsets to the correct ranges within the ISO file.
-///
-/// This allows `FFmpeg` to decode the M2TS without the ISO being mounted locally.
-/// Serializable M2TS location info stored in `video_files.iso_meta`.
-/// Written during ffprobe scan; read during playback to skip UDF re-parsing.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct IsoMeta {
-    pub filename: String,
-    pub size: u64,
-    pub extents: Vec<IsoExtentJson>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct IsoExtentJson {
-    pub offset: u64,
-    pub length: u64,
-}
-
-impl IsoMeta {
-    pub fn from_m2ts(m: &iso_reader::M2tsFile) -> Self {
-        Self {
-            filename: m.filename.clone(),
-            size: m.size,
-            extents: m
-                .extents
-                .iter()
-                .map(|e| IsoExtentJson {
-                    offset: e.offset,
-                    length: e.length,
-                })
-                .collect(),
-        }
-    }
-
-    pub fn to_m2ts(&self) -> iso_reader::M2tsFile {
-        iso_reader::M2tsFile {
-            filename: self.filename.clone(),
-            size: self.size,
-            extents: self
-                .extents
-                .iter()
-                .map(|e| iso_reader::IsoExtent {
-                    offset: e.offset,
-                    length: e.length,
-                })
-                .collect(),
-        }
-    }
-}
-
-pub(crate) async fn build_iso_m2ts_input(
+/// Thin adapter that resolves a VFS from `AppState` then defers to the
+/// `tokimo_package_iso` implementation. Kept in this module so the call site
+/// inside `create_hls_session_internal` doesn't need to thread `ensure_vfs`
+/// through itself.
+async fn build_iso_m2ts_input_from_state(
     state: &AppState,
     source_id: Option<&str>,
     file_path: &str,
@@ -650,130 +602,12 @@ pub(crate) async fn build_iso_m2ts_input(
 ) -> Result<Arc<tokimo_package_ffmpeg::DirectInput>, String> {
     let source_id = source_id.ok_or("ISO file has no source ID")?;
     let file_size = file_size.filter(|&s| s > 0).ok_or("ISO file has unknown size")? as u64;
-
     let vfs = state
         .sources
         .ensure_vfs(source_id)
         .await
         .map_err(|e| format!("Failed to get VFS for ISO source: {e}"))?;
-
-    let iso_path = file_path.to_string();
-
-    // UDF parsing is expensive (~1s over SMB). The scan phase already parsed
-    // the UDF and stored the M2TS location in `video_files.iso_meta`. Use it
-    // when available; only fall back to live UDF parse for un-scanned files.
-    let m2ts = if let Some(meta) = iso_meta {
-        debug!("[ISO] Using pre-scanned M2TS info from iso_meta (no UDF re-parse)");
-        meta.to_m2ts()
-    } else {
-        warn!("[ISO] iso_meta not in DB, falling back to live UDF parse (re-scan to fix)");
-        parse_iso_m2ts(&vfs, &iso_path, file_size).await?
-    };
-
-    info!(
-        "[ISO] Main M2TS: {} ({:.1} GB, {} extent(s))",
-        m2ts.filename,
-        m2ts.size as f64 / 1_073_741_824.0,
-        m2ts.extents.len(),
-    );
-    for (i, ext) in m2ts.extents.iter().enumerate() {
-        debug!(
-            "[ISO]   extent {i}: ISO offset={} size={}MB",
-            ext.offset,
-            ext.length / 1_048_576,
-        );
-    }
-
-    Ok(build_direct_input_from_m2ts(vfs, iso_path, m2ts, subtitle_tap).await)
-}
-
-/// UDF parse + main M2TS selection. Called both from playback (when `iso_meta` is
-/// not in DB yet) and from the ffprobe scan (to populate `iso_meta`).
-pub(crate) async fn parse_iso_m2ts(
-    vfs: &Arc<tokimo_vfs::Vfs>,
-    iso_path: &str,
-    file_size: u64,
-) -> Result<iso_reader::M2tsFile, String> {
-    let parse_read_at = vfs.to_read_at(std::path::Path::new(iso_path)).await;
-
-    let m2ts_files =
-        iso_reader::find_m2ts_files(parse_read_at, file_size).map_err(|e| format!("UDF parse failed: {e}"))?;
-
-    if m2ts_files.is_empty() {
-        return Err("No M2TS files found in BDMV/STREAM/ — not a Blu-ray ISO?".to_string());
-    }
-
-    iso_reader::select_main_m2ts(&m2ts_files)
-        .ok_or_else(|| "Could not select main M2TS from ISO".to_string())
-        .cloned()
-}
-
-async fn build_direct_input_from_m2ts(
-    vfs: Arc<tokimo_vfs::Vfs>,
-    iso_path: String,
-    m2ts: iso_reader::M2tsFile,
-    subtitle_tap: Option<tokio::sync::mpsc::Sender<(bytes::Bytes, u64)>>,
-) -> Arc<tokimo_package_ffmpeg::DirectInput> {
-    let m2ts_size = m2ts.size;
-    let filename = m2ts.filename.clone();
-    let extents = m2ts.extents;
-
-    // Get a sync ReadAt for the raw ISO file (handles local/remote transparently)
-    let iso_ra: tokimo_vfs::ReadAt = vfs.to_read_at(std::path::Path::new(&iso_path)).await;
-
-    let input = tokimo_package_ffmpeg::DirectInput {
-        read_at: Arc::new(move |m2ts_offset: u64, size: usize| {
-            let result =
-                read_from_m2ts_extents(&extents, m2ts_offset, size, |iso_offset, len| iso_ra(iso_offset, len))?;
-            if let Some(ref tx) = subtitle_tap {
-                let _ = tx.try_send((bytes::Bytes::copy_from_slice(&result), m2ts_offset));
-            }
-            Ok(result)
-        }),
-        size: m2ts_size,
-        filename_hint: Some(filename),
-        readahead_bytes: Some(tokimo_package_ffmpeg::READAHEAD_HLS),
-    };
-
-    Arc::new(input)
-}
-
-/// Map a logical read `(m2ts_offset, size)` through a list of `IsoExtent`s to
-/// physical ISO reads, concatenating the results into a single `Vec<u8>`.
-///
-/// `iso_read(iso_offset, len)` reads `len` bytes at absolute ISO position `iso_offset`.
-fn read_from_m2ts_extents(
-    extents: &[iso_reader::IsoExtent],
-    m2ts_offset: u64,
-    size: usize,
-    iso_read: impl Fn(u64, usize) -> std::io::Result<Vec<u8>>,
-) -> std::io::Result<Vec<u8>> {
-    let mut result = Vec::with_capacity(size);
-    let mut remaining = size as u64;
-    let mut logical_pos = m2ts_offset;
-
-    for ext in extents {
-        if remaining == 0 {
-            break;
-        }
-        // Does this extent cover any part of [logical_pos, logical_pos + remaining)?
-        if logical_pos >= ext.length {
-            // This extent is entirely before our read window — skip it.
-            logical_pos -= ext.length;
-            continue;
-        }
-        // Read starts at `logical_pos` within this extent.
-        let ext_read_offset = logical_pos;
-        let ext_read_len = (ext.length - ext_read_offset).min(remaining) as usize;
-        let iso_offset = ext.offset + ext_read_offset;
-
-        let chunk = iso_read(iso_offset, ext_read_len)?;
-        result.extend_from_slice(&chunk);
-        remaining -= chunk.len() as u64;
-        logical_pos = 0; // consumed fully into next extent
-    }
-
-    Ok(result)
+    tokimo_package_iso::build_iso_m2ts_input(vfs, file_path, file_size, iso_meta, subtitle_tap).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -842,7 +676,8 @@ async fn create_hls_session_internal(
                 .iso_meta
                 .as_ref()
                 .and_then(|v| serde_json::from_value::<IsoMeta>(v.clone()).ok());
-            match build_iso_m2ts_input(state, source_id, &file.path, file.size, iso_meta.as_ref(), tap).await {
+            match build_iso_m2ts_input_from_state(state, source_id, &file.path, file.size, iso_meta.as_ref(), tap).await
+            {
                 Ok(input) => {
                     info!("[ISO] Remote Blu-ray ISO: M2TS extracted via UDF → AVIO ready");
                     // We serve raw M2TS bytes, so no ISO-specific FFmpeg prefix needed.
