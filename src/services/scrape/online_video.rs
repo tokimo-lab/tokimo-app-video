@@ -15,9 +15,9 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::db::entities::{download_records, video_items};
 
-use crate::queue::handlers::common::is_unique_violation;
-use crate::queue::handlers::nfo_parser::NfoInfo;
-use crate::services::media::scrape::shared::artwork::{
+use crate::services::common::is_unique_violation;
+use crate::services::nfo_parser::NfoInfo;
+use crate::services::scrape::shared::artwork::{
     DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
 };
 
@@ -463,5 +463,5 @@ async fn download_thumbnail(
         })
         .unwrap_or_else(|| "jpg".to_string());
     let key = format!("library-images/movies/{entity_id}/poster.{ext}");
-    crate::services::media::scrape::shared::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
+    crate::services::scrape::shared::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
 }

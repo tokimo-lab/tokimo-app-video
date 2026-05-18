@@ -13,15 +13,15 @@ use crate::AppState;
 use crate::db::entities::{episodes, seasons, tv_shows};
 use crate::db::repos::job_repo::JobRepo;
 
-use crate::queue::handlers::common::{
+use crate::services::common::{
     CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
 };
-use crate::queue::handlers::nfo_parser::NfoInfo;
-use crate::services::media::scrape::shared::artwork::{
+use crate::services::nfo_parser::NfoInfo;
+use crate::services::scrape::shared::artwork::{
     DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
 };
-use crate::services::media::scrape::shared::lib_type::LibType;
-use crate::services::media::scrape::shared::tmdb;
+use crate::services::scrape::shared::lib_type::LibType;
+use crate::services::scrape::shared::tmdb;
 
 pub struct TvResult {
     pub tv_show_id: Uuid,
@@ -430,7 +430,7 @@ async fn create_tv_show_record(
         .and_then(|d| d.origin_country.clone())
         .filter(|c| !c.is_empty());
     let scraped_at =
-        if tmdb_detail.is_some() || nfo.is_some_and(crate::queue::handlers::nfo_parser::NfoInfo::is_sufficient) {
+        if tmdb_detail.is_some() || nfo.is_some_and(crate::services::nfo_parser::NfoInfo::is_sufficient) {
             Some(now)
         } else {
             None

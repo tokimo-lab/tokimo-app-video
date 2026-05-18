@@ -9,14 +9,14 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::{episodes, tv_shows, video_files, video_items};
-use crate::queue::handlers::common;
+use crate::services::common;
 
 use super::DirContext;
 use super::artwork;
 use super::constants::{POSTER_NAMES, guess_mime, image_storage_ext};
 use super::lib_type::LibType;
 use super::parse;
-use crate::queue::handlers::nfo_parser::{self, NfoInfo, extract_tmdb_path};
+use crate::services::nfo_parser::{self, NfoInfo, extract_tmdb_path};
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
