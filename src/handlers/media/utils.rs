@@ -1,14 +1,15 @@
-use uuid::Uuid;
-use crate::AppState;
-use crate::error::AppError;
-
 /// Resolve the local filesystem path for a source-relative file path.
-pub async fn resolve_local_path(
-    _state: &AppState,
-    _source_id: Uuid,
-    _rel_path: &str,
-) -> Result<String, AppError> {
-    Err(AppError::Internal("resolve_local_path not implemented".into()))
+pub fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) -> String {
+    let driver_root = config
+        .and_then(|c| c.get("root_folder_path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let combined = if rel_path.starts_with('/') {
+        format!("{}{}", driver_root.trim_end_matches('/'), rel_path)
+    } else {
+        format!("{}/{}", driver_root.trim_end_matches('/'), rel_path)
+    };
+    combined
 }
 
 /// Returns the local filesystem root path for a VFS driver, if applicable.

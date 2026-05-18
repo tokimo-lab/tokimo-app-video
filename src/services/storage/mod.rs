@@ -8,7 +8,7 @@ pub fn create_storage_from_env(_data_local_path: &Path) -> Arc<dyn StorageProvid
     Arc::new(NoopStorageProvider)
 }
 
-struct NoopStorageProvider;
+pub struct NoopStorageProvider;
 
 #[async_trait::async_trait]
 impl StorageProvider for NoopStorageProvider {

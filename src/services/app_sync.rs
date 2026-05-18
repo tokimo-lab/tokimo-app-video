@@ -184,8 +184,8 @@ impl AppSyncService {
 
         match &result {
             Ok(sync_result) => {
-                let now = Utc::now().fixed_offset();
-                VideoRepo::update_sync_status(db, video_id, "completed", Some(now)).await?;
+                let now = Utc::now();
+                VideoRepo::update_sync_status(db, video_id, "completed", Some(now.fixed_offset())).await?;
                 info!(
                     "Video sync completed: \"{}\" — {} jobs dispatched",
                     video.name, sync_result.total_jobs
@@ -223,8 +223,8 @@ impl AppSyncService {
 
         match &result {
             Ok(sync_result) => {
-                let now = Utc::now().fixed_offset();
-                MusicRepo::update_sync_status(db, music_id, "completed", Some(now)).await?;
+                let now = Utc::now();
+                MusicRepo::update_sync_status(db, music_id, "completed", Some(now.fixed_offset())).await?;
                 info!(
                     "Music sync completed: \"{}\" — {} jobs dispatched",
                     music.name, sync_result.total_jobs
@@ -266,8 +266,8 @@ impl AppSyncService {
 
         match &result {
             Ok(sync_result) => {
-                let now = Utc::now().fixed_offset();
-                BookRepo::update_sync_status(db, book_id, "completed", Some(now)).await?;
+                let now = Utc::now();
+                BookRepo::update_sync_status(db, book_id, "completed", Some(now.fixed_offset())).await?;
                 info!(
                     "Book sync completed: \"{}\" — {} jobs dispatched",
                     book.name, sync_result.total_jobs
@@ -350,7 +350,7 @@ impl AppSyncService {
 
         match &result {
             Ok(sync_result) => {
-                let now = Utc::now().fixed_offset();
+                let now = Utc::now();
                 PhotoLibraryRepo::update_sync_status(db, library_id, "completed", Some(now)).await?;
                 info!(
                     "Photo sync completed: \"{}\" — {} jobs dispatched",
@@ -1261,12 +1261,12 @@ impl AppSyncService {
 
         // Try INSERT, catch unique violation from concurrent inserts
         let id = Uuid::new_v4();
-        let now = Utc::now().fixed_offset();
+        let now = Utc::now();
         let active = music_artists::ActiveModel {
             id: Set(id),
             name: Set(name.to_string()),
-            created_at: Set(Some(now)),
-            updated_at: Set(Some(now)),
+            created_at: Set(Some(now.fixed_offset())),
+            updated_at: Set(Some(now.fixed_offset())),
             ..Default::default()
         };
         match music_artists::Entity::insert(active).exec(db).await {
@@ -1327,7 +1327,7 @@ impl AppSyncService {
         };
 
         let id = Uuid::new_v4();
-        let now = Utc::now().fixed_offset();
+        let now = Utc::now();
         let active = music_albums::ActiveModel {
             id: Set(id),
             music_id: Set(app_id),
@@ -1336,8 +1336,8 @@ impl AppSyncService {
             year: Set(group.year),
             total_tracks: Set(Some(group.files.len() as i32)),
             total_discs: Set(Some(max_disc)),
-            created_at: Set(Some(now)),
-            updated_at: Set(Some(now)),
+            created_at: Set(Some(now.fixed_offset())),
+            updated_at: Set(Some(now.fixed_offset())),
             ..Default::default()
         };
         music_albums::Entity::insert(active).exec(db).await?;
@@ -1486,7 +1486,7 @@ impl AppSyncService {
         let checksum = format!("{}:{}", file.file_size, file.mtime);
         let file_name = file.file_path.rsplit('/').next().unwrap_or(&file.file_path);
         let mime_type = Self::audio_mime_type(&file.file_path);
-        let now = Utc::now().fixed_offset();
+        let now = Utc::now();
 
         let existing = music_files::Entity::find()
             .filter(music_files::Column::SourceId.eq(file.source_id))
@@ -1505,8 +1505,8 @@ impl AppSyncService {
             active.mime_type = Set(Some(mime_type.to_string()));
             active.duration = Set(file.tags.as_ref().and_then(|t| t.duration));
             active.filename = Set(file_name.to_string());
-            active.scanned_at = Set(Some(now));
-            active.updated_at = Set(Some(now));
+            active.scanned_at = Set(Some(now.fixed_offset()));
+            active.updated_at = Set(Some(now.fixed_offset()));
             active.update(db).await?;
             return Ok(());
         }
@@ -1521,8 +1521,8 @@ impl AppSyncService {
             duration: Set(file.tags.as_ref().and_then(|t| t.duration)),
             checksum: Set(Some(checksum)),
             track_id: Set(Some(track_id)),
-            scanned_at: Set(Some(now)),
-            created_at: Set(Some(now)),
+            scanned_at: Set(Some(now.fixed_offset())),
+            created_at: Set(Some(now.fixed_offset())),
             ..Default::default()
         };
         music_files::Entity::insert(active).exec(db).await?;
@@ -1564,7 +1564,7 @@ impl AppSyncService {
             None
         };
 
-        let now = Utc::now().fixed_offset();
+        let now = Utc::now();
         let metadata = if is_local {
             None
         } else {
@@ -1579,7 +1579,7 @@ impl AppSyncService {
         let mut active: music_albums::ActiveModel = album.into();
         active.total_tracks = Set(Some(group.files.len() as i32));
         active.total_discs = Set(Some(max_disc));
-        active.updated_at = Set(Some(now));
+        active.updated_at = Set(Some(now.fixed_offset()));
         if group.year.is_some() {
             active.year = Set(group.year);
         }

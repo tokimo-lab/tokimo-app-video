@@ -34,3 +34,23 @@ impl Default for ScrapingSettings {
         }
     }
 }
+
+use chrono::{DateTime, FixedOffset};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemSettings {
+    pub allow_registration: bool,
+    pub internal_stream_access_token: Option<String>,
+    pub internal_stream_access_token_expires_at: Option<DateTime<FixedOffset>>,
+}
+
+impl Default for SystemSettings {
+    fn default() -> Self {
+        Self {
+            allow_registration: false,
+            internal_stream_access_token: None,
+            internal_stream_access_token_expires_at: None,
+        }
+    }
+}
