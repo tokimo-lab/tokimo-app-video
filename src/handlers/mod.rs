@@ -2,16 +2,55 @@ pub mod browse;
 pub mod crud;
 pub mod file_stream;
 pub mod hls;
+pub mod jellyfin;
+pub mod image_proxy;
+pub mod media;
 pub mod playback;
 pub mod playback_state;
 pub mod subtitle;
 pub mod subtitle_events;
 pub mod sync;
+pub mod user;
+pub mod vfs;
 
-use serde::Deserialize;
+use axum::{http::StatusCode, response::Json};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::db::entities::vfs;
+#[derive(Serialize)]
+pub struct ApiResponse<T: Serialize> {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+pub fn ok<T: Serialize>(data: T) -> Json<ApiResponse<T>> {
+    Json(ApiResponse { success: true, data: Some(data), error: None })
+}
+
+pub fn ok_empty() -> Json<ApiResponse<()>> {
+    Json(ApiResponse { success: true, data: None, error: None })
+}
+
+pub fn err_resp<T: Serialize>(status: StatusCode, msg: String) -> (StatusCode, Json<ApiResponse<T>>) {
+    (status, Json(ApiResponse { success: false, data: None, error: Some(msg) }))
+}
+
+pub fn err500<T: Serialize>(msg: String) -> (StatusCode, Json<ApiResponse<T>>) {
+    err_resp(StatusCode::INTERNAL_SERVER_ERROR, msg)
+}
+
+pub fn err404<T: Serialize>(msg: String) -> (StatusCode, Json<ApiResponse<T>>) {
+    err_resp(StatusCode::NOT_FOUND, msg)
+}
+
+pub fn err400<T: Serialize>(msg: String) -> (StatusCode, Json<ApiResponse<T>>) {
+    err_resp(StatusCode::BAD_REQUEST, msg)
+}
+
+use crate::db::entities::vfs as vfs_entity;
 use crate::db::models::video::{VideoOutput, VideoSourceOutput};
 use crate::db::repos::media::VideoRepo;
 use crate::db::{ApiDateTimeExt, OptionalApiDateTimeExt};
@@ -150,7 +189,7 @@ pub(crate) async fn to_video_output(
     let source_tuples = VideoRepo::parse_sources(&model.sources);
     let mut sources = Vec::with_capacity(source_tuples.len());
     for (source_id, root_path, is_default_download) in &source_tuples {
-        let fs = vfs::Entity::find_by_id(*source_id).one(db).await?;
+        let fs = vfs_entity::Entity::find_by_id(*source_id).one(db).await?;
         sources.push(VideoSourceOutput {
             source_id: source_id.to_string(),
             root_path: root_path.clone(),

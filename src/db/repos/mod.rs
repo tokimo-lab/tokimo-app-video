@@ -1,6 +1,7 @@
-//! Repo 层 — Phase 2A scaffold 阶段为空。
-//!
-//! 需要 cp 的 repos：
-//! - media::VideoRepo / media::MediaContentRepo
-//! - media::PlaybackRepo / media::PlaybackSessionRepo
-//! - subtitle_repo::SubtitleRepo
+pub mod auth_repo;
+pub mod job_repo;
+pub mod media;
+pub mod media_playback_state_repo;
+pub mod subtitle_repo;
+pub mod system_config_repo;
+pub mod book_repo;

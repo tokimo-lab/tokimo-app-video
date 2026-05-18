@@ -9,6 +9,7 @@
 mod app_server;
 mod assets;
 mod cli;
+mod config;
 mod db;
 mod error;
 mod handlers;
@@ -16,6 +17,9 @@ mod queue;
 mod router;
 mod services;
 mod state;
+mod apps;
+
+pub use state::AppCtx as AppState;
 
 use std::sync::{Arc, OnceLock};
 

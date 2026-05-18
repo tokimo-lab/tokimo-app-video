@@ -1,10 +1,34 @@
-//! Phase 2A scaffold: 增补 filter-repo 漏的 online_media_download 声明。
-
+pub mod priority;
+pub use priority::JobPriority;
+pub mod cancellation;
+pub mod handlers;
 pub mod online_media_download;
 pub mod tmdb_person_scrape;
 pub mod tv_scrape;
 pub mod video_item_scrape;
 
-// TODO(Phase 2A sub-agent): video 仓内自建 AppEventSender mpsc channel
-// 主仓的 queue::AppEventSender 进程外不可达，video 自己 consume 即可
-// pub type AppEventSender = tokio::sync::mpsc::UnboundedSender<AppEvent>;
+use serde::Serialize;
+
+use crate::db::models::job::JobOutput;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+pub enum AppEvent {
+    #[serde(rename = "job_update")]
+    JobUpdate {
+        job: Box<JobOutput>,
+    },
+    #[serde(rename = "person_scraped")]
+    PersonScraped {
+        #[serde(rename = "personId")]
+        person_id: String,
+        #[serde(rename = "videoItemId")]
+        video_item_id: Option<String>,
+        #[serde(rename = "tvShowId")]
+        tv_show_id: Option<String>,
+    },
+    #[serde(rename = "download_progress")]
+    DownloadProgress {
+        records: Vec<serde_json::Value>,
+    },
+}

@@ -1,9 +1,95 @@
-//! SeaORM entities — Phase 2A scaffold 阶段为空，sub-agent 后续 cp 主仓 video 相关 entities。
-//!
-//! 需要 cp 的 entities（来自 `packages/rust-server/src/db/entities/`）：
-//! - video_items / tv_shows / seasons / episodes / video_files
-//! - video_persons / tv_persons / video_cast / tv_season_cast
-//! - video_collections / playback_sessions / watch_histories
-//! - subtitles / chapters / video_genres / tv_show_genres
-//! - scrape_settings / scrape_tasks / scrape_queue_*
-//! - vfs (read-only mirror — video binary 直读 public.vfs，Phase 2B 改 bus call)
+pub mod agent_scheduled_triggers;
+pub mod ai_agents;
+pub mod ai_conversations;
+pub mod ai_message_attachments;
+pub mod ai_messages;
+pub mod album_genres;
+pub mod api_keys;
+pub mod book_chapters;
+pub mod book_collections;
+pub mod book_files;
+pub mod book_genres;
+pub mod book_items;
+pub mod book_volumes;
+pub mod books;
+pub mod channel_user_conversations;
+pub mod channel_webpush_subscriptions;
+pub mod channels;
+pub mod chapters;
+pub mod collections;
+pub mod desktop_items;
+pub mod docs_node_comments;
+pub mod docs_node_meta;
+pub mod docs_node_view_states;
+pub mod docs_spaces;
+pub mod docs_whiteboard_user_libraries;
+pub mod download_clients;
+pub mod download_records;
+pub mod episodes;
+pub mod file_favorites;
+pub mod genres;
+pub mod inbox_notifications;
+pub mod mail_accounts;
+pub mod mail_folders;
+pub mod mail_messages;
+pub mod match_histories;
+pub mod media_arts;
+pub mod media_playback_states;
+pub mod music_album_artists;
+pub mod music_albums;
+pub mod music_artists;
+pub mod music_files;
+pub mod music_tracks;
+pub mod musics;
+pub mod notification_source_channels;
+pub mod notification_sources;
+pub mod pass_keys;
+pub mod photo_albums;
+pub mod photo_clip_vectors;
+pub mod photo_faces;
+pub mod photo_libraries;
+pub mod photo_ocr_results;
+pub mod photo_persons;
+pub mod photos;
+pub mod playback_sessions;
+pub mod pt_sites;
+pub mod scheduled_task_logs;
+pub mod scheduled_tasks;
+pub mod scrape_tasks;
+pub mod sea_orm_active_enums;
+pub mod search_histories;
+pub mod seasons;
+pub mod sessions;
+pub mod share_link_accesses;
+pub mod share_links;
+pub mod ssh_terminals;
+pub mod subscription_filters;
+pub mod subscriptions;
+pub mod subtitles;
+pub mod todos;
+pub mod tv_persons;
+pub mod tv_season_cast;
+pub mod tv_show_collections;
+pub mod tv_show_genres;
+pub mod tv_shows;
+pub mod user_desktop_config;
+pub mod user_desktops;
+pub mod user_media_ratings;
+pub mod user_media_states;
+pub mod user_memories;
+pub mod user_preferences;
+pub mod user_tasks;
+pub mod users;
+pub mod vfs;
+pub mod video_cast;
+pub mod video_collections;
+pub mod video_files;
+pub mod video_genres;
+pub mod video_items;
+pub mod video_persons;
+pub mod videos;
+pub mod watch_histories;
+pub mod ai_runs;
+pub mod mail_attachments;
+pub mod jobs;
+pub mod job_type_suspensions;

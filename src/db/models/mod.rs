@@ -1,1 +1,5 @@
-//! 业务 DTO / 输入输出 models — Phase 2A scaffold 阶段为空。
+pub mod playback;
+pub mod subtitle;
+pub mod video;
+pub mod job;
+pub mod media;
