@@ -1,3 +1,4 @@
+use crate::db::repos::system_config_repo::SystemConfigSection;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -52,5 +53,32 @@ impl Default for SystemSettings {
             internal_stream_access_token: None,
             internal_stream_access_token_expires_at: None,
         }
+    }
+}
+
+impl SystemConfigSection for TmdbSettings {
+    const SCOPE: &'static str = "metadata";
+    const SCOPE_ID: &'static str = "tmdb";
+    fn default_value() -> Self {
+        Self {
+            api_key: None,
+            language: None,
+        }
+    }
+}
+
+impl SystemConfigSection for ScrapingSettings {
+    const SCOPE: &'static str = "metadata";
+    const SCOPE_ID: &'static str = "scraping";
+    fn default_value() -> Self {
+        Self::default()
+    }
+}
+
+impl SystemConfigSection for SystemSettings {
+    const SCOPE: &'static str = "system";
+    const SCOPE_ID: &'static str = "main";
+    fn default_value() -> Self {
+        Self::default()
     }
 }

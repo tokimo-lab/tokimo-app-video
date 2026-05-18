@@ -66,6 +66,7 @@ pub mod ssh_terminals;
 pub mod subscription_filters;
 pub mod subscriptions;
 pub mod subtitles;
+pub mod system_config;
 pub mod todos;
 pub mod tv_persons;
 pub mod tv_season_cast;
@@ -93,3 +94,4 @@ pub mod ai_runs;
 pub mod mail_attachments;
 pub mod jobs;
 pub mod job_type_suspensions;
+
