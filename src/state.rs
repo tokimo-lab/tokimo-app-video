@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use sea_orm::DatabaseConnection;
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 
@@ -24,16 +24,20 @@ pub struct AppCtx {
     pub download_log_bus: Arc<LogBus>,
     pub online_media: Arc<rust_online_media_ingest::AppState>,
     pub screenshot_semaphore: Arc<Semaphore>,
+    pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
 }
 
 impl AppCtx {
     pub async fn new(
         db: sea_orm::DatabaseConnection,
-        _client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
+        client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
         let sources = Arc::new(crate::services::source::SourceRegistry::new(db.clone()));
-        let storage = Arc::new(crate::services::storage::NoopStorageProvider);
+        let data_local_path = std::env::var("DATA_LOCAL_PATH")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::path::PathBuf::from("./data/local"));
+        let storage = crate::services::storage::create_storage_from_env(&data_local_path);
         let http_client = reqwest::Client::new();
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
         let subtitle_aggregator = Arc::new(subtitle_aggregator::aggregator::SubtitleAggregator::default());
@@ -58,6 +62,7 @@ impl AppCtx {
             download_log_bus: Arc::new(crate::services::downloads::log_bus::LogBus::new()),
             online_media,
             screenshot_semaphore,
+            bus_client: client_slot,
         })
     }
 }

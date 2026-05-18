@@ -1,33 +1,23 @@
+mod opendal_provider;
 mod types;
 pub use types::{StorageObject, StorageProvider, UploadOptions};
 
 use std::path::Path;
 use std::sync::Arc;
+use tracing::info;
 
-pub fn create_storage_from_env(_data_local_path: &Path) -> Arc<dyn StorageProvider> {
-    Arc::new(NoopStorageProvider)
-}
+use opendal_provider::OpendalStorageProvider;
 
-pub struct NoopStorageProvider;
+/// 从环境变量读取存储配置，创建对应的 `StorageProvider`。
+///
+/// 使用 `{data_local_path}/storage` 作为本地文件系统后端。
+pub fn create_storage_from_env(data_local_path: &Path) -> Arc<dyn StorageProvider> {
+    let base_path = data_local_path.join("storage");
 
-#[async_trait::async_trait]
-impl StorageProvider for NoopStorageProvider {
-    async fn upload(&self, _key: &str, _body: bytes::Bytes, _options: Option<UploadOptions>) -> Result<(), String> {
-        Ok(())
-    }
-    async fn download(&self, _key: &str) -> Result<bytes::Bytes, String> {
-        Ok(bytes::Bytes::new())
-    }
-    async fn delete(&self, _key: &str) -> Result<(), String> {
-        Ok(())
-    }
-    async fn exists(&self, _key: &str) -> Result<bool, String> {
-        Ok(false)
-    }
-    async fn head(&self, _key: &str) -> Result<Option<StorageObject>, String> {
-        Ok(None)
-    }
-    async fn list(&self, _prefix: Option<&str>) -> Result<Vec<StorageObject>, String> {
-        Ok(vec![])
-    }
+    info!(
+        "Storage: using local filesystem via OpenDAL (path={})",
+        base_path.display()
+    );
+
+    Arc::new(OpendalStorageProvider::new(&base_path).expect("Storage provider initialization failed"))
 }
