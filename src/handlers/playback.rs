@@ -567,7 +567,7 @@ pub async fn stream_url(
 
 /// Build a direct stream URL (relative to Rust server) with tracking params.
 fn build_direct_stream_url(file: &video_files::Model) -> String {
-    format!("/api/video/files/{}/stream", file.id)
+    format!("/api/apps/video/files/{}/stream", file.id)
 }
 
 /// Detect whether an ISO file is a Blu-ray or DVD image from path heuristics.
@@ -755,7 +755,7 @@ async fn create_hls_session_internal(
         });
     }
 
-    Ok(format!("/api/hls/{}/playlist.m3u8", info.session_id))
+    Ok(format!("/api/apps/video/hls/{}/playlist.m3u8", info.session_id))
 }
 
 /// Build a `DirectInput` for remote VFS-backed files.
