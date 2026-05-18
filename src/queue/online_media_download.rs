@@ -377,8 +377,10 @@ pub async fn handle(
         )
         .await
         {
+            let job_out = crate::db::models::job::JobOutput::from(model);
+            state.bus_notify_job(&job_out);
             let _ = state.event_tx.send(crate::queue::AppEvent::JobUpdate {
-                job: Box::new(crate::db::models::job::JobOutput::from(model)),
+                job: Box::new(job_out),
             });
         }
 

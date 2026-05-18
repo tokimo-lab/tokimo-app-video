@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use sea_orm::DatabaseConnection;
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
+use tokimo_bus_protocol::CallerCtx;
+use tracing::warn;
 
+use crate::db::models::job::JobOutput;
 use crate::queue::AppEvent;
 use crate::services::downloads::log_bus::LogBus;
 use crate::services::media::source::SourceRegistry;
@@ -64,5 +67,42 @@ impl AppCtx {
             screenshot_semaphore,
             bus_client: client_slot,
         })
+    }
+}
+
+impl AppCtx {
+    /// Publish a job snapshot to the main server's `task_queue` service via
+    /// the bus so it appears in the global task-queue UI.
+    ///
+    /// Call this after any job status change in addition to the local
+    /// `event_tx.send(AppEvent::JobUpdate { ... })`.
+    ///
+    /// No-op when the bus client is not yet initialised (e.g. standalone mode).
+    pub fn bus_notify_job(&self, job: &JobOutput) {
+        let Some(client) = self.bus_client.get() else { return };
+        // Build the UpsertJobReq payload expected by task_queue service.
+        let Ok(payload) = serde_json::to_vec(&serde_json::json!({
+            "jobId":    job.id,
+            "appId":    "video",
+            "userId":   uuid::Uuid::nil(),
+            "title":    job.r#type,
+            "status":   job.status,
+            "progress": job.progress,
+            "metadata": {},
+            "parentJobId": job.parent_job_id,
+            "startedAt": job.started_at,
+            "updatedAt": job.updated_at,
+            "finishedAt": job.completed_at,
+        })) else { return };
+        let client = Arc::clone(client);
+        tokio::spawn(async move {
+            if let Err(e) = client.invoke("task_queue", "upsert_job", payload, CallerCtx {
+                user_id: None,
+                request_id: String::new(),
+                workspace: None,
+            }).await {
+                warn!(err = %e, "bus_notify_job: failed to upsert job on bus");
+            }
+        });
     }
 }
