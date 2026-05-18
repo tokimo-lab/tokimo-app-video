@@ -1,0 +1,62 @@
+[package]
+name        = "tokimo-app-video"
+version     = "0.1.0"
+edition     = "2024"
+rust-version = "1.94.0"
+license     = "MIT OR Apache-2.0"
+description = "Tokimo video app — library / playback / scraping / Jellyfin adapter (sidecar process)."
+repository  = "https://github.com/tokimo-lab/tokimo-app-video"
+
+[dependencies]
+# Tokimo bus (independent submodule repo, git rev pinned — matches helloworld范式)
+tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340" }
+tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340", features = ["axum"] }
+tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340", features = ["axum", "cli-db"] }
+tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340" }
+
+# Workspace path deps — packages 暂时 path 引用主仓 (dashcam 范式). 等独立仓库化后切 git rev pin.
+tokimo-vfs            = { path = "../../packages/tokimo-package-vfs/packages/fs" }
+tokimo-vfs-core       = { path = "../../packages/tokimo-package-vfs/packages/core" }
+tokimo-vfs-op         = { path = "../../packages/tokimo-package-vfs/packages/op" }
+tokimo-package-hls    = { path = "../../packages/tokimo-package-hls" }
+tokimo-package-subtitle = { path = "../../packages/tokimo-package-subtitle" }
+tokimo-package-image  = { path = "../../packages/tokimo-package-image" }
+tokimo-package-iso    = { path = "../../packages/tokimo-package-iso" }
+tokimo-package-ffmpeg = { path = "../../packages/tokimo-package-ffmpeg" }
+rust-online-media-ingest = { path = "../../packages/rust-online-media-ingest" }
+rust-subtitle-download = { path = "../../packages/rust-subtitle-download" }
+
+# Standard deps
+clap              = { version = "4", features = ["derive", "env"] }
+tokio              = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "process", "io-util", "sync", "fs"] }
+tokio-stream       = { version = "0.1", features = ["sync"] }
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+uuid               = { version = "1", features = ["v4", "v7", "serde"] }
+chrono             = { version = "0.4", features = ["serde"] }
+sea-orm            = { version = "2.0.0-rc.37", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "with-uuid", "with-chrono", "with-json", "macros"] }
+sea-query          = "1.0.0-rc"
+rust-embed         = { version = "8", features = ["debug-embed"] }
+mime_guess         = "2"
+anyhow             = "1"
+axum               = { version = "0.8", features = ["json", "ws"] }
+reqwest            = { workspace = true, features = ["stream", "multipart", "gzip", "brotli"] }
+futures            = "0.3"
+futures-util       = "0.3"
+async-stream       = "0.3"
+bytes              = "1"
+lofty              = "0.21"
+thiserror          = "1"
+url                = "2"
+percent-encoding   = "2"
+regex              = "1"
+quick-xml          = { version = "0.36", features = ["serialize"] }
+mime               = "0.3"
+ts-rs              = { version = "12", features = ["serde-json-impl", "uuid-impl", "chrono-impl"] }
+
+[profile.release]
+lto       = "thin"
+opt-level = 3
+strip     = "symbols"
