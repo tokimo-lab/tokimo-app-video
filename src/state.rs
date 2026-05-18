@@ -84,7 +84,7 @@ impl AppCtx {
         let Ok(payload) = serde_json::to_vec(&serde_json::json!({
             "jobId":    job.id,
             "appId":    "video",
-            "userId":   uuid::Uuid::nil(),
+            "userId":   job.user_id,
             "title":    job.r#type,
             "status":   job.status,
             "progress": job.progress,
