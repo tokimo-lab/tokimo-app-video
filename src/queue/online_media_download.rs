@@ -471,7 +471,7 @@ pub async fn handle(
                                 .rsplit_once('/')
                                 .map(|(d, _)| d.to_string())
                                 .unwrap_or_default();
-                            if let Err(e) = JobRepo::create_job(
+                            match JobRepo::create_job(
                                 db,
                                 "file_scrape",
                                 json!({
@@ -487,7 +487,8 @@ pub async fn handle(
                             )
                             .await
                             {
-                                warn!("Failed to dispatch file_scrape for {}: {e}", file.vfs_path);
+                                Ok(job) => state.bus_notify_job(&job.into()),
+                                Err(e) => warn!("Failed to dispatch file_scrape for {}: {e}", file.vfs_path),
                             }
                         }
                     } else {
@@ -504,7 +505,7 @@ pub async fn handle(
                                 .rsplit_once('/')
                                 .map(|(d, _)| d.to_string())
                                 .unwrap_or_default();
-                            if let Err(e) = JobRepo::create_job(
+                            match JobRepo::create_job(
                                 db,
                                 "file_scrape",
                                 json!({
@@ -520,7 +521,8 @@ pub async fn handle(
                             )
                             .await
                             {
-                                warn!("Failed to dispatch file_scrape for {}: {e}", output.path);
+                                Ok(job) => state.bus_notify_job(&job.into()),
+                                Err(e) => warn!("Failed to dispatch file_scrape for {}: {e}", output.path),
                             }
                         }
                     }
