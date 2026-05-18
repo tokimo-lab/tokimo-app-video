@@ -8,6 +8,7 @@
 
 mod app_server;
 mod assets;
+mod bus_services;
 mod cli;
 mod config;
 mod db;
@@ -124,12 +125,15 @@ async fn run_server() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("app_server spawn: {e}"))?;
 
-    let client = BusClient::builder(cfg)
-        .service("video", env!("CARGO_PKG_VERSION"))
-        .data_plane(app_socket)
-        .build()
-        .await
-        .map_err(|e| anyhow::anyhow!("bus build: {e}"))?;
+    let client = bus_services::video_jobs::register(
+        BusClient::builder(cfg)
+            .service("video", env!("CARGO_PKG_VERSION"))
+            .data_plane(app_socket),
+        Arc::clone(&ctx),
+    )
+    .build()
+    .await
+    .map_err(|e| anyhow::anyhow!("bus build: {e}"))?;
     client_slot
         .set(Arc::clone(&client))
         .map_err(|_| anyhow::anyhow!("client_slot already set"))?;
