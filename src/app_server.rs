@@ -1,4 +1,4 @@
-//! 内嵌 axum HTTP server，监听本地 socket。
+//! 内嵌 axum HTTP server，监听本地 socket（正常模式）或 TCP（standalone 模式）。
 //!
 //! 路由 = filter-repo 出来的 `crate::router::build_video_app_routes()` 提供的全部
 //! `/api/apps/video/*` 树（去掉 prefix），加上 `/assets/{*path}` 静态资源 + `/health`。
@@ -26,6 +26,23 @@ pub async fn spawn(service: &str, ctx: Arc<AppCtx>) -> anyhow::Result<DataPlaneS
     });
 
     Ok(socket)
+}
+
+/// Standalone TCP mode — 不注册 bus，直接监听 TCP，用于开发测试。
+pub async fn spawn_tcp(port: u16, ctx: Arc<AppCtx>) -> anyhow::Result<()> {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    info!(%addr, "video: standalone TCP server listening");
+
+    let app = build_router(ctx);
+
+    tokio::spawn(async move {
+        if let Err(e) = axum::serve(listener, app).await {
+            error!(error = %e, "video: standalone server stopped");
+        }
+    });
+
+    Ok(())
 }
 
 fn build_router(ctx: Arc<AppCtx>) -> Router {

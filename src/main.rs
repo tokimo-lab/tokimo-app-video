@@ -50,6 +50,12 @@ enum Command {
     Libraries,
     /// 打印版本
     Version,
+    /// 单机模式启动 HTTP server（不注册 bus，用于开发测试）
+    Standalone {
+        /// TCP 监听端口
+        #[arg(long, default_value = "5680")]
+        port: u16,
+    },
 }
 
 #[tokio::main]
@@ -81,6 +87,15 @@ async fn main() -> anyhow::Result<()> {
                 Command::Version => {
                     println!("tokimo-app-video {}", env!("CARGO_PKG_VERSION"));
                     Ok(())
+                }
+                Command::Standalone { port } => {
+                    tracing_subscriber::fmt()
+                        .with_env_filter(
+                            tracing_subscriber::EnvFilter::try_from_default_env()
+                                .unwrap_or_else(|_| "info,tokimo_app_video=debug".into()),
+                        )
+                        .init();
+                    run_standalone(port).await
                 }
             };
             if let Err(error) = result {
@@ -134,5 +149,22 @@ async fn run_server() -> anyhow::Result<()> {
         _ = shutdown => info!("video: broker sent Shutdown"),
     }
 
+    Ok(())
+}
+
+async fn run_standalone(port: u16) -> anyhow::Result<()> {
+    let db = db::init_pool().await?;
+    db::init_schema(&db).await?;
+    info!("video: db ready");
+
+    let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
+    let ctx = AppCtx::new(db, Arc::clone(&client_slot)).await?;
+    let ctx = Arc::new(ctx);
+
+    app_server::spawn_tcp(port, ctx).await?;
+    info!(port, "video: standalone server started — http://127.0.0.1:{port}/health");
+
+    tokio::signal::ctrl_c().await?;
+    info!("video: SIGINT received");
     Ok(())
 }
