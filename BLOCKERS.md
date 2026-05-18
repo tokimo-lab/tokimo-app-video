@@ -70,3 +70,21 @@ require a `SELECT` before the bulk `UPDATE` to collect job ids.
 **Impact:** Low — cancel is an admin operation; the task panel can re-query.  
 **To unblock:** Change `cancel_jobs_by_app_id` to return the cancelled job ids,
 then iterate and call `bus_notify_job` for each.
+
+---
+
+## B-5  `scraping_settings` table is now orphan, can be dropped via Prisma migration
+
+**Context:** Scraping settings were previously stored in a dedicated `scraping_settings`
+table (accessed via raw SQL in `MediaContentRepo`). They have been unified under
+`SystemConfigRepo` / `system_config` table (scope=`metadata`, scope_id=`scraping`).  
+**Current state:** The `scraping_settings` table and its Prisma schema entry still
+exist but are no longer read or written by any application code.  
+**Impact:** Dead table consuming space; no functional impact.  
+**Data note:** Any rows in `scraping_settings` are orphaned. The canonical settings
+now live in `system_config`. If users had previously saved settings, those were
+stored in `scraping_settings` and are NOT automatically migrated to `system_config`.
+The first GET after this change returns `ScrapingSettings::default()` until the
+user saves new settings via the UI.  
+**To unblock:** Remove `scraping_settings` from `prisma/schema.prisma` and run
+`bun db:sync` to generate a DROP TABLE migration.
