@@ -13,13 +13,13 @@ import {
   OrganizeReportHistory,
   OrganizeReportModal,
   OrganizeToolbar,
-} from "@/apps/media-organize/components";
-import { useOrganizeSession } from "@/apps/media-organize/hooks/useOrganizeSession";
-import PathSelector from "@/apps/settings/components/PathSelector";
-import { api } from "@/generated/rust-api";
-import { useAdultMode } from "@/shared/hooks";
-import { useMessage } from "@/system";
-import type { OrganizeItem } from "@/types";
+} from "../shell-shim/apps-media-organize";
+import { useOrganizeSession } from "../shell-shim/apps-media-organize";
+import PathSelector from "../shell-shim/apps-settings";
+import { api } from "./shell-shim/api";
+import { useAdultMode } from "../shell-shim/shared";
+import { useMessage } from "../shell-shim/system";
+import type { OrganizeItem } from "../shell-shim/types";
 
 export interface OrganizeDialogProps {
   open: boolean;

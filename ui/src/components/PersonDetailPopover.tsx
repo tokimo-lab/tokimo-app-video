@@ -1,9 +1,9 @@
 import { ScrollArea, Spin } from "@tokimo/ui";
 import { ExternalLink, Film } from "lucide-react";
-import { PersonPlaceholder } from "@/apps/media/pages/media-detail-shared";
-import { api } from "@/generated/rust-api";
-import { resolveMediaImage } from "@/lib/media-image";
-import { useWindowNav } from "@/system";
+import { PersonPlaceholder } from "../shell-shim/apps-media";
+import { api } from "./shell-shim/api";
+import { resolveMediaImage } from "../shell-shim/lib";
+import { useWindowNav } from "../shell-shim/system";
 
 // --- constants ---
 

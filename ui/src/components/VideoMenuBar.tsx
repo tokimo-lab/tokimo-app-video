@@ -2,15 +2,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Checkbox, Modal } from "@tokimo/ui";
 import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import { api } from "@/generated/rust-api";
-import type { MenuBarConfig } from "@/system";
+import { api } from "./shell-shim/api";
+import type { MenuBarConfig } from "../shell-shim/system";
 import {
   useMenuBar,
   useMessage,
   useWindowActions,
   useWindowId,
-} from "@/system";
-import type { TaskMetadata } from "@/system/window/window-types";
+} from "../shell-shim/system";
+import type { TaskMetadata } from "../shell-shim/system-window-types";
 import { useActiveLibrary } from "./ActiveLibraryContext";
 
 export default function VideoMenuBar({ children }: { children: ReactNode }) {

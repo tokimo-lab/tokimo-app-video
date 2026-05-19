@@ -22,16 +22,16 @@ import { useTranslation } from "react-i18next";
 import type {
   AnalyzeOnlineMediaResponse,
   VideoOutput,
-} from "@/generated/rust-api";
-import { api } from "@/generated/rust-api";
-import { buildProxiedImageUrl } from "@/lib/poster";
-import { useMessage, useWindowActions } from "@/system";
-import type { WindowState } from "@/system/window/window-types";
+} from "./shell-shim/api";
+import { api } from "./shell-shim/api";
+import { buildProxiedImageUrl } from "../shell-shim/lib";
+import { useMessage, useWindowActions } from "../shell-shim/system";
+import type { WindowState } from "../shell-shim/system-window-types";
 import type {
   OnlineMediaAnalyzeResult,
   StartOnlineMediaDownloadInput,
   StartOnlineMediaDownloadStartedOutput,
-} from "@/types";
+} from "../shell-shim/types";
 
 const ns = "media.downloads";
 

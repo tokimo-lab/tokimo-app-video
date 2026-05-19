@@ -1,8 +1,8 @@
 import { AppSidebar, CircularProgress, Tooltip } from "@tokimo/ui";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
-import type { VideoOutput } from "@/generated/rust-api";
-import { getAvatarColor, getAvatarIcon } from "@/shared/avatar-utils";
-import { AppIcon } from "@/shared/components/icons";
+import type { VideoOutput } from "./shell-shim/api";
+import { getAvatarColor, getAvatarIcon } from "../shell-shim/shared";
+import { AppIcon } from "../shell-shim/shared";
 
 export default function VideoSidebar({
   categories,

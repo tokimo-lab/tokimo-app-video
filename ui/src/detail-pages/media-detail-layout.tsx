@@ -1,7 +1,7 @@
 import { ArrowLeftOutlined, Button } from "@tokimo/ui";
 import type { ReactNode } from "react";
-import { posterThumbUrl } from "@/lib/thumb";
-import type { CollectionOutput, GenreOutput } from "@/types";
+import { posterThumbUrl } from "../shell-shim/lib";
+import type { CollectionOutput, GenreOutput } from "../shell-shim/types";
 import {
   formatRuntime,
   MediaInfoBlock,

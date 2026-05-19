@@ -1,15 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "@/generated/rust-api";
-import { posterThumbUrl } from "@/lib/thumb";
+import { api } from "./shell-shim/api";
+import { posterThumbUrl } from "../shell-shim/lib";
 import {
   useAppEvent,
   useBackgroundArt,
   usePlayer,
   useWindowNav,
-} from "@/system";
-import type { MediaFileOutput } from "@/types";
+} from "../shell-shim/system";
+import type { MediaFileOutput } from "../shell-shim/types";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import {
   CollectionsSection,

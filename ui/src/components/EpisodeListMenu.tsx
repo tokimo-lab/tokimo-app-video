@@ -9,10 +9,10 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api } from "@/generated/rust-api";
-import { posterThumbUrl } from "@/lib/thumb";
-import { usePlayer, useVideoUiState } from "@/system";
-import type { EpisodeOutput, MediaFileOutput } from "@/types";
+import { api } from "./shell-shim/api";
+import { posterThumbUrl } from "../shell-shim/lib";
+import { usePlayer, useVideoUiState } from "../shell-shim/system";
+import type { EpisodeOutput, MediaFileOutput } from "../shell-shim/types";
 import {
   PlayerControlTooltip,
   useDismissOnOutsidePointerDown,

@@ -8,17 +8,17 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
-import { getGenreName } from "@tokiomo/types";
+import { getGenreName } from "../shell-shim/types";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
-} from "@/apps/finder/components/FileDetailsModal";
-import { PersonDetailPopoverContent } from "@/apps/media/components/PersonDetailPopover";
-import { posterThumbUrl } from "@/lib/thumb";
-import { useLang, usePlayer } from "@/system";
-import type { CreditOutput, GenreOutput, MediaFileOutput } from "@/types";
+} from "../shell-shim/apps-finder";
+import { PersonDetailPopoverContent } from "../shell-shim/apps-media";
+import { posterThumbUrl } from "../shell-shim/lib";
+import { useLang, usePlayer } from "../shell-shim/system";
+import type { CreditOutput, GenreOutput, MediaFileOutput } from "../shell-shim/types";
 
 export function formatRuntime(minutes: number): string {
   const h = Math.floor(minutes / 60);

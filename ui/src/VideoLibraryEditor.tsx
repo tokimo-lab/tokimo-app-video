@@ -16,17 +16,17 @@ import {
 } from "@tokimo/ui";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AvatarPicker } from "@/components/avatar-picker";
-import type { VideoOutput } from "@/generated/rust-api";
-import { api } from "@/generated/rust-api";
+import { AvatarPicker } from "./shell-shim/components";
+import type { VideoOutput } from "./shell-shim/api";
+import { api } from "./shell-shim/api";
 import {
   getDefaultFileFormat,
   getDefaultFolderFormat,
-} from "@/lib/organize-constants";
-import { parseAvatar } from "@/shared/avatar-utils";
-import { useMessage } from "@/system";
-import type { OrganizeSettings } from "@/types";
-import type { AvatarData } from "@/types/avatar";
+} from "./shell-shim/lib";
+import { parseAvatar } from "./shell-shim/shared";
+import { useMessage } from "./shell-shim/system";
+import type { OrganizeSettings } from "./shell-shim/types";
+import type { AvatarData } from "./shell-shim/types-avatar";
 import VideoBindingsField, {
   type VideoBinding,
 } from "./video-library/VideoBindingsField";

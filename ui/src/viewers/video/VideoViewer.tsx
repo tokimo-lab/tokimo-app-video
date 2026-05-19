@@ -7,8 +7,8 @@
 
 import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildFileUrl } from "@/lib/file-url";
-import { useWindowActions, type WindowState } from "@/system";
+import { buildFileUrl } from "../../shell-shim/lib";
+import { useWindowActions, type WindowState } from "../../shell-shim/system";
 import { buildAgentFileUrl, buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";
 import { FileProbePanel } from "./FileProbePanel";

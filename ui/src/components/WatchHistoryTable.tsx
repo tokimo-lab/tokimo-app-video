@@ -1,9 +1,9 @@
 import { Avatar, Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { api } from "@/generated/rust-api";
-import { parseUserAgent } from "@/lib/ua-parser";
-import { useAuth, useDateFormat } from "@/system";
+import { api } from "./shell-shim/api";
+import { parseUserAgent } from "../shell-shim/lib";
+import { useAuth, useDateFormat } from "../shell-shim/system";
 
 dayjs.extend(relativeTime);
 
