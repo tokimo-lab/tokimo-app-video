@@ -44995,14 +44995,22 @@ function WUe({ directors: e, writers: t, date: n, dateLabel: r, countries: i }) 
 		children: [
 			e.length > 0 && /* @__PURE__ */ F("div", { children: [/* @__PURE__ */ F("span", {
 				className: "font-semibold text-fg-primary",
-				children: [a("media.detail.director"), ": "]
+				children: [
+					a("media.detail.director"),
+					":",
+					" "
+				]
 			}), /* @__PURE__ */ P("span", {
 				className: "text-fg-muted",
 				children: e.join(", ")
 			})] }),
 			t.length > 0 && /* @__PURE__ */ F("div", { children: [/* @__PURE__ */ F("span", {
 				className: "font-semibold text-fg-primary",
-				children: [a("media.detail.writer"), ": "]
+				children: [
+					a("media.detail.writer"),
+					":",
+					" "
+				]
 			}), /* @__PURE__ */ P("span", {
 				className: "text-fg-muted",
 				children: t.join(", ")
@@ -45016,7 +45024,11 @@ function WUe({ directors: e, writers: t, date: n, dateLabel: r, countries: i }) 
 			})] }),
 			i && i.length > 0 && /* @__PURE__ */ F("div", { children: [/* @__PURE__ */ F("span", {
 				className: "font-semibold text-fg-primary",
-				children: [a("media.detail.region"), ": "]
+				children: [
+					a("media.detail.region"),
+					":",
+					" "
+				]
 			}), /* @__PURE__ */ P("span", {
 				className: "text-fg-muted",
 				children: i.join(", ")
@@ -45802,7 +45814,8 @@ function gWe() {
 	}, [
 		f,
 		a,
-		o
+		o,
+		e
 	]);
 	if (s) return /* @__PURE__ */ P("div", {
 		className: "flex h-96 items-center justify-center",
@@ -52845,7 +52858,8 @@ function x0e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 		re,
 		s,
 		o,
-		t
+		t,
+		a
 	]), se = ne.isPending || re.isPending, ce = _ ? m0e(_) : null;
 	return h ? /* @__PURE__ */ F("div", {
 		className: "flex h-full flex-col overflow-hidden",

@@ -109,26 +109,20 @@ function AnalysisCard({
               <Tag color="blue">{analysis.contentType}</Tag>
             )}
             {isMusic && (
-              <Tag color="success">
-                {t(`${ns}.onlineMedia.audioOnly`)}
-              </Tag>
+              <Tag color="success">{t(`${ns}.onlineMedia.audioOnly`)}</Tag>
             )}
             {analysis.requiresAuth && (
-              <Tag color="warning">
-                {t(`${ns}.onlineMedia.authRequired`)}
-              </Tag>
+              <Tag color="warning">{t(`${ns}.onlineMedia.authRequired`)}</Tag>
             )}
           </div>
 
           <div className="text-sm font-semibold text-fg-primary">
-            {analysis.title ??
-              t(`${ns}.onlineMedia.noTitle`)}
+            {analysis.title ?? t(`${ns}.onlineMedia.noTitle`)}
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs text-fg-muted">
             <span>
-              {t(`${ns}.onlineMedia.uploader`)}:{" "}
-              {analysis.uploader ?? "-"}
+              {t(`${ns}.onlineMedia.uploader`)}: {analysis.uploader ?? "-"}
             </span>
             <span>
               {t(`${ns}.onlineMedia.duration`)}:{" "}
@@ -138,25 +132,22 @@ function AnalysisCard({
             </span>
             {analysis.artist && (
               <span>
-                {t(`${ns}.onlineMedia.artist`)}:{" "}
-                {analysis.artist}
+                {t(`${ns}.onlineMedia.artist`)}: {analysis.artist}
               </span>
             )}
             {analysis.album && (
               <span>
-                {t(`${ns}.onlineMedia.album`)}:{" "}
-                {analysis.album}
+                {t(`${ns}.onlineMedia.album`)}: {analysis.album}
               </span>
             )}
             {analysis.releaseDate && (
               <span>
-                {t(`${ns}.onlineMedia.releaseDate`)}
-                : {analysis.releaseDate}
+                {t(`${ns}.onlineMedia.releaseDate`)}: {analysis.releaseDate}
               </span>
             )}
             <span className="col-span-2 truncate">
-              {t(`${ns}.onlineMedia.normalizedUrl`)}
-              : {analysis.normalizedUrl ?? "-"}
+              {t(`${ns}.onlineMedia.normalizedUrl`)}:{" "}
+              {analysis.normalizedUrl ?? "-"}
             </span>
           </div>
 
@@ -209,9 +200,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
     onSuccess: (result) => {
       setAnalysis(result);
       if (!result.isSupported) {
-        message.warning(
-          t(`${ns}.onlineMedia.unsupported`),
-        );
+        message.warning(t(`${ns}.onlineMedia.unsupported`));
       }
     },
     onError: (error) => {
@@ -257,15 +246,11 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
   const handleStart = async () => {
     const values = await form.validateFields();
     if (!analysis?.isSupported || !analysis.provider) {
-      message.warning(
-        t(`${ns}.onlineMedia.analyzeFirst`),
-      );
+      message.warning(t(`${ns}.onlineMedia.analyzeFirst`));
       return;
     }
     if (!targetLibraryId) {
-      message.warning(
-        t(`${ns}.onlineMedia.selectFolderAfterAnalyze`),
-      );
+      message.warning(t(`${ns}.onlineMedia.selectFolderAfterAnalyze`));
       return;
     }
 
@@ -385,9 +370,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
           {analyzeMutation.isPending && (
             <div className="flex items-center justify-center rounded-lg border border-dashed border-border-base px-4 py-8 text-fg-muted">
               <Spin size="small" />
-              <span className="ml-2">
-                {t(`${ns}.onlineMedia.analyzing`)}
-              </span>
+              <span className="ml-2">{t(`${ns}.onlineMedia.analyzing`)}</span>
             </div>
           )}
 
@@ -422,7 +405,9 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
                 extra={
                   selectedLibrary
                     ? needsManualSelection
-                      ? t(`${ns}.onlineMedia.targetFolderNeedsManualSelectionDesc`)
+                      ? t(
+                          `${ns}.onlineMedia.targetFolderNeedsManualSelectionDesc`,
+                        )
                       : t(`${ns}.onlineMedia.targetFolderAutoSelected`)
                     : undefined
                 }
@@ -467,9 +452,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
 
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--border-base)] px-6 py-4">
-        <Button onClick={() => closeWindow(win.id)}>
-          {t(`${ns}.cancel`)}
-        </Button>
+        <Button onClick={() => closeWindow(win.id)}>{t(`${ns}.cancel`)}</Button>
         <Button
           variant="primary"
           disabled={!canStart}

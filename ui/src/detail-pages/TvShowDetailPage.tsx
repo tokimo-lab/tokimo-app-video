@@ -38,7 +38,9 @@ function FavoriteButton({
   return (
     <button
       type="button"
-      title={isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")}
+      title={
+        isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")
+      }
       className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "tvshow", id: tvShowId })}
     >
@@ -82,7 +84,11 @@ function EpisodeRow({
             if (firstFile)
               play(firstFile, {
                 ...playMeta,
-                title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
+                title:
+                  episode.title ??
+                  t("media.detail.episodeNumber", {
+                    number: episode.episodeNumber,
+                  }),
                 episodeId: episode.id,
               });
           }}
@@ -112,7 +118,9 @@ function EpisodeRow({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-fg-muted">
-                {t("media.detail.episodeNumber", { number: episode.episodeNumber })}
+                {t("media.detail.episodeNumber", {
+                  number: episode.episodeNumber,
+                })}
               </span>
               {episode.runtime != null && (
                 <span className="text-xs text-fg-muted">
@@ -126,7 +134,10 @@ function EpisodeRow({
               )}
             </div>
             <p className="mt-0.5 text-sm font-semibold text-fg-primary">
-              {episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber })}
+              {episode.title ??
+                t("media.detail.episodeNumber", {
+                  number: episode.episodeNumber,
+                })}
             </p>
             {episode.airDate && (
               <p className="mt-0.5 text-xs text-fg-muted">{episode.airDate}</p>
@@ -151,7 +162,11 @@ function EpisodeRow({
                   file={f}
                   playMeta={{
                     ...playMeta,
-                    title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
+                    title:
+                      episode.title ??
+                      t("media.detail.episodeNumber", {
+                        number: episode.episodeNumber,
+                      }),
                     episodeId: episode.id,
                   }}
                 />
@@ -213,7 +228,9 @@ export default function TvShowDetailPage() {
       void play(
         file,
         {
-          title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
+          title:
+            episode.title ??
+            t("media.detail.episodeNumber", { number: episode.episodeNumber }),
           posterPath: show.posterPath,
           tvShowId: show.id,
           episodeId: episode.id,
@@ -223,7 +240,7 @@ export default function TvShowDetailPage() {
         { initialPosition: position, watchHistoryId: historyId },
       );
     },
-    [fileMap, play, show],
+    [fileMap, play, show, t],
   );
 
   if (isLoading) {
@@ -268,7 +285,9 @@ export default function TvShowDetailPage() {
           extraBadges={
             <>
               {seasons.length > 0 && (
-                <span className="text-fg-secondary">· {t("media.detail.seasonCount", { count: seasons.length })}</span>
+                <span className="text-fg-secondary">
+                  · {t("media.detail.seasonCount", { count: seasons.length })}
+                </span>
               )}
               {show.status && (
                 <span
@@ -303,14 +322,19 @@ export default function TvShowDetailPage() {
         <section className="mb-8">
           <PillTabBar
             tabs={seasons.map((sn) => {
-              const base = t("media.detail.seasonNumber", { number: sn.seasonNumber });
+              const base = t("media.detail.seasonNumber", {
+                number: sn.seasonNumber,
+              });
               const hasRealTitle =
                 sn.title && !/^season\s+\d+$/i.test(sn.title);
               const parts: string[] = [base];
               if (hasRealTitle) parts.push(sn.title!);
               const episodeCount =
                 sn.episodeCount ?? sn.episodes?.length ?? null;
-              if (episodeCount != null) parts.push(t("media.detail.episodeCount", { count: episodeCount }));
+              if (episodeCount != null)
+                parts.push(
+                  t("media.detail.episodeCount", { count: episodeCount }),
+                );
               return {
                 key: String(sn.seasonNumber),
                 label: parts.join(" · "),

@@ -36,7 +36,9 @@ function FavoriteButton({
   return (
     <button
       type="button"
-      title={isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")}
+      title={
+        isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")
+      }
       className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "movie", id: videoItemId })}
     >
@@ -289,7 +291,9 @@ export default function VideoItemDetailPage() {
                   ✨ {t("media.detail.scraped")}
                 </span>
               ) : (
-                <span className="text-xs text-orange-400">{t("media.detail.notScraped")}</span>
+                <span className="text-xs text-orange-400">
+                  {t("media.detail.notScraped")}
+                </span>
               )
             }
             genres={movie.genres}

@@ -136,7 +136,11 @@ export function PersonDetailPopoverContent({
           {/* Compact info */}
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-fg-secondary">
             {person.popularity != null && person.popularity > 0 && (
-              <span>{t("media.detail.popularity", { value: person.popularity.toFixed(1) })}</span>
+              <span>
+                {t("media.detail.popularity", {
+                  value: person.popularity.toFixed(1),
+                })}
+              </span>
             )}
             {person.aliases && person.aliases.length > 0 && (
               <span>
@@ -191,7 +195,8 @@ export function PersonDetailPopoverContent({
         return (
           <section key={role}>
             <p className="mb-1.5 text-[11px] font-semibold text-fg-primary">
-              {ROLE_LABELS[role] ? t(ROLE_LABELS[role]) : role} {t("media.detail.works")}
+              {ROLE_LABELS[role] ? t(ROLE_LABELS[role]) : role}{" "}
+              {t("media.detail.works")}
               <span className="ml-1 font-normal text-fg-muted">
                 ({withMedia.length})
               </span>
@@ -241,7 +246,9 @@ export function PersonDetailPopoverContent({
                       </p>
                       {c?.character && (
                         <p className="truncate text-[9px] text-fg-muted">
-                          {t("media.detail.asCharacter", { character: c.character })}
+                          {t("media.detail.asCharacter", {
+                            character: c.character,
+                          })}
                         </p>
                       )}
                     </div>

@@ -174,7 +174,9 @@ export default function VideoBindingsField({
             <HardDrive className="w-[18px] h-[18px]" />
           </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-fg-primary">{t("media.videoBindings.fileSource")}</h4>
+            <h4 className="text-sm font-semibold text-fg-primary">
+              {t("media.videoBindings.fileSource")}
+            </h4>
             <p className="text-xs text-fg-muted mt-0.5">
               {t("media.videoBindings.description")}
             </p>

@@ -47,13 +47,21 @@ const TECH_ADULT = {
 type LangSamples = Record<string, Record<string, string>>;
 
 const MOVIE_NAMES: LangSamples = {
-  "zh-CN": { name: "media.organize.samples.movieName", country: "US", language: "en" },
+  "zh-CN": {
+    name: "media.organize.samples.movieName",
+    country: "US",
+    language: "en",
+  },
   "en-US": { name: "Movie Name", country: "US", language: "en" },
   "ja-JP": { name: "映画名", country: "US", language: "en" },
 };
 
 const TV_NAMES: LangSamples = {
-  "zh-CN": { name: "media.organize.samples.showName", country: "CN", language: "zh" },
+  "zh-CN": {
+    name: "media.organize.samples.showName",
+    country: "CN",
+    language: "zh",
+  },
   "en-US": { name: "Show Name", country: "CN", language: "zh" },
   "ja-JP": { name: "ドラマ名", country: "CN", language: "zh" },
 };
@@ -65,7 +73,11 @@ const ADULT_NAMES: LangSamples = {
 };
 
 const MUSIC_NAMES: LangSamples = {
-  "zh-CN": { artist: "media.organize.samples.artistName", album: "media.organize.samples.albumName", title: "media.organize.samples.trackTitle" },
+  "zh-CN": {
+    artist: "media.organize.samples.artistName",
+    album: "media.organize.samples.albumName",
+    title: "media.organize.samples.trackTitle",
+  },
   "en-US": { artist: "Artist Name", album: "Album Name", title: "Track Title" },
   "ja-JP": { artist: "アーティスト名", album: "アルバム名", title: "曲名" },
 };

@@ -32,8 +32,7 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
     type: "movie",
     label: "media.libraryEditor.types.movie.label",
     description: "media.libraryEditor.types.movie.description",
-    detailedDescription:
-      "media.libraryEditor.types.movie.detailedDescription",
+    detailedDescription: "media.libraryEditor.types.movie.detailedDescription",
     icon: Film,
     iconName: "film",
     color: "#3b82f6",
@@ -44,8 +43,7 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
     type: "tv",
     label: "media.libraryEditor.types.tv.label",
     description: "media.libraryEditor.types.tv.description",
-    detailedDescription:
-      "media.libraryEditor.types.tv.detailedDescription",
+    detailedDescription: "media.libraryEditor.types.tv.detailedDescription",
     icon: Tv2,
     iconName: "tv-2",
     color: "#8b5cf6",
@@ -56,8 +54,7 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
     type: "anime",
     label: "media.libraryEditor.types.anime.label",
     description: "media.libraryEditor.types.anime.description",
-    detailedDescription:
-      "media.libraryEditor.types.anime.detailedDescription",
+    detailedDescription: "media.libraryEditor.types.anime.detailedDescription",
     icon: Clapperboard,
     iconName: "clapperboard",
     color: "#ec4899",
@@ -128,8 +125,7 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
     type: "adult",
     label: "media.libraryEditor.types.adult.label",
     description: "media.libraryEditor.types.adult.description",
-    detailedDescription:
-      "media.libraryEditor.types.adult.detailedDescription",
+    detailedDescription: "media.libraryEditor.types.adult.detailedDescription",
     icon: Lock,
     iconName: "lock",
     color: "#6b7280",

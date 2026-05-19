@@ -161,7 +161,9 @@ export function MediaDetailMeta({
         )}
         {doubanRating != null && (
           <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">
-            {t("media.detail.doubanRating", { rating: doubanRating.toFixed(1) })}
+            {t("media.detail.doubanRating", {
+              rating: doubanRating.toFixed(1),
+            })}
           </span>
         )}
         {extraBadges}

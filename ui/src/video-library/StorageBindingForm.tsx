@@ -52,7 +52,9 @@ export default function StorageBindingForm({
         </div>
       )}
       <div>
-        <div className="block text-xs font-medium text-fg-muted mb-1">{t("media.videoBindings.path")}</div>
+        <div className="block text-xs font-medium text-fg-muted mb-1">
+          {t("media.videoBindings.path")}
+        </div>
         {value.sourceId ? (
           <Input
             placeholder="/mnt/media/"
@@ -61,7 +63,10 @@ export default function StorageBindingForm({
             disabled={disabled}
           />
         ) : (
-          <Input placeholder={t("media.videoBindings.selectSourceFirst")} disabled />
+          <Input
+            placeholder={t("media.videoBindings.selectSourceFirst")}
+            disabled
+          />
         )}
       </div>
     </div>

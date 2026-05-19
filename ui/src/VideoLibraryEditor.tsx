@@ -133,7 +133,8 @@ export default function VideoLibraryEditor({
       setDeleteOpen(false);
       onDeleted?.();
     },
-    onError: (e) => message.error(e.message || t("media.libraryEditor.deleteFailed")),
+    onError: (e) =>
+      message.error(e.message || t("media.libraryEditor.deleteFailed")),
   });
 
   const handleSave = useCallback(async () => {
@@ -206,6 +207,7 @@ export default function VideoLibraryEditor({
     qc,
     message,
     onSaved,
+    t,
   ]);
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -245,7 +247,9 @@ export default function VideoLibraryEditor({
               setShowTypeSelect(false);
             }}
           >
-            {video ? t("media.libraryEditor.confirmSwitch") : t("media.libraryEditor.continue")}
+            {video
+              ? t("media.libraryEditor.confirmSwitch")
+              : t("media.libraryEditor.continue")}
           </Button>
         </div>
       </div>
@@ -310,12 +314,24 @@ export default function VideoLibraryEditor({
             <Form.Item
               name="name"
               label={t("media.libraryEditor.name")}
-              rules={[{ required: true, message: t("media.libraryEditor.nameRequired") }]}
+              rules={[
+                {
+                  required: true,
+                  message: t("media.libraryEditor.nameRequired"),
+                },
+              ]}
             >
-              <Input placeholder={t("media.libraryEditor.namePlaceholder")} size="large" />
+              <Input
+                placeholder={t("media.libraryEditor.namePlaceholder")}
+                size="large"
+              />
             </Form.Item>
 
-            <Form.Item name="description" label={t("media.libraryEditor.description")} className="!mb-0">
+            <Form.Item
+              name="description"
+              label={t("media.libraryEditor.description")}
+              className="!mb-0"
+            >
               <Input.TextArea
                 placeholder={t("media.libraryEditor.descriptionPlaceholder")}
                 rows={3}
@@ -364,7 +380,9 @@ export default function VideoLibraryEditor({
               {t("media.libraryEditor.cancel")}
             </Button>
             <Button loading={isPending} onClick={() => void handleSave()}>
-              {video ? t("media.libraryEditor.save") : t("media.libraryEditor.create")}
+              {video
+                ? t("media.libraryEditor.save")
+                : t("media.libraryEditor.create")}
             </Button>
           </div>
         </div>
@@ -411,13 +429,20 @@ function DeleteConfirmModal({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
-    <Modal title={t("media.libraryEditor.deleteTitle")} open={open} onCancel={onCancel} footer={null}>
+    <Modal
+      title={t("media.libraryEditor.deleteTitle")}
+      open={open}
+      onCancel={onCancel}
+      footer={null}
+    >
       <div className="space-y-4 pt-1">
         <p className="text-sm text-fg-secondary">
           {t("media.libraryEditor.deleteConfirmPrefix")}{" "}
           <span className="font-semibold text-fg-primary">{video.name}</span>{" "}
           {t("media.libraryEditor.deleteConfirmMiddle")}
-          <span className="font-semibold text-red-500">{t("media.libraryEditor.deleteConfirmIrreversible")}</span>
+          <span className="font-semibold text-red-500">
+            {t("media.libraryEditor.deleteConfirmIrreversible")}
+          </span>
           {t("media.libraryEditor.deleteConfirmSuffix")}
         </p>
         <Input

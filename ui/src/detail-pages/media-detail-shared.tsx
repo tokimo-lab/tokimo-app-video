@@ -148,13 +148,17 @@ export function MediaInfoBlock({
     <div className="mt-3 space-y-1 text-sm">
       {directors.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">{t("media.detail.director")}: </span>
+          <span className="font-semibold text-fg-primary">
+            {t("media.detail.director")}:{" "}
+          </span>
           <span className="text-fg-muted">{directors.join(", ")}</span>
         </div>
       )}
       {writers.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">{t("media.detail.writer")}: </span>
+          <span className="font-semibold text-fg-primary">
+            {t("media.detail.writer")}:{" "}
+          </span>
           <span className="text-fg-muted">{writers.join(", ")}</span>
         </div>
       )}
@@ -166,7 +170,9 @@ export function MediaInfoBlock({
       )}
       {countries && countries.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">{t("media.detail.region")}: </span>
+          <span className="font-semibold text-fg-primary">
+            {t("media.detail.region")}:{" "}
+          </span>
           <span className="text-fg-muted">{countries.join(", ")}</span>
         </div>
       )}
@@ -611,7 +617,9 @@ export function MediaFileCard({
               {a.tags?.language && a.tags.language !== "und"
                 ? `${a.tags.language.toUpperCase()} `
                 : ""}
-              {a.codec_name ? a.codec_name.toUpperCase() : t("media.detail.unknown")}
+              {a.codec_name
+                ? a.codec_name.toUpperCase()
+                : t("media.detail.unknown")}
               {a.channels
                 ? ` ${a.channels === 2 ? "Stereo" : a.channels === 1 ? "Mono" : `${a.channels}ch`}`
                 : ""}

@@ -165,18 +165,36 @@ function StreamCard({
                   : ""}
               </p>
             )}
-            {stream.pixFmt && <p>{t("media.fileProbe.pixelFormat")}: {stream.pixFmt}</p>}
-            {stream.frameRate && (
-              <p>{t("media.fileProbe.frameRate")}: {formatFrameRate(stream.frameRate)}</p>
+            {stream.pixFmt && (
+              <p>
+                {t("media.fileProbe.pixelFormat")}: {stream.pixFmt}
+              </p>
             )}
-            {stream.colorSpace && <p>{t("media.fileProbe.colorSpace")}: {stream.colorSpace}</p>}
-            {stream.colorTransfer && <p>{t("media.fileProbe.colorTransfer")}: {stream.colorTransfer}</p>}
+            {stream.frameRate && (
+              <p>
+                {t("media.fileProbe.frameRate")}:{" "}
+                {formatFrameRate(stream.frameRate)}
+              </p>
+            )}
+            {stream.colorSpace && (
+              <p>
+                {t("media.fileProbe.colorSpace")}: {stream.colorSpace}
+              </p>
+            )}
+            {stream.colorTransfer && (
+              <p>
+                {t("media.fileProbe.colorTransfer")}: {stream.colorTransfer}
+              </p>
+            )}
           </>
         )}
         {stream.codecType === "audio" && (
           <>
             {stream.sampleRate != null && (
-              <p>{t("media.fileProbe.sampleRate")}: {stream.sampleRate.toLocaleString()} Hz</p>
+              <p>
+                {t("media.fileProbe.sampleRate")}:{" "}
+                {stream.sampleRate.toLocaleString()} Hz
+              </p>
             )}
             {stream.channels != null && (
               <p>
@@ -186,7 +204,12 @@ function StreamCard({
             )}
           </>
         )}
-        {stream.bitRate && <p>{t("media.fileProbe.bitrate")}: {formatBitrate(Number(stream.bitRate))}</p>}
+        {stream.bitRate && (
+          <p>
+            {t("media.fileProbe.bitrate")}:{" "}
+            {formatBitrate(Number(stream.bitRate))}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -250,13 +273,25 @@ export function FileProbePanel({
 
       <div className="space-y-3">
         {/* ── Format section ──────────────────────────────────────── */}
-        <Section icon={<FileText className="h-3 w-3" />} title={t("media.fileProbe.format")}>
-          <InfoRow label={t("media.fileProbe.container")} value={fmt.formatName} />
+        <Section
+          icon={<FileText className="h-3 w-3" />}
+          title={t("media.fileProbe.format")}
+        >
+          <InfoRow
+            label={t("media.fileProbe.container")}
+            value={fmt.formatName}
+          />
           {fmt.formatLongName && fmt.formatLongName !== fmt.formatName && (
-            <InfoRow label={t("media.fileProbe.fullName")} value={fmt.formatLongName} />
+            <InfoRow
+              label={t("media.fileProbe.fullName")}
+              value={fmt.formatLongName}
+            />
           )}
           {fmt.duration != null && (
-            <InfoRow label={t("media.fileProbe.duration")} value={formatDuration(fmt.duration)} />
+            <InfoRow
+              label={t("media.fileProbe.duration")}
+              value={formatDuration(fmt.duration)}
+            />
           )}
           {fmt.size != null && (
             <InfoRow
@@ -265,14 +300,23 @@ export function FileProbePanel({
             />
           )}
           {fmt.bitRate != null && (
-            <InfoRow label={t("media.fileProbe.totalBitrate")} value={formatBitrate(fmt.bitRate)} />
+            <InfoRow
+              label={t("media.fileProbe.totalBitrate")}
+              value={formatBitrate(fmt.bitRate)}
+            />
           )}
-          <InfoRow label={t("media.fileProbe.streamCount")} value={String(fmt.nbStreams)} />
+          <InfoRow
+            label={t("media.fileProbe.streamCount")}
+            value={String(fmt.nbStreams)}
+          />
         </Section>
 
         {/* ── Video section ───────────────────────────────────────── */}
         {videoStreams.length > 0 && (
-          <Section icon={<Film className="h-3 w-3" />} title={t("media.fileProbe.video")}>
+          <Section
+            icon={<Film className="h-3 w-3" />}
+            title={t("media.fileProbe.video")}
+          >
             {primaryVideo &&
               primaryVideo.width != null &&
               primaryVideo.height != null && (
@@ -284,7 +328,11 @@ export function FileProbePanel({
               <StreamCard
                 key={s.index}
                 stream={s}
-                label={videoStreams.length > 1 ? t("media.fileProbe.videoNumber", { number: i + 1 }) : t("media.fileProbe.video")}
+                label={
+                  videoStreams.length > 1
+                    ? t("media.fileProbe.videoNumber", { number: i + 1 })
+                    : t("media.fileProbe.video")
+                }
               />
             ))}
           </Section>
@@ -292,12 +340,19 @@ export function FileProbePanel({
 
         {/* ── Audio section ───────────────────────────────────────── */}
         {audioStreams.length > 0 && (
-          <Section icon={<Headphones className="h-3 w-3" />} title={t("media.fileProbe.audio")}>
+          <Section
+            icon={<Headphones className="h-3 w-3" />}
+            title={t("media.fileProbe.audio")}
+          >
             {audioStreams.map((s, i) => (
               <StreamCard
                 key={s.index}
                 stream={s}
-                label={audioStreams.length > 1 ? t("media.fileProbe.audioNumber", { number: i + 1 }) : t("media.fileProbe.audio")}
+                label={
+                  audioStreams.length > 1
+                    ? t("media.fileProbe.audioNumber", { number: i + 1 })
+                    : t("media.fileProbe.audio")
+                }
               />
             ))}
           </Section>
@@ -307,7 +362,9 @@ export function FileProbePanel({
         {subtitleStreams.length > 0 && (
           <Section
             icon={<Subtitles className="h-3 w-3" />}
-            title={t("media.fileProbe.subtitles", { count: subtitleStreams.length })}
+            title={t("media.fileProbe.subtitles", {
+              count: subtitleStreams.length,
+            })}
             collapsible
             defaultOpen={false}
           >
@@ -340,7 +397,9 @@ export function FileProbePanel({
         {data.chapters.length > 0 && (
           <Section
             icon={<ListOrdered className="h-3 w-3" />}
-            title={t("media.fileProbe.chapters", { count: data.chapters.length })}
+            title={t("media.fileProbe.chapters", {
+              count: data.chapters.length,
+            })}
             collapsible
             defaultOpen={false}
           >
@@ -375,7 +434,10 @@ export function FileProbePanel({
         )}
 
         {/* ── Path info ──────────────────────────────────────────── */}
-        <Section icon={<HardDrive className="h-3 w-3" />} title={t("media.fileProbe.path")}>
+        <Section
+          icon={<HardDrive className="h-3 w-3" />}
+          title={t("media.fileProbe.path")}
+        >
           <p className="break-all text-[13px] text-fg-muted">{filePath}</p>
         </Section>
       </div>

@@ -69,7 +69,9 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
       const file = ep.files?.[0];
       if (!file) return;
       play(file as MediaFileOutput, {
-        title: ep.title ?? t("media.detail.episodeNumber", { number: ep.episodeNumber }),
+        title:
+          ep.title ??
+          t("media.detail.episodeNumber", { number: ep.episodeNumber }),
         posterPath: tvShow?.posterPath,
         tvShowId,
         episodeId: ep.id,
@@ -257,7 +259,9 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     >
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-4 py-2.5">
-        <h3 className="text-xs font-medium text-white/70">{t("media.viewer.episodeList")}</h3>
+        <h3 className="text-xs font-medium text-white/70">
+          {t("media.viewer.episodeList")}
+        </h3>
         <button
           type="button"
           className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"

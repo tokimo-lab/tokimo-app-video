@@ -64,7 +64,9 @@ export function WatchHistoryTable({
 
   if (!data?.length) {
     return (
-      <p className="py-6 text-center text-sm text-fg-muted">{t("media.detail.watchHistory.empty")}</p>
+      <p className="py-6 text-center text-sm text-fg-muted">
+        {t("media.detail.watchHistory.empty")}
+      </p>
     );
   }
 
@@ -73,14 +75,32 @@ export function WatchHistoryTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-base text-left text-xs text-fg-muted">
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.time")}</th>
-            {tvShowId && <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.episode")}</th>}
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.user")}</th>
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.position")}</th>
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.progress")}</th>
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.client")}</th>
-            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.status")}</th>
-            <th className="py-2 font-medium">{t("media.detail.watchHistory.actions")}</th>
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.time")}
+            </th>
+            {tvShowId && (
+              <th className="py-2 pr-4 font-medium">
+                {t("media.detail.watchHistory.episode")}
+              </th>
+            )}
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.user")}
+            </th>
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.position")}
+            </th>
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.progress")}
+            </th>
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.client")}
+            </th>
+            <th className="py-2 pr-4 font-medium">
+              {t("media.detail.watchHistory.status")}
+            </th>
+            <th className="py-2 font-medium">
+              {t("media.detail.watchHistory.actions")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -92,7 +112,9 @@ export function WatchHistoryTable({
               item.seasonNumber != null && item.episodeNumber != null
                 ? `S${item.seasonNumber}E${item.episodeNumber}`
                 : item.episodeNumber != null
-                  ? t("media.detail.episodeNumber", { number: item.episodeNumber })
+                  ? t("media.detail.episodeNumber", {
+                      number: item.episodeNumber,
+                    })
                   : null;
             return (
               <tr
