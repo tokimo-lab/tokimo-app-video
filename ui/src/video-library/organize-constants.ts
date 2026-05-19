@@ -185,7 +185,10 @@ export function getVarsForType(ct: string): PlaceholderItem[] {
 }
 
 // Re-export media organize defaults for compatibility
-export { getDefaultFileFormat, getDefaultFolderFormat } from "../lib/media-organize";
+export {
+  getDefaultFileFormat,
+  getDefaultFolderFormat,
+} from "../lib/media-organize";
 
 // ─── Template Renderer (preview) ───
 

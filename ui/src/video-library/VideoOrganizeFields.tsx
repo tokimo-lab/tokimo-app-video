@@ -11,7 +11,10 @@ import {
 } from "@tokimo/ui";
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { getDefaultFileFormat, getDefaultFolderFormat } from "../lib/media-organize";
+import {
+  getDefaultFileFormat,
+  getDefaultFolderFormat,
+} from "../lib/media-organize";
 import {
   getVarsForType,
   ORGANIZE_LANG_OPTIONS,
