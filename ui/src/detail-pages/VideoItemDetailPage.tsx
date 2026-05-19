@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl, useWindowContainer } from "@tokimo/sdk";
+import { posterThumbUrl, useRuntimeCtx } from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type MediaFileOutput } from "../api";
@@ -65,7 +65,13 @@ function ResumePromptModal({
   onRestart: () => void;
   onClose: () => void;
 }) {
-  const container = useWindowContainer();
+  const { shell, windowId } = useRuntimeCtx();
+  const [container, setContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setContainer(shell.getWindowContainer(windowId));
+  }, [shell, windowId]);
+
   return (
     <Modal
       open={open}

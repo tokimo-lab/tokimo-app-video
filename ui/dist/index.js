@@ -1,5 +1,5 @@
 import { QueryClient as e, QueryClientProvider as t, useMutation as n, useQuery as r, useQueryClient as i } from "@tanstack/react-query";
-import { RuntimeProvider as a, defineApp as o, getAvatarColor as s, getAvatarIcon as c, getDefaultFileFormat as l, getDefaultFolderFormat as u, parseAvatar as d, parseUserAgent as f, posterThumbUrl as p, useInfiniteScroll as m, useShellApi as h, useSyncProgress as g, useToast as _, useWindowActions as v, useWindowContainer as y, useWindowId as b, useWindowNav as x } from "@tokimo/sdk";
+import { RuntimeProvider as a, defineApp as o, getAvatarColor as s, getAvatarIcon as c, getDefaultFileFormat as l, getDefaultFolderFormat as u, parseAvatar as d, parseUserAgent as f, posterThumbUrl as p, useInfiniteScroll as m, useRuntimeCtx as h, useShellApi as g, useSyncProgress as _, useToast as v, useWindowActions as y, useWindowId as b, useWindowNav as x } from "@tokimo/sdk";
 import { AppSetupGuide as S, AppSidebar as C, ArrowLeftOutlined as w, Avatar as T, Button as E, Checkbox as ee, CircularProgress as te, ConfigProvider as ne, DeleteOutlined as re, Empty as ie, Form as D, Input as ae, Modal as oe, PillTabBar as se, PlusOutlined as eee, Popover as ce, PosterCard as tee, QuestionCircleOutlined as nee, ScrollArea as le, Select as ue, Spin as de, Tag as fe, TemplateInput as pe, ToastProvider as ree, Tooltip as me, cn as O, useWatch as he } from "@tokimo/ui";
 import * as k from "react";
 import { Component as iee, Fragment as ge, StrictMode as aee, Suspense as oee, createContext as _e, createElement as ve, forwardRef as ye, lazy as see, useCallback as A, useContext as be, useEffect as j, useId as cee, useInsertionEffect as lee, useLayoutEffect as xe, useMemo as M, useRef as Se, useState as N, useSyncExternalStore as uee } from "react";
@@ -43386,7 +43386,7 @@ function _Ve() {
 	return { setBackgroundArt: () => {} };
 }
 function J2() {
-	let e = h(), t = uee(e.player.subscribeItem, e.player.getCurrentItem, e.player.getCurrentItem);
+	let e = g(), t = uee(e.player.subscribeItem, e.player.getCurrentItem, e.player.getCurrentItem);
 	return {
 		play: e.player.play,
 		pause: () => {},
@@ -45559,7 +45559,10 @@ function uWe(e) {
 	return t > 0 ? `${t}:${n.toString().padStart(2, "0")}:${r.toString().padStart(2, "0")}` : `${n}:${r.toString().padStart(2, "0")}`;
 }
 function dWe({ open: e, position: t, onResume: n, onRestart: r, onClose: i }) {
-	return /* @__PURE__ */ P(oe, {
+	let { shell: a, windowId: o } = h(), [s, c] = N(null);
+	return j(() => {
+		c(a.getWindowContainer(o));
+	}, [a, o]), /* @__PURE__ */ P(oe, {
 		open: e,
 		closable: !1,
 		maskClosable: !0,
@@ -45568,7 +45571,7 @@ function dWe({ open: e, position: t, onResume: n, onRestart: r, onClose: i }) {
 		width: 360,
 		centered: !0,
 		onCancel: i,
-		container: y(),
+		container: s,
 		styles: { body: { padding: 0 } },
 		children: /* @__PURE__ */ F("div", {
 			className: "flex flex-col",
@@ -46014,7 +46017,7 @@ function bWe(e) {
 	return t || (t = see(e), p3.set(e, t)), t;
 }
 function f3() {
-	let { route: e, navigate: t, replace: n, goBack: r, canGoBack: i } = x(), { openWindow: a, openModalWindow: o } = v();
+	let { route: e, navigate: t, replace: n, goBack: r, canGoBack: i } = x(), { openWindow: a, openModalWindow: o } = y();
 	b();
 	let { params: s, ViewComponent: c, LazyViewComponent: l } = M(() => {
 		let t = lVe(e, Object.keys(d3));
@@ -52838,9 +52841,9 @@ var y0e = I((() => {
 	E2(), g0e();
 })), b0e = /* @__PURE__ */ De({ default: () => x0e });
 function x0e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
-	let a = _(), o = i(), [s] = D.useForm(), { data: c = [] } = B.video.list.useQuery(), { data: f = [] } = B.vfs.list.useQuery(), p = e ? c.find((t) => t.id === e) : void 0, [m, h] = N(!e), [g, v] = N(p?.type), [y, b] = N(null), [x, S] = N(!1), [C, w] = N(""), T = Se(e);
+	let a = v(), o = i(), [s] = D.useForm(), { data: c = [] } = B.video.list.useQuery(), { data: f = [] } = B.vfs.list.useQuery(), p = e ? c.find((t) => t.id === e) : void 0, [m, h] = N(!e), [g, _] = N(p?.type), [y, b] = N(null), [x, S] = N(!1), [C, w] = N(""), T = Se(e);
 	j(() => {
-		T.current !== e && (T.current = e, h(!e), v(void 0), S(!1), w(""));
+		T.current !== e && (T.current = e, h(!e), _(void 0), S(!1), w(""));
 	}, [e]);
 	let ee = A((e) => {
 		let t = m0e(e);
@@ -52863,7 +52866,7 @@ function x0e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 	j(() => {
 		if (p) {
 			let e = p.settings ?? {}, t = p.type;
-			v(t), b(d(p.avatar)), s.setFieldsValue({
+			_(t), b(d(p.avatar)), s.setFieldsValue({
 				type: t,
 				name: p.name,
 				description: p.description ?? "",
@@ -52938,7 +52941,7 @@ function x0e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 			innerClassName: "px-5 py-5",
 			children: /* @__PURE__ */ P(v0e, {
 				value: g,
-				onChange: (e) => v(e)
+				onChange: (e) => _(e)
 			})
 		}), /* @__PURE__ */ F("div", {
 			className: "flex shrink-0 items-center justify-end gap-2 border-t border-border-base px-5 py-3",
@@ -53158,7 +53161,7 @@ var C0e = I((() => {
 	E2(), q2(), L$e(), f1e(), p0e(), y0e(), g0e();
 })), w0e = /* @__PURE__ */ De({ default: () => T0e });
 function T0e() {
-	let { t: e } = Je(), { LazyViewComponent: t, params: n, replace: r, updateTitle: a } = f3(), { data: o, isLoading: s } = B.video.list.useQuery(), [c, l] = aVe(), { collapsed: u, onToggleCollapse: d } = sVe("video", l > 0 && l < 720), f = b(), { openModalWindow: p } = v(), m = n.categoryId ?? null, h = !!(n.videoItemId ?? n.tvShowId);
+	let { t: e } = Je(), { LazyViewComponent: t, params: n, replace: r, updateTitle: a } = f3(), { data: o, isLoading: s } = B.video.list.useQuery(), [c, l] = aVe(), { collapsed: u, onToggleCollapse: d } = sVe("video", l > 0 && l < 720), f = b(), { openModalWindow: p } = y(), m = n.categoryId ?? null, h = !!(n.videoItemId ?? n.tvShowId);
 	j(() => {
 		if (o?.length) {
 			if (n.categoryId) {
@@ -53173,7 +53176,7 @@ function T0e() {
 		h,
 		r
 	]);
-	let _ = A((e = {}) => {
+	let g = A((e = {}) => {
 		p({
 			component: () => Promise.resolve().then(() => (C0e(), b0e)),
 			parentWindowId: f,
@@ -53184,17 +53187,17 @@ function T0e() {
 			noMinimize: !0,
 			metadata: e.videoId ? { videoId: e.videoId } : void 0
 		});
-	}, [p, f]), y = o?.find((e) => e.id === m);
-	SWe(y?.id, y?.type), j(() => {
-		h || y && a(`TokimoVideo · ${y.name}`);
+	}, [p, f]), v = o?.find((e) => e.id === m);
+	SWe(v?.id, v?.type), j(() => {
+		h || v && a(`TokimoVideo · ${v.name}`);
 	}, [
-		y,
+		v,
 		h,
 		a
 	]);
 	let x = (e) => {
 		r(`/library/${e}`);
-	}, C = i(), w = g({
+	}, C = i(), w = _({
 		libraries: o,
 		progressQueryKey: (e) => B.video.getSyncProgress.queryKey({ id: e }),
 		fetchProgress: (e) => B.video.getSyncProgress.fetch({ id: e }),
@@ -53217,8 +53220,8 @@ function T0e() {
 			activeId: m,
 			onSelect: x,
 			collapsed: u,
-			onCreateClick: () => _(),
-			onSettingsClick: () => m && _({ videoId: m }),
+			onCreateClick: () => g(),
+			onSettingsClick: () => m && g({ videoId: m }),
 			syncProgress: w,
 			onToggleCollapse: d
 		}), /* @__PURE__ */ P("div", {
@@ -53226,8 +53229,8 @@ function T0e() {
 			children: h && t ? /* @__PURE__ */ P(oee, {
 				fallback: D0e,
 				children: /* @__PURE__ */ P(t, {})
-			}) : m && y && /* @__PURE__ */ P(Y$e, {
-				category: y,
+			}) : m && v && /* @__PURE__ */ P(Y$e, {
+				category: v,
 				syncing: !!w[m]?.isActive
 			}, m)
 		})]
@@ -53246,7 +53249,7 @@ function T0e() {
 		})),
 		actionLabel: e("common.setupGuide.videoAction"),
 		actionIcon: wK,
-		onAction: () => _()
+		onAction: () => g()
 	});
 }
 var E0e, D0e, B9 = I((() => {
