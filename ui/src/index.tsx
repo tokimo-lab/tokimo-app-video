@@ -26,14 +26,16 @@ export default defineApp({
     category: "app",
   },
   mount(container, ctx): Dispose {
-    // Sync language with host shell. TODO: subscribe reactively once
-    // ctx.shell exposes a locale change event.
-    const targetLocale = SUPPORTED_LOCALES.includes(ctx.locale)
-      ? ctx.locale
-      : "en-US";
-    if (i18n.language !== targetLocale) {
-      void i18n.changeLanguage(targetLocale);
-    }
+    const applyLocale = (raw: string) => {
+      const target = SUPPORTED_LOCALES.includes(raw) ? raw : "en-US";
+      if (i18n.language !== target) {
+        void i18n.changeLanguage(target);
+      }
+    };
+
+    applyLocale(ctx.locale);
+    const unsubLocale = ctx.shell.subscribeLocale(applyLocale);
+
     const root: Root = createRoot(container);
     root.render(
       <StrictMode>
@@ -50,6 +52,9 @@ export default defineApp({
         </I18nextProvider>
       </StrictMode>,
     );
-    return () => root.unmount();
+    return () => {
+      unsubLocale();
+      root.unmount();
+    };
   },
 });
