@@ -1,13 +1,16 @@
-import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
+import { posterThumbUrl, useInfiniteScroll, useWindowNav } from "@tokimo/sdk";
 import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { VideoOutput } from "../shell-shim/api";
-import { api } from "../shell-shim/api";
+import {
+  api,
+  getGenreName,
+  type TvShowOutput,
+  type VideoItemOutput,
+  type VideoOutput,
+} from "../api";
+import { useLang } from "../hooks/shell-stubs";
 import { ContentSearch } from "../shell-shim/components";
-import { useLang, useWindowNav } from "../shell-shim/system";
-import type { TvShowOutput, VideoItemOutput } from "../shell-shim/types";
-import { getGenreName } from "../shell-shim/types";
 import type { FilterOption, MediaFilters } from "./MediaFilterPanel";
 import MediaFilterPanel, {
   EMPTY_FILTERS,

@@ -6,9 +6,11 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  type AvatarData,
   getDefaultFileFormat,
   getDefaultFolderFormat,
   parseAvatar,
+  useToast as useMessage,
 } from "@tokimo/sdk";
 import {
   Button,
@@ -21,12 +23,9 @@ import {
 } from "@tokimo/ui";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { VideoOutput } from "./shell-shim/api";
-import { api } from "./shell-shim/api";
+import type { OrganizeSettings, VideoOutput } from "./api";
+import { api } from "./api";
 import { AvatarPicker } from "./shell-shim/components";
-import { useMessage } from "./shell-shim/system";
-import type { OrganizeSettings } from "./shell-shim/types";
-import type { AvatarData } from "./shell-shim/types-avatar";
 import VideoBindingsField, {
   type VideoBinding,
 } from "./video-library/VideoBindingsField";

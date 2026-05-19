@@ -4,11 +4,12 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast as useMessage } from "@tokimo/sdk";
 import { Button, Card, HistoryOutlined, Modal, ScanOutlined } from "@tokimo/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { api, type OrganizeItem } from "../api";
 import { useAdultMode } from "../hooks/useAdultMode";
-import { api } from "../shell-shim/api";
 import {
   ManualMatchModal,
   OrganizeItemList,
@@ -18,8 +19,6 @@ import {
   useOrganizeSession,
 } from "../shell-shim/apps-media-organize";
 import PathSelector from "../shell-shim/apps-settings";
-import { useMessage } from "../shell-shim/system";
-import type { OrganizeItem } from "../shell-shim/types";
 
 export interface OrganizeDialogProps {
   open: boolean;

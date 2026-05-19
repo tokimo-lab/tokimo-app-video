@@ -18,7 +18,7 @@ import {
   Subtitles,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { api, type FileProbeStream } from "../../shell-shim/api";
+import { api, type FileProbeStream } from "../../api";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

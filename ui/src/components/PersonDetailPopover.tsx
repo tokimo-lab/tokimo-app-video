@@ -1,9 +1,8 @@
-import { resolveMediaImage } from "@tokimo/sdk";
+import { resolveMediaImage, useWindowNav } from "@tokimo/sdk";
 import { ScrollArea, Spin } from "@tokimo/ui";
 import { ExternalLink, Film } from "lucide-react";
-import { api } from "../shell-shim/api";
+import { api } from "../api";
 import { PersonPlaceholder } from "../shell-shim/apps-media";
-import { useWindowNav } from "../shell-shim/system";
 
 // --- constants ---
 

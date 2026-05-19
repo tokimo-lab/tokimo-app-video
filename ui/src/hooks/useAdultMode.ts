@@ -18,7 +18,8 @@ export function useAdultMode(): {
     return { enabled: false, visible: false, isLoading: false };
   }
   try {
-    const enabled = window.localStorage.getItem("appearance:adult-mode") === "1";
+    const enabled =
+      window.localStorage.getItem("appearance:adult-mode") === "1";
     const visible =
       window.localStorage.getItem("appearance:adult-mode-visible") === "1";
     return { enabled, visible, isLoading: false };

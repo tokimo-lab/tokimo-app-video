@@ -5,7 +5,12 @@
  * Receives `win.metadata.defaultLibraryId` to pre-select a target library.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { buildProxiedImageUrl } from "@tokimo/sdk";
+import {
+  buildProxiedImageUrl,
+  useToast as useMessage,
+  useWindowActions,
+  type WindowState,
+} from "@tokimo/sdk";
 import {
   Alert,
   Button,
@@ -20,18 +25,14 @@ import {
 } from "@tokimo/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type {
-  AnalyzeOnlineMediaResponse,
-  VideoOutput,
-} from "../shell-shim/api";
-import { api } from "../shell-shim/api";
-import { useMessage, useWindowActions } from "../shell-shim/system";
-import type { WindowState } from "../shell-shim/system-window-types";
-import type {
-  OnlineMediaAnalyzeResult,
-  StartOnlineMediaDownloadInput,
-  StartOnlineMediaDownloadStartedOutput,
-} from "../shell-shim/types";
+import {
+  type AnalyzeOnlineMediaResponse,
+  api,
+  type OnlineMediaAnalyzeResult,
+  type StartOnlineMediaDownloadInput,
+  type StartOnlineMediaDownloadStartedOutput,
+  type VideoOutput,
+} from "../api";
 
 const ns = "media.downloads";
 

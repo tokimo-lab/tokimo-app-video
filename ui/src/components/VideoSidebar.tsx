@@ -1,7 +1,7 @@
 import { getAvatarColor, getAvatarIcon } from "@tokimo/sdk";
 import { AppSidebar, CircularProgress, Tooltip } from "@tokimo/ui";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
-import type { VideoOutput } from "../shell-shim/api";
+import type { VideoOutput } from "../api";
 import { AppIcon } from "./AppIcon";
 
 export default function VideoSidebar({

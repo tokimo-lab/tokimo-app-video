@@ -1,17 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useSyncProgress } from "@tokimo/sdk";
+import {
+  useSyncProgress,
+  useWindowActions,
+  useWindowId,
+  useWindowNav,
+} from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
-import { api } from "../shell-shim/api";
-import {
-  useWindowActions,
-  useWindowId,
-  useWindowNav,
-} from "../shell-shim/system";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
@@ -60,7 +60,7 @@ export default function VideoApp() {
   const openEditorModal = useCallback(
     (opts: { videoId?: string } = {}) => {
       openModalWindow({
-        component: () => import("../shell-shim/apps-video-library-editor"),
+        component: () => import("../VideoLibraryEditor"),
         parentWindowId: windowId,
         title: opts.videoId ? `TokimoVideo · 设置` : "TokimoVideo · 新建视频库",
         width: 720,

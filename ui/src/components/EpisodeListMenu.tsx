@@ -11,9 +11,8 @@
 import { posterThumbUrl } from "@tokimo/sdk";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api } from "../shell-shim/api";
-import { usePlayer, useVideoUiState } from "../shell-shim/system";
-import type { EpisodeOutput, MediaFileOutput } from "../shell-shim/types";
+import { api, type EpisodeOutput, type MediaFileOutput } from "../api";
+import { usePlayer, useVideoUiState } from "../hooks/shell-stubs";
 import {
   PlayerControlTooltip,
   useDismissOnOutsidePointerDown,

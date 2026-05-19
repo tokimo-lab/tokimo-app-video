@@ -12,17 +12,17 @@ import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import {
+  type CreditOutput,
+  type GenreOutput,
+  getGenreName,
+  type MediaFileOutput,
+} from "../api";
+import { useLang, usePlayer } from "../hooks/shell-stubs";
+import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
 } from "../shell-shim/apps-finder";
 import { PersonDetailPopoverContent } from "../shell-shim/apps-media";
-import { useLang, usePlayer } from "../shell-shim/system";
-import type {
-  CreditOutput,
-  GenreOutput,
-  MediaFileOutput,
-} from "../shell-shim/types";
-import { getGenreName } from "../shell-shim/types";
 
 export function formatRuntime(minutes: number): string {
   const h = Math.floor(minutes / 60);

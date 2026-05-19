@@ -1,16 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl } from "@tokimo/sdk";
+import { posterThumbUrl, useWindowNav } from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
-import { api } from "../shell-shim/api";
-import {
-  useAppEvent,
-  useBackgroundArt,
-  usePlayer,
-  useWindowNav,
-} from "../shell-shim/system";
-import type { MediaFileOutput } from "../shell-shim/types";
+import { useAppEvent, useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
 import {
   CollectionsSection,
   MediaDetailLayout,
