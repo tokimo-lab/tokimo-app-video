@@ -1,5 +1,5 @@
-import { lazy, useCallback, useMemo } from "react";
 import { useWindowActions, useWindowId, useWindowNav } from "@tokimo/sdk";
+import { lazy, useCallback, useMemo } from "react";
 import { matchRoute } from "./route-matcher";
 import { VIDEO_VIEWS } from "./views";
 

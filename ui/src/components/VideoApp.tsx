@@ -1,8 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useSyncProgress } from "@tokimo/sdk";
-import { useWindowId } from "@tokimo/sdk";
-import { useWindowActions } from "@tokimo/sdk";
-import { useVideoNav } from "../router/useVideoNav";
+import { useSyncProgress, useWindowActions, useWindowId } from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
@@ -10,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
+import { useVideoNav } from "../router/useVideoNav";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";

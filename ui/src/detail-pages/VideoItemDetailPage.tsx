@@ -1,11 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { posterThumbUrl } from "@tokimo/sdk";
-import { useVideoNav } from "../router/useVideoNav";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import { useAppEvent, useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
+import { useVideoNav } from "../router/useVideoNav";
 import {
   CollectionsSection,
   MediaDetailLayout,

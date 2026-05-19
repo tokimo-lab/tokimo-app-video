@@ -9,8 +9,8 @@ import {
 } from "@tokimo/ui";
 import { CheckCircle, FolderOpen, HardDrive } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import StorageBindingForm from "./StorageBindingForm";
 import type { VfsDto } from "../api/types";
+import StorageBindingForm from "./StorageBindingForm";
 
 export type VideoBinding = {
   _key: number;

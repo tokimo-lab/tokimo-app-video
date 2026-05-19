@@ -1,5 +1,4 @@
 import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
-import { useVideoNav } from "../router/useVideoNav";
 import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +10,7 @@ import {
   type VideoOutput,
 } from "../api";
 import { useLang } from "../hooks/shell-stubs";
+import { useVideoNav } from "../router/useVideoNav";
 import { ContentSearch } from "../shell-shim/components";
 import type { FilterOption, MediaFilters } from "./MediaFilterPanel";
 import MediaFilterPanel, {
