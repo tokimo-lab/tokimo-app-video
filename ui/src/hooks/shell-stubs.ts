@@ -6,7 +6,9 @@
  */
 
 import type { WindowState } from "@tokimo/sdk";
+import { useShellApi } from "@tokimo/sdk";
 import type { RefObject } from "react";
+import { useSyncExternalStore } from "react";
 
 interface UseAuthResult {
   user: { id: string; username?: string } | null;
@@ -68,12 +70,18 @@ interface PlayerApi {
 
 /** TODO(phase4c): wire to host PlayerProvider. */
 export function usePlayer(): PlayerApi {
+  const shell = useShellApi();
+  const item = useSyncExternalStore(
+    shell.player.subscribeItem,
+    shell.player.getCurrentItem,
+    shell.player.getCurrentItem,
+  );
   return {
-    play: () => {},
+    play: shell.player.play as PlayerApi["play"],
     pause: () => {},
     isPlaying: false,
     currentTime: 0,
-    item: null,
+    item: item as PlayerApi["item"],
   };
 }
 
