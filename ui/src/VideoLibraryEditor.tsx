@@ -5,7 +5,11 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { getDefaultFileFormat, getDefaultFolderFormat } from "@tokimo/sdk";
+import {
+  getDefaultFileFormat,
+  getDefaultFolderFormat,
+  parseAvatar,
+} from "@tokimo/sdk";
 import {
   Button,
   cn,
@@ -20,7 +24,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { VideoOutput } from "./shell-shim/api";
 import { api } from "./shell-shim/api";
 import { AvatarPicker } from "./shell-shim/components";
-import { parseAvatar } from "./shell-shim/shared";
 import { useMessage } from "./shell-shim/system";
 import type { OrganizeSettings } from "./shell-shim/types";
 import type { AvatarData } from "./shell-shim/types-avatar";

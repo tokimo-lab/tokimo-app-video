@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, HistoryOutlined, Modal, ScanOutlined } from "@tokimo/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAdultMode } from "../hooks/useAdultMode";
 import { api } from "../shell-shim/api";
 import {
   ManualMatchModal,
@@ -17,7 +18,6 @@ import {
   useOrganizeSession,
 } from "../shell-shim/apps-media-organize";
 import PathSelector from "../shell-shim/apps-settings";
-import { useAdultMode } from "../shell-shim/shared";
 import { useMessage } from "../shell-shim/system";
 import type { OrganizeItem } from "../shell-shim/types";
 

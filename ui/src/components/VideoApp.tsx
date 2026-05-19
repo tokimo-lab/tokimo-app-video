@@ -1,14 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useSyncProgress } from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useContainerWidth } from "../hooks/useContainerWidth";
+import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
 import { api } from "../shell-shim/api";
-import {
-  useContainerWidth,
-  useSidebarCollapsed,
-  useSyncProgress,
-} from "../shell-shim/shared";
 import {
   useWindowActions,
   useWindowId,
