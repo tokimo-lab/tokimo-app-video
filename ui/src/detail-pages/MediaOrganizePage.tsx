@@ -325,6 +325,10 @@ export default function OrganizeDialog({
       destroyOnClose
     >
       <div className="space-y-4">
+        {/* TODO(phase-6): organize feature temporarily disabled */}
+        <div className="mx-4 mt-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+          整理功能暂未开放（Phase 6 将完成集成）
+        </div>
         {/* Source path selector */}
         <Card size="small">
           <div className="flex w-full">

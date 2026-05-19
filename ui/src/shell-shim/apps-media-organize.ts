@@ -12,6 +12,18 @@ export function OrganizeActionBar(): null {
   return null;
 }
 
-export function useOrganizeSession(): any {
-  throw new Error("NEED_SDK_CROSS_APP_COMPONENTS: useOrganizeSession called");
+export function useOrganizeSession(): {
+  session: null;
+  isActive: boolean;
+  isLoading: boolean;
+} {
+  // TODO(phase-6): NEED_SDK_CROSS_APP_COMPONENTS — useOrganizeSession is a stub.
+  // The media-organize feature requires host-side components (OrganizeMatchList,
+  // OrganizeActionBar) that are not yet extracted to a shared package.
+  // When phase-6 extracts these, replace with the real implementation.
+  return {
+    session: null,
+    isActive: false,
+    isLoading: false,
+  };
 }
