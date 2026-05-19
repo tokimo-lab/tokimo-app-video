@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type AppRuntimeCtx, type Dispose, defineApp } from "@tokimo/sdk";
+import { type Dispose, defineApp, RuntimeProvider } from "@tokimo/sdk";
 import { ConfigProvider, ToastProvider } from "@tokimo/ui";
 import i18n from "i18next";
-import { StrictMode, createContext, useContext } from "react";
+import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import VideoApp from "./components/VideoApp";
@@ -18,14 +18,6 @@ i18n.use(initReactI18next).init({
   },
   interpolation: { escapeValue: false },
 });
-
-// Context to pass AppRuntimeCtx to components
-const AppCtxContext = createContext<AppRuntimeCtx | null>(null);
-export const useAppCtx = () => {
-  const ctx = useContext(AppCtxContext);
-  if (!ctx) throw new Error("useAppCtx must be used within AppCtxProvider");
-  return ctx;
-};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,9 +44,9 @@ export default defineApp({
           <ConfigProvider>
             <ToastProvider>
               <QueryClientProvider client={queryClient}>
-                <AppCtxContext.Provider value={ctx}>
+                <RuntimeProvider value={ctx}>
                   <VideoApp />
-                </AppCtxContext.Provider>
+                </RuntimeProvider>
               </QueryClientProvider>
             </ToastProvider>
           </ConfigProvider>
@@ -64,4 +56,3 @@ export default defineApp({
     return () => root.unmount();
   },
 });
-
