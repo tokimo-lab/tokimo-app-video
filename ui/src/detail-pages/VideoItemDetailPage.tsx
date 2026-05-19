@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl, useWindowNav } from "@tokimo/sdk";
+import { posterThumbUrl } from "@tokimo/sdk";
+import { useVideoNav } from "../router/useVideoNav";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type MediaFileOutput } from "../api";
@@ -97,7 +98,7 @@ function ResumePromptModal({
 }
 
 export default function VideoItemDetailPage() {
-  const { params, goBack } = useWindowNav();
+  const { params, goBack } = useVideoNav();
   const videoItemId = params.videoItemId;
   const qc = useQueryClient();
 

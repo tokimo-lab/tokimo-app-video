@@ -1,4 +1,5 @@
-import { posterThumbUrl, useInfiniteScroll, useWindowNav } from "@tokimo/sdk";
+import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
+import { useVideoNav } from "../router/useVideoNav";
 import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,7 +120,7 @@ export default function VideoContent({
   category: VideoOutput;
   syncing?: boolean;
 }) {
-  const { navigate } = useWindowNav();
+  const { navigate } = useVideoNav();
   const { lang } = useLang();
   const id = category.id;
   const libType = category.type;

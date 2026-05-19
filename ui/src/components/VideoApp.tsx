@@ -1,10 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  useSyncProgress,
-  useWindowActions,
-  useWindowId,
-  useWindowNav,
-} from "@tokimo/sdk";
+import { useSyncProgress } from "@tokimo/sdk";
+import { useWindowId } from "@tokimo/sdk";
+import { useWindowActions } from "@tokimo/sdk";
+import { useVideoNav } from "../router/useVideoNav";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
@@ -27,7 +25,7 @@ const LoadingFallback = (
 
 export default function VideoApp() {
   const { t } = useTranslation();
-  const { LazyViewComponent, params, replace, updateTitle } = useWindowNav();
+  const { LazyViewComponent, params, replace, updateTitle } = useVideoNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
   const { collapsed: sidebarCollapsed, onToggleCollapse } = useSidebarCollapsed(

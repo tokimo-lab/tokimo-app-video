@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl, useWindowNav } from "@tokimo/sdk";
+import { posterThumbUrl } from "@tokimo/sdk";
+import { useVideoNav } from "../router/useVideoNav";
 import { Button, PillTabBar, Spin } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -161,7 +162,7 @@ function EpisodeRow({
 }
 
 export default function TvShowDetailPage() {
-  const { params, goBack } = useWindowNav();
+  const { params, goBack } = useVideoNav();
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
   const { play } = usePlayer();

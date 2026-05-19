@@ -1,4 +1,5 @@
-import { resolveMediaImage, useWindowNav } from "@tokimo/sdk";
+import { resolveMediaImage } from "@tokimo/sdk";
+import { useVideoNav } from "../router/useVideoNav";
 import { ScrollArea, Spin } from "@tokimo/ui";
 import { ExternalLink, Film } from "lucide-react";
 import { api } from "../api";
@@ -45,7 +46,7 @@ export function PersonDetailPopoverContent({
   personId: string;
   character?: string | null;
 }) {
-  const { navigate } = useWindowNav();
+  const { navigate } = useVideoNav();
 
   const { data: person, isLoading } = api.video.getPersonDetail.useQuery(
     { id: personId },
