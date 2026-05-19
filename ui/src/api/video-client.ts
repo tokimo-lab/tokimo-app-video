@@ -30,8 +30,38 @@ async function apiFetch<T>(
 }
 
 /** Routes under /api/apps/video/ (proxied to video sidecar) */
-export function videoFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  return apiFetch<T>("/api/apps/video", path, init);
+export async function videoFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const url = `/api/apps/video${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  const res = await fetch(url, { ...init, headers });
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const body = await res.json();
+      if (typeof body === "object" && body !== null && "error" in body) {
+        message = String((body as { error: unknown }).error);
+      }
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(`[${res.status}] ${message}`);
+  }
+  if (res.status === 204) return undefined as T;
+  const payload = (await res.json()) as {
+    success: boolean;
+    data?: T;
+    error?: string;
+  };
+  if (!payload.success) {
+    throw new Error(payload.error ?? `Request failed: ${path}`);
+  }
+  return payload.data as T;
 }
 
 /** Routes under /api/vfs/ (host shell VFS API) */
