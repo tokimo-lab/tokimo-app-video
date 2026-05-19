@@ -57,7 +57,7 @@ export default function VideoApp() {
     (opts: { videoId?: string } = {}) => {
       openModalWindow({
         component: () =>
-          import("@/apps/settings/admin/VideoLibraryEditorWindow"),
+          import("../shell-shim/apps-video-library-editor"),
         parentWindowId: windowId,
         title: opts.videoId ? `TokimoVideo · 设置` : "TokimoVideo · 新建视频库",
         width: 720,
