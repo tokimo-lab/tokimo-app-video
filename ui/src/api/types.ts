@@ -655,11 +655,15 @@ export interface VideoOutput {
   updatedAt: string;
 }
 
+export interface VfsDisplayHints {
+  protocolPrefix?: string | null;
+}
+
 export interface VfsDto {
   id: string;
   name: string;
   type: string;
-  config: JsonValue | null;
+  displayHints?: VfsDisplayHints | null;
   sortOrder: number;
   lastScanAt: string | null;
   createdAt: string;

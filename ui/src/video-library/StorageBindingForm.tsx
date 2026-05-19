@@ -31,6 +31,10 @@ export default function StorageBindingForm({
     onChange({ ...value, path: e.target.value });
   };
 
+  const selectedSource = sources.find((s) => s.id === value.sourceId);
+  const pathPlaceholder =
+    selectedSource?.displayHints?.protocolPrefix ?? "/mnt/media/";
+
   return (
     <div className="space-y-3">
       {showSourceSelect && (
@@ -57,7 +61,7 @@ export default function StorageBindingForm({
         </div>
         {value.sourceId ? (
           <Input
-            placeholder="/mnt/media/"
+            placeholder={pathPlaceholder}
             value={value.path}
             onChange={handlePathChange}
             disabled={disabled}
