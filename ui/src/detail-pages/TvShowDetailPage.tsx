@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, PillTabBar, Spin } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "./shell-shim/api";
+import { api } from "../shell-shim/api";
 import { posterThumbUrl } from "../shell-shim/lib";
 import { useBackgroundArt, usePlayer, useWindowNav } from "../shell-shim/system";
 import type { EpisodeOutput } from "../shell-shim/types";

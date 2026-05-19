@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContentSearch } from "../shell-shim/components";
-import type { VideoOutput } from "./shell-shim/api";
-import { api } from "./shell-shim/api";
+import type { VideoOutput } from "../shell-shim/api";
+import { api } from "../shell-shim/api";
 import { posterThumbUrl } from "../shell-shim/lib";
 import { useInfiniteScroll } from "../shell-shim/shared";
 import { useLang, useWindowNav } from "../shell-shim/system";

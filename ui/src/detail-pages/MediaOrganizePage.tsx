@@ -16,7 +16,7 @@ import {
 } from "../shell-shim/apps-media-organize";
 import { useOrganizeSession } from "../shell-shim/apps-media-organize";
 import PathSelector from "../shell-shim/apps-settings";
-import { api } from "./shell-shim/api";
+import { api } from "../shell-shim/api";
 import { useAdultMode } from "../shell-shim/shared";
 import { useMessage } from "../shell-shim/system";
 import type { OrganizeItem } from "../shell-shim/types";

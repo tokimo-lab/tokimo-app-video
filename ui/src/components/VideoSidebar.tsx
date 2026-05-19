@@ -1,6 +1,6 @@
 import { AppSidebar, CircularProgress, Tooltip } from "@tokimo/ui";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
-import type { VideoOutput } from "./shell-shim/api";
+import type { VideoOutput } from "../shell-shim/api";
 import { getAvatarColor, getAvatarIcon } from "../shell-shim/shared";
 import { AppIcon } from "../shell-shim/shared";
 

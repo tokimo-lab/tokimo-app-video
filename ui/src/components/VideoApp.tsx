@@ -3,7 +3,7 @@ import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "./shell-shim/api";
+import { api } from "../shell-shim/api";
 import { useContainerWidth } from "../shell-shim/shared";
 import { useSidebarCollapsed } from "../shell-shim/shared";
 import { useSyncProgress } from "../shell-shim/shared";

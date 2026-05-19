@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Checkbox, Modal } from "@tokimo/ui";
 import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import { api } from "./shell-shim/api";
+import { api } from "../shell-shim/api";
 import type { MenuBarConfig } from "../shell-shim/system";
 import {
   useMenuBar,

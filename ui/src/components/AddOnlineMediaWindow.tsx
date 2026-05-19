@@ -22,8 +22,8 @@ import { useTranslation } from "react-i18next";
 import type {
   AnalyzeOnlineMediaResponse,
   VideoOutput,
-} from "./shell-shim/api";
-import { api } from "./shell-shim/api";
+} from "../shell-shim/api";
+import { api } from "../shell-shim/api";
 import { buildProxiedImageUrl } from "../shell-shim/lib";
 import { useMessage, useWindowActions } from "../shell-shim/system";
 import type { WindowState } from "../shell-shim/system-window-types";
