@@ -1,6 +1,6 @@
 # Tokimo app manifest（供主 server 读取，注册 / spawn / 资源代理 / launchpad 展示）
 [app]
-id          = "tokimo-video"
+id          = "video"
 display     = "Video"
 version     = "0.1.0"
 description = "Tokimo Video — 库 / 详情 / 播放 / TMDB 刮削 / Jellyfin 适配"

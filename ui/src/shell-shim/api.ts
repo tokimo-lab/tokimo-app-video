@@ -1,6 +1,6 @@
 // TODO(phase3): NEED_SDK_TYPED_API_CLIENT
 // Until the standalone app gets its own typed client to the OS /api/* endpoints
-// and the local /api/apps/tokimo-video/* binary, every `api.*` call throws.
+// and the local /api/apps/video/* binary, every `api.*` call throws.
 
 const handler: ProxyHandler<object> = {
   get(_t, prop): unknown {

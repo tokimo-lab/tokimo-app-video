@@ -34,9 +34,9 @@ const queryClient = new QueryClient({
 });
 
 export default defineApp({
-  id: "tokimo-video",
+  id: "video",
   manifest: {
-    id: "tokimo-video",
+    id: "video",
     appName: "dashboard.menu.video",
     icon: "Clapperboard",
     color: "#e11d48",
