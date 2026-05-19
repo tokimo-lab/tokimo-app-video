@@ -121,13 +121,13 @@ async fn run_server() -> anyhow::Result<()> {
     let ctx = AppCtx::new(db, Arc::clone(&client_slot)).await?;
     let ctx = Arc::new(ctx);
 
-    let app_socket = app_server::spawn("video", Arc::clone(&ctx))
+    let app_socket = app_server::spawn("tokimo-video", Arc::clone(&ctx))
         .await
         .map_err(|e| anyhow::anyhow!("app_server spawn: {e}"))?;
 
     let client = bus_services::video_jobs::register(
         BusClient::builder(cfg)
-            .service("video", env!("CARGO_PKG_VERSION"))
+            .service("tokimo-video", env!("CARGO_PKG_VERSION"))
             .data_plane(app_socket),
         Arc::clone(&ctx),
     )

@@ -1,6 +1,6 @@
 # Tokimo app manifest（供主 server 读取，注册 / spawn / 资源代理 / launchpad 展示）
 [app]
-id          = "video"
+id          = "tokimo-video"
 display     = "Video"
 version     = "0.1.0"
 description = "Tokimo Video — 库 / 详情 / 播放 / TMDB 刮削 / Jellyfin 适配"
@@ -12,7 +12,7 @@ ui_dist      = "ui/dist"
 
 [ui]
 entry        = "assets/index.js"
-window_type  = "video"
+window_type  = "tokimo-video"
 category     = "app"
 icon         = "Film"
 color        = "#ef4444"

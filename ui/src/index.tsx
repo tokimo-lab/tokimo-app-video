@@ -22,13 +22,13 @@ function VideoPlaceholder({ version }: { version: string }) {
 }
 
 export default defineApp({
-  id: "video",
+  id: "tokimo-video",
   manifest: {
-    id: "video",
+    id: "tokimo-video",
     appName: "Video",
     icon: "Film",
     color: "#a855f7",
-    windowType: "video",
+    windowType: "tokimo-video",
     defaultSize: { width: 1280, height: 800 },
     category: "app",
   },

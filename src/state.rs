@@ -83,7 +83,7 @@ impl AppCtx {
         // Build the UpsertJobReq payload expected by task_queue service.
         let Ok(payload) = serde_json::to_vec(&serde_json::json!({
             "jobId":    job.id,
-            "appId":    "video",
+            "appId":    "tokimo-video",
             "userId":   job.user_id,
             "title":    job.r#type,
             "status":   job.status,
