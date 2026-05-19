@@ -160,10 +160,15 @@ export default function VideoOrganizeFields({ form }: { form: FormInstance }) {
   const vars = getVarsForType(appType ?? "movie");
   const templateVars = useTemplateVars(vars, t);
   const effectiveLang = organizeLang || "zh-CN";
-  const sampleData = useMemo(
-    () => getOrganizeSample(appType ?? "movie", effectiveLang),
-    [appType, effectiveLang],
-  );
+  const sampleData = useMemo(() => {
+    const sample = getOrganizeSample(appType ?? "movie", effectiveLang);
+    return Object.fromEntries(
+      Object.entries(sample).map(([key, value]) => [
+        key,
+        value.startsWith("media.organize.samples.") ? t(value) : value,
+      ]),
+    );
+  }, [appType, effectiveLang, t]);
   const defaultFolder = getDefaultFolderFormat(appType ?? "movie");
   const defaultFile = getDefaultFileFormat(appType ?? "movie");
 
@@ -239,7 +244,7 @@ export default function VideoOrganizeFields({ form }: { form: FormInstance }) {
           <Select allowClear placeholder="zh-CN">
             {ORGANIZE_LANG_OPTIONS.map((opt) => (
               <Select.Option key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.label)}
               </Select.Option>
             ))}
           </Select>

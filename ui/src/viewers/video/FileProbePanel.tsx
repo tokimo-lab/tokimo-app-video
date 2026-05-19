@@ -18,6 +18,7 @@ import {
   Subtitles,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, type FileProbeStream } from "../../api";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -58,24 +59,25 @@ function formatFrameRate(rate: string): string {
   return rate;
 }
 
-function langName(code: string): string {
+function langName(code: string, t: (key: string) => string): string {
   const map: Record<string, string> = {
-    chi: "中文",
-    zho: "中文",
-    eng: "英语",
-    jpn: "日语",
-    kor: "韩语",
-    fre: "法语",
-    fra: "法语",
-    ger: "德语",
-    deu: "德语",
-    spa: "西班牙语",
-    ita: "意大利语",
-    por: "葡萄牙语",
-    rus: "俄语",
-    und: "未知",
+    chi: "media.fileProbe.languages.chinese",
+    zho: "media.fileProbe.languages.chinese",
+    eng: "media.fileProbe.languages.english",
+    jpn: "media.fileProbe.languages.japanese",
+    kor: "media.fileProbe.languages.korean",
+    fre: "media.fileProbe.languages.french",
+    fra: "media.fileProbe.languages.french",
+    ger: "media.fileProbe.languages.german",
+    deu: "media.fileProbe.languages.german",
+    spa: "media.fileProbe.languages.spanish",
+    ita: "media.fileProbe.languages.italian",
+    por: "media.fileProbe.languages.portuguese",
+    rus: "media.fileProbe.languages.russian",
+    und: "media.fileProbe.unknown",
   };
-  return map[code] ?? code;
+  const key = map[code];
+  return key ? t(key) : code;
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -132,6 +134,7 @@ function StreamCard({
   stream: FileProbeStream;
   label: string;
 }) {
+  const { t } = useTranslation();
   const tags = stream.tags;
   const lang = tags.language;
   const title = tags.title ?? tags.handler_name;
@@ -142,7 +145,7 @@ function StreamCard({
         {label}
         {lang && lang !== "und" && (
           <span className="rounded bg-fill-tertiary px-1.5 py-0.5 text-[11px] font-normal">
-            {langName(lang)}
+            {langName(lang, t)}
           </span>
         )}
       </div>
@@ -162,28 +165,28 @@ function StreamCard({
                   : ""}
               </p>
             )}
-            {stream.pixFmt && <p>像素格式: {stream.pixFmt}</p>}
+            {stream.pixFmt && <p>{t("media.fileProbe.pixelFormat")}: {stream.pixFmt}</p>}
             {stream.frameRate && (
-              <p>帧率: {formatFrameRate(stream.frameRate)}</p>
+              <p>{t("media.fileProbe.frameRate")}: {formatFrameRate(stream.frameRate)}</p>
             )}
-            {stream.colorSpace && <p>色彩空间: {stream.colorSpace}</p>}
-            {stream.colorTransfer && <p>传输特性: {stream.colorTransfer}</p>}
+            {stream.colorSpace && <p>{t("media.fileProbe.colorSpace")}: {stream.colorSpace}</p>}
+            {stream.colorTransfer && <p>{t("media.fileProbe.colorTransfer")}: {stream.colorTransfer}</p>}
           </>
         )}
         {stream.codecType === "audio" && (
           <>
             {stream.sampleRate != null && (
-              <p>采样率: {stream.sampleRate.toLocaleString()} Hz</p>
+              <p>{t("media.fileProbe.sampleRate")}: {stream.sampleRate.toLocaleString()} Hz</p>
             )}
             {stream.channels != null && (
               <p>
-                声道: {stream.channels}
+                {t("media.fileProbe.channels")}: {stream.channels}
                 {stream.channelLayout ? ` (${stream.channelLayout})` : ""}
               </p>
             )}
           </>
         )}
-        {stream.bitRate && <p>码率: {formatBitrate(Number(stream.bitRate))}</p>}
+        {stream.bitRate && <p>{t("media.fileProbe.bitrate")}: {formatBitrate(Number(stream.bitRate))}</p>}
       </div>
     </div>
   );
@@ -202,6 +205,7 @@ export function FileProbePanel({
   filePath,
   fileName,
 }: FileProbeProps) {
+  const { t } = useTranslation();
   const { data, isLoading, error } = api.vfs.probe.useQuery(
     { fileSystemId, path: filePath },
     { enabled: !!fileSystemId && !!filePath, staleTime: 5 * 60_000 },
@@ -210,7 +214,7 @@ export function FileProbePanel({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-fg-muted">
-        探测中…
+        {t("media.fileProbe.probing")}
       </div>
     );
   }
@@ -219,7 +223,7 @@ export function FileProbePanel({
     return (
       <div className="flex h-full items-center justify-center text-sm text-fg-muted">
         <Info className="mr-1.5 h-4 w-4" />
-        无法获取文件信息
+        {t("media.fileProbe.failed")}
       </div>
     );
   }
@@ -246,29 +250,29 @@ export function FileProbePanel({
 
       <div className="space-y-3">
         {/* ── Format section ──────────────────────────────────────── */}
-        <Section icon={<FileText className="h-3 w-3" />} title="格式">
-          <InfoRow label="容器" value={fmt.formatName} />
+        <Section icon={<FileText className="h-3 w-3" />} title={t("media.fileProbe.format")}>
+          <InfoRow label={t("media.fileProbe.container")} value={fmt.formatName} />
           {fmt.formatLongName && fmt.formatLongName !== fmt.formatName && (
-            <InfoRow label="全称" value={fmt.formatLongName} />
+            <InfoRow label={t("media.fileProbe.fullName")} value={fmt.formatLongName} />
           )}
           {fmt.duration != null && (
-            <InfoRow label="时长" value={formatDuration(fmt.duration)} />
+            <InfoRow label={t("media.fileProbe.duration")} value={formatDuration(fmt.duration)} />
           )}
           {fmt.size != null && (
             <InfoRow
-              label="文件大小"
+              label={t("media.fileProbe.fileSize")}
               value={`${formatBytes(fmt.size)} (${fmt.size.toLocaleString()} bytes)`}
             />
           )}
           {fmt.bitRate != null && (
-            <InfoRow label="总码率" value={formatBitrate(fmt.bitRate)} />
+            <InfoRow label={t("media.fileProbe.totalBitrate")} value={formatBitrate(fmt.bitRate)} />
           )}
-          <InfoRow label="流数量" value={String(fmt.nbStreams)} />
+          <InfoRow label={t("media.fileProbe.streamCount")} value={String(fmt.nbStreams)} />
         </Section>
 
         {/* ── Video section ───────────────────────────────────────── */}
         {videoStreams.length > 0 && (
-          <Section icon={<Film className="h-3 w-3" />} title="视频">
+          <Section icon={<Film className="h-3 w-3" />} title={t("media.fileProbe.video")}>
             {primaryVideo &&
               primaryVideo.width != null &&
               primaryVideo.height != null && (
@@ -280,7 +284,7 @@ export function FileProbePanel({
               <StreamCard
                 key={s.index}
                 stream={s}
-                label={videoStreams.length > 1 ? `视频 #${i + 1}` : "视频"}
+                label={videoStreams.length > 1 ? t("media.fileProbe.videoNumber", { number: i + 1 }) : t("media.fileProbe.video")}
               />
             ))}
           </Section>
@@ -288,12 +292,12 @@ export function FileProbePanel({
 
         {/* ── Audio section ───────────────────────────────────────── */}
         {audioStreams.length > 0 && (
-          <Section icon={<Headphones className="h-3 w-3" />} title="音频">
+          <Section icon={<Headphones className="h-3 w-3" />} title={t("media.fileProbe.audio")}>
             {audioStreams.map((s, i) => (
               <StreamCard
                 key={s.index}
                 stream={s}
-                label={audioStreams.length > 1 ? `音频 #${i + 1}` : "音频"}
+                label={audioStreams.length > 1 ? t("media.fileProbe.audioNumber", { number: i + 1 }) : t("media.fileProbe.audio")}
               />
             ))}
           </Section>
@@ -303,7 +307,7 @@ export function FileProbePanel({
         {subtitleStreams.length > 0 && (
           <Section
             icon={<Subtitles className="h-3 w-3" />}
-            title={`字幕 (${subtitleStreams.length})`}
+            title={t("media.fileProbe.subtitles", { count: subtitleStreams.length })}
             collapsible
             defaultOpen={false}
           >
@@ -320,7 +324,7 @@ export function FileProbePanel({
                   </span>
                   {lang && lang !== "und" && (
                     <span className="ml-1.5 rounded bg-fill-tertiary px-1.5 py-0.5 text-[11px]">
-                      {langName(lang)}
+                      {langName(lang, t)}
                     </span>
                   )}
                   {title && (
@@ -336,7 +340,7 @@ export function FileProbePanel({
         {data.chapters.length > 0 && (
           <Section
             icon={<ListOrdered className="h-3 w-3" />}
-            title={`章节 (${data.chapters.length})`}
+            title={t("media.fileProbe.chapters", { count: data.chapters.length })}
             collapsible
             defaultOpen={false}
           >
@@ -360,7 +364,7 @@ export function FileProbePanel({
         {Object.keys(fmt.tags).length > 0 && (
           <Section
             icon={<Layers className="h-3 w-3" />}
-            title="标签"
+            title={t("media.fileProbe.tags")}
             collapsible
             defaultOpen={false}
           >
@@ -371,7 +375,7 @@ export function FileProbePanel({
         )}
 
         {/* ── Path info ──────────────────────────────────────────── */}
-        <Section icon={<HardDrive className="h-3 w-3" />} title="路径">
+        <Section icon={<HardDrive className="h-3 w-3" />} title={t("media.fileProbe.path")}>
           <p className="break-all text-[13px] text-fg-muted">{filePath}</p>
         </Section>
       </div>

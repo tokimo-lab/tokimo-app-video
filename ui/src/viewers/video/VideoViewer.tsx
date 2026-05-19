@@ -8,6 +8,7 @@
 import { buildFileUrl, useWindowActions, type WindowState } from "@tokimo/sdk";
 import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { buildAgentFileUrl, buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";
 import { FileProbePanel } from "./FileProbePanel";
@@ -35,6 +36,7 @@ function VfsVideoViewer({
   filePath: string;
   fileSystemId: string;
 }) {
+  const { t } = useTranslation();
   const [showInfo, setShowInfo] = useState(false);
   const fileName = win.metadata.fileName ?? win.title;
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -137,7 +139,7 @@ function VfsVideoViewer({
           <button
             type="button"
             onClick={() => setShowInfo((v) => !v)}
-            title="详细信息"
+            title={t("media.viewer.info")}
             className={`rounded p-1 transition-colors ${
               showInfo
                 ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"

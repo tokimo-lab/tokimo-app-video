@@ -10,10 +10,12 @@ import {
 import { Checkbox, Modal } from "@tokimo/ui";
 import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useActiveLibrary } from "./ActiveLibraryContext";
 
 export default function VideoMenuBar({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const message = useMessage();
   const qc = useQueryClient();
   const windowId = useWindowId();
@@ -30,14 +32,14 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
 
   const syncMutation = api.video.sync.useMutation({
     onSuccess: () => {
-      message.success("同步已开始");
+      message.success(t("media.sidebar.syncStarted"));
       api.video.list.invalidate(qc);
       api.video.listVideoItems.invalidate(qc);
       api.video.listTvShows.invalidate(qc);
       api.video.getRecentlyAdded.invalidate(qc);
       api.video.listGenres.invalidate(qc);
     },
-    onError: (e) => message.error(e.message || "同步失败"),
+    onError: (e) => message.error(e.message || t("media.sidebar.syncFailed")),
   });
 
   const isOnlineVideo = activeLibrary.type === "online_video";
@@ -45,7 +47,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
   const menuBarConfig: MenuBarConfig | null = useMemo(() => {
     const syncItems = categories.map((cat) => ({
       key: `sync-${cat.id}`,
-      label: `同步「${cat.name}」`,
+      label: t("media.sidebar.syncLibrary", { name: cat.name }),
       icon: <FolderSync size={14} />,
       onClick: () => {
         setSyncTargetId(cat.id);
@@ -66,14 +68,14 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
     if (isOnlineVideo) {
       extraItems.push({
         key: "add-online",
-        label: "添加网片",
+        label: t("media.sidebar.addOnlineMedia"),
         icon: <Plus size={14} />,
         onClick: () => {
           openModalWindow({
             component: () =>
               import("@/apps/video/components/AddOnlineMediaWindow"),
             parentWindowId: windowId,
-            title: "添加在线媒体",
+            title: t("media.downloads.onlineMedia.title"),
             width: 680,
             height: 680,
             noResize: true,
@@ -92,11 +94,11 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
       menus: [
         {
           key: "actions",
-          label: "操作",
+          label: t("media.sidebar.actions"),
           items: [
             {
               key: "refresh",
-              label: "刷新",
+              label: t("media.sidebar.refresh"),
               icon: <RefreshCw size={14} />,
               onClick: () => {
                 api.video.list.invalidate(qc);
@@ -122,6 +124,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
     activeLibrary.id,
     windowId,
     openModalWindow,
+    t,
   ]);
 
   useMenuBar(menuBarConfig);
@@ -132,9 +135,9 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
 
       <Modal
         open={syncModalOpen}
-        title={`同步「${syncTargetName}」`}
-        okText="开始同步"
-        cancelText="取消"
+        title={t("media.sidebar.syncLibrary", { name: syncTargetName })}
+        okText={t("media.sidebar.startSync")}
+        cancelText={t("media.sidebar.cancel")}
         confirmLoading={syncMutation.isPending}
         onCancel={() => setSyncModalOpen(false)}
         onOk={async () => {
@@ -153,10 +156,10 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
           checked={syncClearData}
           onChange={(e) => setSyncClearData(e.target.checked)}
         >
-          清空数据重新同步
+          {t("media.sidebar.clearDataResync")}
         </Checkbox>
         <p className="mt-2 text-xs text-[var(--text-muted)]">
-          勾选后将删除该分类中所有已有条目并重新完整同步，适合修复数据异常。
+          {t("media.sidebar.clearDataResyncDesc")}
         </p>
       </Modal>
     </>

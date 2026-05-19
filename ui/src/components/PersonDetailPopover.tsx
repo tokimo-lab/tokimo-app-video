@@ -1,6 +1,7 @@
 import { resolveMediaImage } from "@tokimo/sdk";
 import { ScrollArea, Spin } from "@tokimo/ui";
 import { ExternalLink, Film } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useVideoNav } from "../router/useVideoNav";
 import { PersonPlaceholder } from "../shell-shim/apps-media";
@@ -8,33 +9,33 @@ import { PersonPlaceholder } from "../shell-shim/apps-media";
 // --- constants ---
 
 const ROLE_LABELS: Record<string, string> = {
-  actor: "演员",
-  director: "导演",
-  writer: "编剧",
-  producer: "制片人",
-  composer: "作曲",
-  cinematographer: "摄影",
+  actor: "media.detail.roles.actor",
+  director: "media.detail.roles.director",
+  writer: "media.detail.roles.writer",
+  producer: "media.detail.roles.producer",
+  composer: "media.detail.roles.composer",
+  cinematographer: "media.detail.roles.cinematographer",
 };
 
 const GENDER_LABELS: Record<string, string> = {
-  male: "男",
-  female: "女",
-  "non-binary": "非二元",
-  unknown: "未知",
+  male: "media.detail.gender.male",
+  female: "media.detail.gender.female",
+  "non-binary": "media.detail.gender.nonBinary",
+  unknown: "media.detail.unknown",
 };
 
 const DEPT_LABELS: Record<string, string> = {
-  Acting: "演员",
-  Directing: "导演",
-  Writing: "编剧",
-  Production: "制片",
-  Sound: "音效",
-  Camera: "摄影",
-  "Costume & Make-Up": "造型",
-  "Visual Effects": "视效",
-  Editing: "剪辑",
-  Art: "美术",
-  Crew: "剧组",
+  Acting: "media.detail.departments.acting",
+  Directing: "media.detail.departments.directing",
+  Writing: "media.detail.departments.writing",
+  Production: "media.detail.departments.production",
+  Sound: "media.detail.departments.sound",
+  Camera: "media.detail.departments.camera",
+  "Costume & Make-Up": "media.detail.departments.costumeMakeup",
+  "Visual Effects": "media.detail.departments.visualEffects",
+  Editing: "media.detail.departments.editing",
+  Art: "media.detail.departments.art",
+  Crew: "media.detail.departments.crew",
 };
 
 // ─── Popover version (compact, used in cast row) ───
@@ -47,6 +48,7 @@ export function PersonDetailPopoverContent({
   character?: string | null;
 }) {
   const { navigate } = useVideoNav();
+  const { t } = useTranslation();
 
   const { data: person, isLoading } = api.video.getPersonDetail.useQuery(
     { id: personId },
@@ -64,7 +66,7 @@ export function PersonDetailPopoverContent({
   if (!person) {
     return (
       <div className="flex h-24 items-center justify-center text-xs text-fg-muted">
-        未找到该人物
+        {t("media.detail.personNotFound")}
       </div>
     );
   }
@@ -72,14 +74,16 @@ export function PersonDetailPopoverContent({
   const profileSrc = resolveMediaImage(person.profileKey, person.profilePath);
 
   const deptLabel = person.knownForDepartment
-    ? (DEPT_LABELS[person.knownForDepartment] ?? person.knownForDepartment)
+    ? DEPT_LABELS[person.knownForDepartment]
+      ? t(DEPT_LABELS[person.knownForDepartment])
+      : person.knownForDepartment
     : null;
 
   const metaParts: string[] = [];
-  if (character) metaParts.push(`饰 ${character}`);
+  if (character) metaParts.push(t("media.detail.asCharacter", { character }));
   if (deptLabel) metaParts.push(deptLabel);
   if (person.gender && GENDER_LABELS[person.gender])
-    metaParts.push(GENDER_LABELS[person.gender]);
+    metaParts.push(t(GENDER_LABELS[person.gender]));
   if (person.birthday) {
     const dates = person.deathday
       ? `${person.birthday} — ${person.deathday}`
@@ -132,11 +136,13 @@ export function PersonDetailPopoverContent({
           {/* Compact info */}
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-fg-secondary">
             {person.popularity != null && person.popularity > 0 && (
-              <span>人气 {person.popularity.toFixed(1)}</span>
+              <span>{t("media.detail.popularity", { value: person.popularity.toFixed(1) })}</span>
             )}
             {person.aliases && person.aliases.length > 0 && (
               <span>
-                别名 {person.aliases.slice(0, 2).join("、")}
+                {t("media.detail.aliases", {
+                  aliases: person.aliases.slice(0, 2).join("、"),
+                })}
                 {person.aliases.length > 2 ? "…" : ""}
               </span>
             )}
@@ -185,7 +191,7 @@ export function PersonDetailPopoverContent({
         return (
           <section key={role}>
             <p className="mb-1.5 text-[11px] font-semibold text-fg-primary">
-              {ROLE_LABELS[role] ?? role} 作品
+              {ROLE_LABELS[role] ? t(ROLE_LABELS[role]) : role} {t("media.detail.works")}
               <span className="ml-1 font-normal text-fg-muted">
                 ({withMedia.length})
               </span>
@@ -235,7 +241,7 @@ export function PersonDetailPopoverContent({
                       </p>
                       {c?.character && (
                         <p className="truncate text-[9px] text-fg-muted">
-                          饰 {c.character}
+                          {t("media.detail.asCharacter", { character: c.character })}
                         </p>
                       )}
                     </div>

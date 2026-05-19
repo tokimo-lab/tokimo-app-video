@@ -58,7 +58,9 @@ export default function VideoApp() {
       openModalWindow({
         component: () => import("../VideoLibraryEditor"),
         parentWindowId: windowId,
-        title: opts.videoId ? `TokimoVideo · 设置` : "TokimoVideo · 新建视频库",
+        title: opts.videoId
+          ? t("media.libraryEditor.settingsTitle")
+          : t("media.libraryEditor.newTitle"),
         width: 720,
         height: 640,
         noResize: true,
@@ -68,7 +70,7 @@ export default function VideoApp() {
           : undefined,
       });
     },
-    [openModalWindow, windowId],
+    [openModalWindow, windowId, t],
   );
 
   const activeCategory = categories?.find((c) => c.id === activeCategoryId);

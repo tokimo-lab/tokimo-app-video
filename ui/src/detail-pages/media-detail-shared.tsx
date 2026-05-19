@@ -11,13 +11,14 @@ import { posterThumbUrl } from "@tokimo/sdk";
 import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   type CreditOutput,
   type GenreOutput,
-  getGenreName,
+  getGenreKey,
   type MediaFileOutput,
 } from "../api";
-import { useLang, usePlayer } from "../hooks/shell-stubs";
+import { usePlayer } from "../hooks/shell-stubs";
 import {
   FileDetailsTooltipContent,
   getMediaFileLocator,
@@ -88,7 +89,7 @@ export function MediaTagsRow({
   tvdbId?: string | null;
   mediaType?: "movie" | "tv";
 }) {
-  const { lang } = useLang();
+  const { t } = useTranslation();
   if (!genres?.length && !tmdbId && !imdbId && !tvdbId) return null;
   const tmdbUrl = tmdbId
     ? `https://www.themoviedb.org/${mediaType === "tv" ? "tv" : "movie"}/${tmdbId}`
@@ -101,7 +102,7 @@ export function MediaTagsRow({
     <>
       {genres?.map((g) => (
         <Tag key={g.id} color="default">
-          {getGenreName(g.tmdbGenreId, lang) || g.name}
+          {getGenreKey(g.tmdbGenreId) ? t(getGenreKey(g.tmdbGenreId)) : g.name}
         </Tag>
       ))}
       {tmdbUrl && (
@@ -136,6 +137,7 @@ export function MediaInfoBlock({
   dateLabel: string;
   countries?: string[] | null;
 }) {
+  const { t } = useTranslation();
   const hasAny =
     directors.length > 0 ||
     writers.length > 0 ||
@@ -146,13 +148,13 @@ export function MediaInfoBlock({
     <div className="mt-3 space-y-1 text-sm">
       {directors.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">导演: </span>
+          <span className="font-semibold text-fg-primary">{t("media.detail.director")}: </span>
           <span className="text-fg-muted">{directors.join(", ")}</span>
         </div>
       )}
       {writers.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">编剧: </span>
+          <span className="font-semibold text-fg-primary">{t("media.detail.writer")}: </span>
           <span className="text-fg-muted">{writers.join(", ")}</span>
         </div>
       )}
@@ -164,7 +166,7 @@ export function MediaInfoBlock({
       )}
       {countries && countries.length > 0 && (
         <div>
-          <span className="font-semibold text-fg-primary">地区: </span>
+          <span className="font-semibold text-fg-primary">{t("media.detail.region")}: </span>
           <span className="text-fg-muted">{countries.join(", ")}</span>
         </div>
       )}
@@ -361,11 +363,12 @@ export function CastRow({ credits }: { credits: CreditOutput[] }) {
     refs,
     floatingStyles,
   } = usePersonPanel();
+  const { t } = useTranslation();
   if (!actors.length) return null;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
     <section className="mb-8" onMouseLeave={leave}>
-      <SectionTitle>演员</SectionTitle>
+      <SectionTitle>{t("media.detail.cast")}</SectionTitle>
       <ScrollArea
         direction="horizontal"
         hideScrollbar
@@ -414,13 +417,18 @@ export function CrewRow({ credits }: { credits: CreditOutput[] }) {
     refs,
     floatingStyles,
   } = usePersonPanel();
+  const { t } = useTranslation();
   if (!crew.length) return null;
   const roleName = (role: string) =>
-    role === "director" ? "导演" : role === "writer" ? "编剧" : role;
+    role === "director"
+      ? t("media.detail.director")
+      : role === "writer"
+        ? t("media.detail.writer")
+        : role;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: section-level mouse leave closes panel
     <section className="mb-8" onMouseLeave={leave}>
-      <SectionTitle>幕后</SectionTitle>
+      <SectionTitle>{t("media.detail.crew")}</SectionTitle>
       <ScrollArea
         direction="horizontal"
         hideScrollbar
@@ -511,6 +519,7 @@ export function MediaFileCard({
     tmdbId?: string | null;
   };
 }) {
+  const { t } = useTranslation();
   const { play } = usePlayer();
   const fullPath = getMediaFileLocator(file);
   return (
@@ -548,7 +557,7 @@ export function MediaFileCard({
             <div className="pointer-events-auto relative z-10 flex flex-shrink-0 items-center gap-2">
               <button
                 type="button"
-                title="播放"
+                title={t("media.detail.play")}
                 className="inline-flex h-8 cursor-pointer flex-shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 text-xs font-medium text-white hover:opacity-90"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -556,7 +565,7 @@ export function MediaFileCard({
                 }}
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
-                播放
+                {t("media.detail.play")}
               </button>
             </div>
           )}
@@ -602,7 +611,7 @@ export function MediaFileCard({
               {a.tags?.language && a.tags.language !== "und"
                 ? `${a.tags.language.toUpperCase()} `
                 : ""}
-              {a.codec_name ? a.codec_name.toUpperCase() : "未知"}
+              {a.codec_name ? a.codec_name.toUpperCase() : t("media.detail.unknown")}
               {a.channels
                 ? ` ${a.channels === 2 ? "Stereo" : a.channels === 1 ? "Mono" : `${a.channels}ch`}`
                 : ""}
@@ -635,10 +644,11 @@ export function FilesSection({
     tmdbId?: string | null;
   };
 }) {
+  const { t } = useTranslation();
   if (!files.length) return null;
   return (
     <section className="mb-8">
-      <SectionTitle>文件</SectionTitle>
+      <SectionTitle>{t("media.detail.files")}</SectionTitle>
       <div className="space-y-2">
         {files.map((f) => (
           <MediaFileCard key={f.id} file={f} playMeta={playMeta} />

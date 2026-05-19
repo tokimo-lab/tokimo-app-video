@@ -3,6 +3,7 @@ import { posterThumbUrl } from "@tokimo/sdk";
 import { Button, PillTabBar, Spin } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, type EpisodeOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import { useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
@@ -28,6 +29,7 @@ function FavoriteButton({
   isFavorite: boolean;
   tvShowId: string;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const toggle = api.video.toggleFavorite.useMutation({
     onSuccess: () =>
@@ -36,7 +38,7 @@ function FavoriteButton({
   return (
     <button
       type="button"
-      title={isFavorite ? "取消收藏" : "收藏"}
+      title={isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")}
       className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "tvshow", id: tvShowId })}
     >
@@ -59,6 +61,7 @@ function EpisodeRow({
     tmdbId?: string | null;
   };
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { play } = usePlayer();
   const firstFile = episode.files?.[0];
@@ -79,7 +82,7 @@ function EpisodeRow({
             if (firstFile)
               play(firstFile, {
                 ...playMeta,
-                title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+                title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
                 episodeId: episode.id,
               });
           }}
@@ -109,7 +112,7 @@ function EpisodeRow({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-fg-muted">
-                第 {episode.episodeNumber} 集
+                {t("media.detail.episodeNumber", { number: episode.episodeNumber })}
               </span>
               {episode.runtime != null && (
                 <span className="text-xs text-fg-muted">
@@ -123,7 +126,7 @@ function EpisodeRow({
               )}
             </div>
             <p className="mt-0.5 text-sm font-semibold text-fg-primary">
-              {episode.title ?? `第 ${episode.episodeNumber} 集`}
+              {episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber })}
             </p>
             {episode.airDate && (
               <p className="mt-0.5 text-xs text-fg-muted">{episode.airDate}</p>
@@ -148,7 +151,7 @@ function EpisodeRow({
                   file={f}
                   playMeta={{
                     ...playMeta,
-                    title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+                    title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
                     episodeId: episode.id,
                   }}
                 />
@@ -162,6 +165,7 @@ function EpisodeRow({
 }
 
 export default function TvShowDetailPage() {
+  const { t } = useTranslation();
   const { params, goBack } = useVideoNav();
   const tvId = params.tvShowId;
   const { setBackgroundArt } = useBackgroundArt();
@@ -209,7 +213,7 @@ export default function TvShowDetailPage() {
       void play(
         file,
         {
-          title: episode.title ?? `第 ${episode.episodeNumber} 集`,
+          title: episode.title ?? t("media.detail.episodeNumber", { number: episode.episodeNumber }),
           posterPath: show.posterPath,
           tvShowId: show.id,
           episodeId: episode.id,
@@ -233,8 +237,8 @@ export default function TvShowDetailPage() {
   if (!show) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <p className="text-fg-muted">未找到该剧集</p>
-        <Button onClick={() => goBack()}>返回</Button>
+        <p className="text-fg-muted">{t("media.detail.tvNotFound")}</p>
+        <Button onClick={() => goBack()}>{t("media.detail.back")}</Button>
       </div>
     );
   }
@@ -264,7 +268,7 @@ export default function TvShowDetailPage() {
           extraBadges={
             <>
               {seasons.length > 0 && (
-                <span className="text-fg-secondary">· {seasons.length} 季</span>
+                <span className="text-fg-secondary">· {t("media.detail.seasonCount", { count: seasons.length })}</span>
               )}
               {show.status && (
                 <span
@@ -287,7 +291,7 @@ export default function TvShowDetailPage() {
           directors={directors.map((d) => d.person.name)}
           writers={writers.map((w) => w.person.name)}
           date={show.firstAirDate}
-          dateLabel="首播"
+          dateLabel={t("media.detail.firstAir")}
           countries={show.countries}
         />
       }
@@ -299,14 +303,14 @@ export default function TvShowDetailPage() {
         <section className="mb-8">
           <PillTabBar
             tabs={seasons.map((sn) => {
-              const base = `第 ${sn.seasonNumber} 季`;
+              const base = t("media.detail.seasonNumber", { number: sn.seasonNumber });
               const hasRealTitle =
                 sn.title && !/^season\s+\d+$/i.test(sn.title);
               const parts: string[] = [base];
               if (hasRealTitle) parts.push(sn.title!);
               const episodeCount =
                 sn.episodeCount ?? sn.episodes?.length ?? null;
-              if (episodeCount != null) parts.push(`${episodeCount} 集`);
+              if (episodeCount != null) parts.push(t("media.detail.episodeCount", { count: episodeCount }));
               return {
                 key: String(sn.seasonNumber),
                 label: parts.join(" · "),
@@ -339,7 +343,7 @@ export default function TvShowDetailPage() {
               ))}
               {(selectedSeason.episodes ?? []).length === 0 && (
                 <p className="py-8 text-center text-sm text-fg-muted">
-                  暂无剧集数据
+                  {t("media.detail.noEpisodes")}
                 </p>
               )}
             </div>
@@ -352,7 +356,7 @@ export default function TvShowDetailPage() {
       <CrewRow credits={show.credits ?? []} />
 
       <section className="mb-8">
-        <SectionTitle>观看记录</SectionTitle>
+        <SectionTitle>{t("media.detail.watchHistory.title")}</SectionTitle>
         <WatchHistoryTable tvShowId={show.id} onResumePlay={handleResumePlay} />
       </section>
     </MediaDetailLayout>

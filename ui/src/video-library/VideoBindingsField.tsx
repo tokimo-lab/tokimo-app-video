@@ -9,6 +9,7 @@ import {
 } from "@tokimo/ui";
 import { CheckCircle, FolderOpen, HardDrive } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { VfsDto } from "../api/types";
 import StorageBindingForm from "./StorageBindingForm";
 
@@ -36,6 +37,7 @@ function BindingCard({
   onSetDefault: (index: number) => void;
   hideDefaultToggle?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -48,12 +50,12 @@ function BindingCard({
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <Tag color="success" className="text-xs">
-            文件来源
+            {t("media.videoBindings.fileSource")}
           </Tag>
           {!hideDefaultToggle && binding.isDefaultDownload && (
             <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
               <CheckCircle className="w-3 h-3" />
-              默认下载位置
+              {t("media.videoBindings.defaultDownloadLocation")}
             </span>
           )}
         </div>
@@ -81,7 +83,7 @@ function BindingCard({
             onClick={() => onSetDefault(index)}
             className="text-xs text-fg-muted hover:text-green-600 dark:hover:text-green-400 transition-colors cursor-pointer"
           >
-            设为默认下载位置
+            {t("media.videoBindings.setDefaultDownloadLocation")}
           </button>
         </div>
       )}
@@ -104,6 +106,7 @@ export default function VideoBindingsField({
   }>;
   maxBindings?: number;
 }) {
+  const { t } = useTranslation();
   const nextKeyRef = useRef(0);
   const [bindings, setBindings] = useState<VideoBinding[]>([]);
   const initializedRef = useRef(false);
@@ -171,10 +174,9 @@ export default function VideoBindingsField({
             <HardDrive className="w-[18px] h-[18px]" />
           </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-fg-primary">文件来源</h4>
+            <h4 className="text-sm font-semibold text-fg-primary">{t("media.videoBindings.fileSource")}</h4>
             <p className="text-xs text-fg-muted mt-0.5">
-              连接本地磁盘、NAS
-              或远程存储路径，系统将自动扫描并导入其中的媒体文件
+              {t("media.videoBindings.description")}
             </p>
           </div>
         </div>
@@ -206,7 +208,7 @@ export default function VideoBindingsField({
               <FolderOpen className="w-5 h-5 text-fg-muted group-hover:text-green-500 transition-colors" />
             </div>
             <span className="text-sm text-fg-muted group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
-              添加文件来源
+              {t("media.videoBindings.addFileSource")}
             </span>
           </button>
         ) : canAdd ? (
@@ -216,7 +218,7 @@ export default function VideoBindingsField({
             icon={<PlusOutlined />}
             onClick={add}
           >
-            添加文件来源
+            {t("media.videoBindings.addFileSource")}
           </Button>
         ) : null}
       </div>

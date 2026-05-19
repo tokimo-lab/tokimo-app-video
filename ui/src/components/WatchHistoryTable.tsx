@@ -2,6 +2,7 @@ import { parseUserAgent } from "@tokimo/sdk";
 import { Avatar, Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useAuth, useDateFormat } from "../hooks/shell-stubs";
 
@@ -42,6 +43,7 @@ export function WatchHistoryTable({
   tvShowId,
   onResumePlay,
 }: WatchHistoryTableProps) {
+  const { t } = useTranslation();
   const { formatLong } = useDateFormat();
   const { user } = useAuth();
   const { data, isLoading, refetch } = api.playback.watchHistory.useQuery(
@@ -62,7 +64,7 @@ export function WatchHistoryTable({
 
   if (!data?.length) {
     return (
-      <p className="py-6 text-center text-sm text-fg-muted">暂无播放记录</p>
+      <p className="py-6 text-center text-sm text-fg-muted">{t("media.detail.watchHistory.empty")}</p>
     );
   }
 
@@ -71,14 +73,14 @@ export function WatchHistoryTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-base text-left text-xs text-fg-muted">
-            <th className="py-2 pr-4 font-medium">时间</th>
-            {tvShowId && <th className="py-2 pr-4 font-medium">剧集</th>}
-            <th className="py-2 pr-4 font-medium">用户</th>
-            <th className="py-2 pr-4 font-medium">播放位置</th>
-            <th className="py-2 pr-4 font-medium">进度</th>
-            <th className="py-2 pr-4 font-medium">客户端</th>
-            <th className="py-2 pr-4 font-medium">状态</th>
-            <th className="py-2 font-medium">操作</th>
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.time")}</th>
+            {tvShowId && <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.episode")}</th>}
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.user")}</th>
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.position")}</th>
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.progress")}</th>
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.client")}</th>
+            <th className="py-2 pr-4 font-medium">{t("media.detail.watchHistory.status")}</th>
+            <th className="py-2 font-medium">{t("media.detail.watchHistory.actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -90,7 +92,7 @@ export function WatchHistoryTable({
               item.seasonNumber != null && item.episodeNumber != null
                 ? `S${item.seasonNumber}E${item.episodeNumber}`
                 : item.episodeNumber != null
-                  ? `第 ${item.episodeNumber} 集`
+                  ? t("media.detail.episodeNumber", { number: item.episodeNumber })
                   : null;
             return (
               <tr
@@ -145,11 +147,11 @@ export function WatchHistoryTable({
                 <td className="py-2 pr-4">
                   {item.completed ? (
                     <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
-                      已看完
+                      {t("media.detail.watchHistory.completed")}
                     </span>
                   ) : (
                     <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-400">
-                      进行中
+                      {t("media.detail.watchHistory.inProgress")}
                     </span>
                   )}
                 </td>
@@ -163,7 +165,7 @@ export function WatchHistoryTable({
                           onResumePlay(item.fileId!, item.position, item.id)
                         }
                       >
-                        继续播放
+                        {t("media.detail.continuePlaying")}
                       </button>
                     )}
                     <button
@@ -171,7 +173,7 @@ export function WatchHistoryTable({
                       className="cursor-pointer rounded px-2 py-1 text-xs text-fg-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
                       onClick={() => deleteMutation.mutate(item.id)}
                     >
-                      删除
+                      {t("media.detail.delete")}
                     </button>
                   </div>
                 </td>

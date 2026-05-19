@@ -1,4 +1,5 @@
 import { Input, Select } from "@tokimo/ui";
+import { useTranslation } from "react-i18next";
 import type { VfsDto } from "../api/types";
 
 export interface StorageBindingValue {
@@ -21,6 +22,7 @@ export default function StorageBindingForm({
   showSourceSelect = true,
   disabled = false,
 }: StorageBindingFormProps) {
+  const { t } = useTranslation();
   const handleSourceChange = (sourceId: string) => {
     onChange({ sourceId, path: "" });
   };
@@ -34,7 +36,7 @@ export default function StorageBindingForm({
       {showSourceSelect && (
         <div>
           <div className="block text-xs font-medium text-fg-muted mb-1">
-            存储源
+            {t("media.videoBindings.storageSource")}
           </div>
           <Select
             className="w-full"
@@ -44,13 +46,13 @@ export default function StorageBindingForm({
             }))}
             value={value.sourceId || undefined}
             onChange={(v) => handleSourceChange(v as string)}
-            placeholder="选择存储源"
+            placeholder={t("media.videoBindings.selectStorageSource")}
             disabled={disabled}
           />
         </div>
       )}
       <div>
-        <div className="block text-xs font-medium text-fg-muted mb-1">路径</div>
+        <div className="block text-xs font-medium text-fg-muted mb-1">{t("media.videoBindings.path")}</div>
         {value.sourceId ? (
           <Input
             placeholder="/mnt/media/"
@@ -59,7 +61,7 @@ export default function StorageBindingForm({
             disabled={disabled}
           />
         ) : (
-          <Input placeholder="请先选择存储源" disabled />
+          <Input placeholder={t("media.videoBindings.selectSourceFirst")} disabled />
         )}
       </div>
     </div>

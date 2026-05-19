@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { posterThumbUrl, useRuntimeCtx } from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import { useAppEvent, useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
@@ -26,6 +27,7 @@ function FavoriteButton({
   isFavorite: boolean;
   videoItemId: string;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const toggle = api.video.toggleFavorite.useMutation({
     onSuccess: () =>
@@ -34,7 +36,7 @@ function FavoriteButton({
   return (
     <button
       type="button"
-      title={isFavorite ? "取消收藏" : "收藏"}
+      title={isFavorite ? t("media.detail.unfavorite") : t("media.detail.favorite")}
       className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-110 ${isFavorite ? "text-red-500" : "text-fg-muted hover:text-red-400"}`}
       onClick={() => toggle.mutate({ type: "movie", id: videoItemId })}
     >
@@ -65,6 +67,7 @@ function ResumePromptModal({
   onRestart: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { shell, windowId } = useRuntimeCtx();
   const [container, setContainer] = useState<HTMLElement | null>(null);
 
@@ -91,14 +94,14 @@ function ResumePromptModal({
           className="w-full cursor-pointer border-b border-border-base bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
           onClick={onRestart}
         >
-          从头开始
+          {t("media.detail.restart")}
         </button>
         <button
           type="button"
           className="w-full cursor-pointer bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
           onClick={onResume}
         >
-          从 {formatPosition(position)} 继续
+          {t("media.detail.resumeFrom", { position: formatPosition(position) })}
         </button>
       </div>
     </Modal>
@@ -106,6 +109,7 @@ function ResumePromptModal({
 }
 
 export default function VideoItemDetailPage() {
+  const { t } = useTranslation();
   const { params, goBack } = useVideoNav();
   const videoItemId = params.videoItemId;
   const qc = useQueryClient();
@@ -184,8 +188,8 @@ export default function VideoItemDetailPage() {
   if (!movie) {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <p className="text-fg-muted">未找到该电影</p>
-        <Button onClick={() => goBack()}>返回</Button>
+        <p className="text-fg-muted">{t("media.detail.movieNotFound")}</p>
+        <Button onClick={() => goBack()}>{t("media.detail.back")}</Button>
       </div>
     );
   }
@@ -249,7 +253,7 @@ export default function VideoItemDetailPage() {
           firstFile ? (
             <button
               type="button"
-              aria-label="播放"
+              aria-label={t("media.detail.play")}
               className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
               onClick={() => handlePlay(firstFile)}
             >
@@ -282,10 +286,10 @@ export default function VideoItemDetailPage() {
             extraBadges={
               movie.scrapedAt ? (
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
-                  ✨ 已刮削
+                  ✨ {t("media.detail.scraped")}
                 </span>
               ) : (
-                <span className="text-xs text-orange-400">未刮削</span>
+                <span className="text-xs text-orange-400">{t("media.detail.notScraped")}</span>
               )
             }
             genres={movie.genres}
@@ -295,7 +299,7 @@ export default function VideoItemDetailPage() {
             directors={directors.map((d) => d.person.name)}
             writers={writers.map((w) => w.person.name)}
             date={isOnlineVideo ? undefined : movie.releaseDate}
-            dateLabel="发行"
+            dateLabel={t("media.detail.release")}
             countries={movie.countries}
           >
             {/* Online media metadata (uploader / source) */}
@@ -313,7 +317,7 @@ export default function VideoItemDetailPage() {
                     className="truncate text-blue-500 hover:underline"
                     style={{ maxWidth: 300 }}
                   >
-                    🔗 源链接
+                    🔗 {t("media.detail.sourceLink")}
                   </a>
                 )}
               </div>
@@ -333,7 +337,7 @@ export default function VideoItemDetailPage() {
                   >
                     <path d="M8 5v14l11-7z" />
                   </svg>
-                  播放
+                  {t("media.detail.play")}
                 </button>
               </div>
             )}
@@ -346,7 +350,7 @@ export default function VideoItemDetailPage() {
         <CrewRow credits={movie.credits ?? []} />
         <FilesSection files={movie.files ?? []} playMeta={playMeta} />
         <section className="mb-8">
-          <SectionTitle>观看记录</SectionTitle>
+          <SectionTitle>{t("media.detail.watchHistory.title")}</SectionTitle>
           <WatchHistoryTable
             videoItemId={movie.id}
             onResumePlay={handleResumePlay}

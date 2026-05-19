@@ -30,10 +30,10 @@ export interface VideoTypeInfo {
 export const VIDEO_TYPES: VideoTypeInfo[] = [
   {
     type: "movie",
-    label: "电影",
-    description: "电影长片、蓝光收藏",
+    label: "media.libraryEditor.types.movie.label",
+    description: "media.libraryEditor.types.movie.description",
     detailedDescription:
-      "用于管理电影长片、纪录片、演唱会录像等单体视频作品。支持 TMDB 自动刮削封面、演员、简介，按年份 / 导演整理。",
+      "media.libraryEditor.types.movie.detailedDescription",
     icon: Film,
     iconName: "film",
     color: "#3b82f6",
@@ -42,10 +42,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "tv",
-    label: "剧集",
-    description: "连续剧、网剧、迷你剧",
+    label: "media.libraryEditor.types.tv.label",
+    description: "media.libraryEditor.types.tv.description",
     detailedDescription:
-      "用于管理连续剧、网剧、迷你剧等多集作品。支持 TMDB 季 / 集自动刮削，按剧名 / 季整理。",
+      "media.libraryEditor.types.tv.detailedDescription",
     icon: Tv2,
     iconName: "tv-2",
     color: "#8b5cf6",
@@ -54,10 +54,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "anime",
-    label: "动漫",
-    description: "日漫、国漫、OVA",
+    label: "media.libraryEditor.types.anime.label",
+    description: "media.libraryEditor.types.anime.description",
     detailedDescription:
-      "用于管理动画作品，包括剧场版、TV 动画、OVA 等。支持 Bangumi 刮削，可按年份 / 系列整理。",
+      "media.libraryEditor.types.anime.detailedDescription",
     icon: Clapperboard,
     iconName: "clapperboard",
     color: "#ec4899",
@@ -66,10 +66,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "documentary",
-    label: "纪录片",
-    description: "纪录片、人文地理",
+    label: "media.libraryEditor.types.documentary.label",
+    description: "media.libraryEditor.types.documentary.description",
     detailedDescription:
-      "用于管理纪录片，包括历史、自然、人文等题材。支持 TMDB 刮削，按主题 / 系列整理。",
+      "media.libraryEditor.types.documentary.detailedDescription",
     icon: Newspaper,
     iconName: "newspaper",
     color: "#10b981",
@@ -78,10 +78,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "variety",
-    label: "综艺",
-    description: "综艺节目、真人秀",
+    label: "media.libraryEditor.types.variety.label",
+    description: "media.libraryEditor.types.variety.description",
     detailedDescription:
-      "用于管理综艺节目、真人秀等娱乐内容。按节目名 / 期数整理，支持多集管理。",
+      "media.libraryEditor.types.variety.detailedDescription",
     icon: Star,
     iconName: "star",
     color: "#f59e0b",
@@ -90,10 +90,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "concert",
-    label: "演唱会",
-    description: "演唱会、音乐节录像",
+    label: "media.libraryEditor.types.concert.label",
+    description: "media.libraryEditor.types.concert.description",
     detailedDescription:
-      "用于管理演唱会、音乐节、现场表演等录像内容。按艺人 / 年份整理。",
+      "media.libraryEditor.types.concert.detailedDescription",
     icon: Mic2,
     iconName: "mic-2",
     color: "#f97316",
@@ -102,10 +102,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "online_video",
-    label: "网络视频",
-    description: "B 站、YouTube 等平台内容",
+    label: "media.libraryEditor.types.online_video.label",
+    description: "media.libraryEditor.types.online_video.description",
     detailedDescription:
-      "用于管理从 B 站、YouTube 等平台下载的视频内容。按UP主 / 频道整理，保留原始元数据。",
+      "media.libraryEditor.types.online_video.detailedDescription",
     icon: MonitorPlay,
     iconName: "monitor-play",
     color: "#ef4444",
@@ -114,10 +114,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "online_course",
-    label: "网课",
-    description: "在线课程、教学视频",
+    label: "media.libraryEditor.types.online_course.label",
+    description: "media.libraryEditor.types.online_course.description",
     detailedDescription:
-      "用于管理在线课程、教学视频、讲座录像等学习内容。按课程名 / 章节整理，支持进度追踪。",
+      "media.libraryEditor.types.online_course.detailedDescription",
     icon: GraduationCap,
     iconName: "graduation-cap",
     color: "#06b6d4",
@@ -126,10 +126,10 @@ export const VIDEO_TYPES: VideoTypeInfo[] = [
   },
   {
     type: "adult",
-    label: "成人",
-    description: "成人内容（需开启成人模式）",
+    label: "media.libraryEditor.types.adult.label",
+    description: "media.libraryEditor.types.adult.description",
     detailedDescription:
-      "用于管理成人内容。需要在系统设置中开启成人模式。支持自定义整理规则。",
+      "media.libraryEditor.types.adult.detailedDescription",
     icon: Lock,
     iconName: "lock",
     color: "#6b7280",

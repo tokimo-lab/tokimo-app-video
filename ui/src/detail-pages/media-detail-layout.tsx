@@ -1,6 +1,7 @@
 import { posterThumbUrl } from "@tokimo/sdk";
 import { ArrowLeftOutlined, Button } from "@tokimo/ui";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { CollectionOutput, GenreOutput } from "../api";
 import {
   formatRuntime,
@@ -34,12 +35,13 @@ export function MediaDetailLayout({
   /** Body below the header */
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="-mx-3 -mt-3 -mb-3 relative min-h-full lg:-mx-4 lg:-mt-4 lg:-mb-4">
       <div className="relative z-10 px-6 pt-6 pb-6">
         <div className="mb-6">
           <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
-            返回
+            {t("media.detail.back")}
           </Button>
         </div>
         <div className="flex items-start gap-6">
@@ -112,6 +114,7 @@ export function MediaDetailMeta({
   /** Extra content rendered below the info block (e.g. play button, uploader info) */
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const hasSubtitle = !!((originalTitle && originalTitle !== title) || tagline);
 
   return (
@@ -158,7 +161,7 @@ export function MediaDetailMeta({
         )}
         {doubanRating != null && (
           <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-600 dark:text-green-400">
-            豆瓣 ★ {doubanRating.toFixed(1)}
+            {t("media.detail.doubanRating", { rating: doubanRating.toFixed(1) })}
           </span>
         )}
         {extraBadges}
@@ -187,10 +190,11 @@ export function MediaDetailMeta({
 // ── Reusable body sections ────────────────────────────────────────────────────
 
 export function OverviewSection({ overview }: { overview?: string | null }) {
+  const { t } = useTranslation();
   if (!overview) return null;
   return (
     <div className="mb-8">
-      <SectionTitle>简介</SectionTitle>
+      <SectionTitle>{t("media.detail.overview")}</SectionTitle>
       <p className="text-sm leading-relaxed text-fg-secondary">{overview}</p>
     </div>
   );
@@ -201,10 +205,11 @@ export function CollectionsSection({
 }: {
   collections?: CollectionOutput[] | null;
 }) {
+  const { t } = useTranslation();
   if (!collections?.length) return null;
   return (
     <section className="mb-8">
-      <SectionTitle>所属合集</SectionTitle>
+      <SectionTitle>{t("media.detail.collections")}</SectionTitle>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {collections.map((col) => (
           <div

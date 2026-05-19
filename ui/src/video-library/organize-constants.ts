@@ -6,9 +6,9 @@
 // ─── Organize Language Options ───
 
 export const ORGANIZE_LANG_OPTIONS = [
-  { value: "zh-CN", label: "简体中文" },
-  { value: "en-US", label: "English" },
-  { value: "ja-JP", label: "日本語" },
+  { value: "zh-CN", label: "media.organize.constants.languages.zhCN" },
+  { value: "en-US", label: "media.organize.constants.languages.enUS" },
+  { value: "ja-JP", label: "media.organize.constants.languages.jaJP" },
 ];
 
 // ─── Template Variable Definitions ───

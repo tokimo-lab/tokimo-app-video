@@ -1,5 +1,6 @@
 import { cn } from "@tokimo/ui";
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { VideoTypeInfo } from "./video-types";
 import { VIDEO_TYPES } from "./video-types";
 
@@ -12,6 +13,7 @@ function VideoTypeCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -45,10 +47,10 @@ function VideoTypeCard({
           selected ? "text-[var(--accent-text)]" : "text-fg-primary",
         )}
       >
-        {info.label}
+        {t(info.label)}
       </p>
       <p className="line-clamp-2 text-[10px] leading-tight text-fg-muted">
-        {info.description}
+        {t(info.description)}
       </p>
     </button>
   );

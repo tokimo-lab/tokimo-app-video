@@ -47,35 +47,35 @@ const TECH_ADULT = {
 type LangSamples = Record<string, Record<string, string>>;
 
 const MOVIE_NAMES: LangSamples = {
-  "zh-CN": { name: "电影名", country: "US", language: "en" },
+  "zh-CN": { name: "media.organize.samples.movieName", country: "US", language: "en" },
   "en-US": { name: "Movie Name", country: "US", language: "en" },
   "ja-JP": { name: "映画名", country: "US", language: "en" },
 };
 
 const TV_NAMES: LangSamples = {
-  "zh-CN": { name: "剧名", country: "CN", language: "zh" },
+  "zh-CN": { name: "media.organize.samples.showName", country: "CN", language: "zh" },
   "en-US": { name: "Show Name", country: "CN", language: "zh" },
   "ja-JP": { name: "ドラマ名", country: "CN", language: "zh" },
 };
 
 const ADULT_NAMES: LangSamples = {
-  "zh-CN": { name: "新人NO.1STYLE" },
+  "zh-CN": { name: "media.organize.samples.adultName" },
   "en-US": { name: "Newcomer NO.1STYLE" },
   "ja-JP": { name: "新人NO.1STYLE" },
 };
 
 const MUSIC_NAMES: LangSamples = {
-  "zh-CN": { artist: "歌手名", album: "专辑名", title: "歌曲名" },
+  "zh-CN": { artist: "media.organize.samples.artistName", album: "media.organize.samples.albumName", title: "media.organize.samples.trackTitle" },
   "en-US": { artist: "Artist Name", album: "Album Name", title: "Track Title" },
   "ja-JP": { artist: "アーティスト名", album: "アルバム名", title: "曲名" },
 };
 
 const ONLINE_VIDEO_NAMES: LangSamples = {
   "zh-CN": {
-    title: "彩铃时代全都是细糠",
+    title: "media.organize.samples.onlineVideoTitle",
     source_site: "Bilibili",
     provider_id: "bilibili",
-    uploader: "示例 UP 主",
+    uploader: "media.organize.samples.sampleUploader",
   },
   "en-US": {
     title: "Ringtone Era Was Peak Content",

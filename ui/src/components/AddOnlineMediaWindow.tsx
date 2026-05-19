@@ -110,58 +110,52 @@ function AnalysisCard({
             )}
             {isMusic && (
               <Tag color="success">
-                {t(`${ns}.onlineMedia.audioOnly`, { defaultValue: "纯音频" })}
+                {t(`${ns}.onlineMedia.audioOnly`)}
               </Tag>
             )}
             {analysis.requiresAuth && (
               <Tag color="warning">
-                {t(`${ns}.onlineMedia.authRequired`, {
-                  defaultValue: "需要登录态",
-                })}
+                {t(`${ns}.onlineMedia.authRequired`)}
               </Tag>
             )}
           </div>
 
           <div className="text-sm font-semibold text-fg-primary">
             {analysis.title ??
-              t(`${ns}.onlineMedia.noTitle`, { defaultValue: "未返回标题" })}
+              t(`${ns}.onlineMedia.noTitle`)}
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs text-fg-muted">
             <span>
-              {t(`${ns}.onlineMedia.uploader`, { defaultValue: "上传者" })}:{" "}
+              {t(`${ns}.onlineMedia.uploader`)}:{" "}
               {analysis.uploader ?? "-"}
             </span>
             <span>
-              {t(`${ns}.onlineMedia.duration`, { defaultValue: "时长" })}:{" "}
+              {t(`${ns}.onlineMedia.duration`)}:{" "}
               {analysis.durationSeconds == null
                 ? "-"
                 : `${Math.floor(analysis.durationSeconds / 60)}m ${analysis.durationSeconds % 60}s`}
             </span>
             {analysis.artist && (
               <span>
-                {t(`${ns}.onlineMedia.artist`, { defaultValue: "艺术家" })}:{" "}
+                {t(`${ns}.onlineMedia.artist`)}:{" "}
                 {analysis.artist}
               </span>
             )}
             {analysis.album && (
               <span>
-                {t(`${ns}.onlineMedia.album`, { defaultValue: "专辑" })}:{" "}
+                {t(`${ns}.onlineMedia.album`)}:{" "}
                 {analysis.album}
               </span>
             )}
             {analysis.releaseDate && (
               <span>
-                {t(`${ns}.onlineMedia.releaseDate`, {
-                  defaultValue: "发行日期",
-                })}
+                {t(`${ns}.onlineMedia.releaseDate`)}
                 : {analysis.releaseDate}
               </span>
             )}
             <span className="col-span-2 truncate">
-              {t(`${ns}.onlineMedia.normalizedUrl`, {
-                defaultValue: "标准化链接",
-              })}
+              {t(`${ns}.onlineMedia.normalizedUrl`)}
               : {analysis.normalizedUrl ?? "-"}
             </span>
           </div>
@@ -216,9 +210,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
       setAnalysis(result);
       if (!result.isSupported) {
         message.warning(
-          t(`${ns}.onlineMedia.unsupported`, {
-            defaultValue: "当前链接暂不支持",
-          }),
+          t(`${ns}.onlineMedia.unsupported`),
         );
       }
     },
@@ -266,17 +258,13 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
     const values = await form.validateFields();
     if (!analysis?.isSupported || !analysis.provider) {
       message.warning(
-        t(`${ns}.onlineMedia.analyzeFirst`, {
-          defaultValue: "请先分析链接并确认来源信息",
-        }),
+        t(`${ns}.onlineMedia.analyzeFirst`),
       );
       return;
     }
     if (!targetLibraryId) {
       message.warning(
-        t(`${ns}.onlineMedia.selectFolderAfterAnalyze`, {
-          defaultValue: "请先分析链接，并在自动匹配失败时手动选择目标视频库",
-        }),
+        t(`${ns}.onlineMedia.selectFolderAfterAnalyze`),
       );
       return;
     }
@@ -302,12 +290,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
           result.action === "restarted"
             ? `${ns}.onlineMedia.restarted`
             : `${ns}.onlineMedia.started`,
-          {
-            defaultValue:
-              result.action === "restarted"
-                ? "已重新开始下载任务"
-                : "已创建下载任务",
-          },
+          undefined,
         ),
       );
       await api.downloadManage.list.invalidate(qc);
@@ -323,14 +306,10 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
 
       Modal.confirm({
         variant: "warning",
-        title: t(`${ns}.onlineMedia.duplicateTitle`, {
-          defaultValue: "发现重复任务",
-        }),
+        title: t(`${ns}.onlineMedia.duplicateTitle`),
         content: result.message,
-        okText: t(`${ns}.onlineMedia.redownload`, {
-          defaultValue: "重新下载",
-        }),
-        cancelText: t(`${ns}.cancel`, { defaultValue: "取消" }),
+        okText: t(`${ns}.onlineMedia.redownload`),
+        cancelText: t(`${ns}.cancel`),
         onOk: async () => {
           try {
             const confirmed = await startMutation.mutateAsync({
@@ -368,20 +347,16 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
         <Form form={form} layout="vertical">
           <Form.Item
-            label={t(`${ns}.onlineMedia.url`, { defaultValue: "链接地址" })}
+            label={t(`${ns}.onlineMedia.url`)}
             name="url"
             rules={[
               {
                 required: true,
-                message: t(`${ns}.onlineMedia.urlRequired`, {
-                  defaultValue: "请输入链接地址",
-                }),
+                message: t(`${ns}.onlineMedia.urlRequired`),
               },
               {
                 type: "url",
-                message: t(`${ns}.onlineMedia.urlInvalid`, {
-                  defaultValue: "请输入有效的 URL",
-                }),
+                message: t(`${ns}.onlineMedia.urlInvalid`),
               },
             ]}
           >
@@ -401,7 +376,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
                 loading={analyzeMutation.isPending}
                 onClick={() => void handleAnalyze()}
               >
-                {t(`${ns}.onlineMedia.analyze`, { defaultValue: "分析" })}
+                {t(`${ns}.onlineMedia.analyze`)}
               </Button>
             </div>
           </Form.Item>
@@ -411,9 +386,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
             <div className="flex items-center justify-center rounded-lg border border-dashed border-border-base px-4 py-8 text-fg-muted">
               <Spin size="small" />
               <span className="ml-2">
-                {t(`${ns}.onlineMedia.analyzing`, {
-                  defaultValue: "正在分析链接",
-                })}
+                {t(`${ns}.onlineMedia.analyzing`)}
               </span>
             </div>
           )}
@@ -430,9 +403,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
               <Alert
                 type="warning"
                 showIcon
-                message={t(`${ns}.onlineMedia.unsupported`, {
-                  defaultValue: "当前链接暂不支持",
-                })}
+                message={t(`${ns}.onlineMedia.unsupported`)}
                 description={analysis.warnings.join("\n") || undefined}
               />
             ))}
@@ -447,31 +418,18 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
             analysis?.isSupported &&
             folderOptions.length > 0 && (
               <Form.Item
-                label={t(`${ns}.onlineMedia.targetFolder`, {
-                  defaultValue: "目标视频库",
-                })}
+                label={t(`${ns}.onlineMedia.targetFolder`)}
                 extra={
                   selectedLibrary
                     ? needsManualSelection
-                      ? t(
-                          `${ns}.onlineMedia.targetFolderNeedsManualSelectionDesc`,
-                          {
-                            defaultValue:
-                              "未找到唯一匹配项，请手动选择目标视频库。",
-                          },
-                        )
-                      : t(`${ns}.onlineMedia.targetFolderAutoSelected`, {
-                          defaultValue:
-                            "已自动选中匹配到的视频库，你也可以手动修改。",
-                        })
+                      ? t(`${ns}.onlineMedia.targetFolderNeedsManualSelectionDesc`)
+                      : t(`${ns}.onlineMedia.targetFolderAutoSelected`)
                     : undefined
                 }
                 rules={[
                   {
                     required: true,
-                    message: t(`${ns}.onlineMedia.targetFolderRequired`, {
-                      defaultValue: "请选择目标视频库",
-                    }),
+                    message: t(`${ns}.onlineMedia.targetFolderRequired`),
                   },
                 ]}
               >
@@ -480,9 +438,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
                   options={folderOptions}
                   value={targetLibraryId}
                   onChange={(v) => form.setFieldValue("targetLibraryId", v)}
-                  placeholder={t(`${ns}.onlineMedia.targetFolderPlaceholder`, {
-                    defaultValue: "选择下载完成后写入的视频库",
-                  })}
+                  placeholder={t(`${ns}.onlineMedia.targetFolderPlaceholder`)}
                 />
               </Form.Item>
             )}
@@ -490,7 +446,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
           {/* Read-only badge when library is pre-set */}
           {defaultLibraryId && selectedLibrary && (
             <div className="text-xs text-fg-muted">
-              目标视频库：
+              {t(`${ns}.onlineMedia.targetFolder`)}:
               <span className="font-medium text-fg-primary">
                 {selectedLibrary.name}
               </span>
@@ -502,12 +458,8 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
             <Alert
               type="warning"
               showIcon
-              message={t(`${ns}.onlineMedia.noTargetFolders`, {
-                defaultValue: "当前没有可用的视频库",
-              })}
-              description={t(`${ns}.onlineMedia.noTargetFoldersDesc`, {
-                defaultValue: "请先创建视频库，然后再开始下载。",
-              })}
+              message={t(`${ns}.onlineMedia.noTargetFolders`)}
+              description={t(`${ns}.onlineMedia.noTargetFoldersDesc`)}
             />
           )}
         </Form>
@@ -516,7 +468,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--border-base)] px-6 py-4">
         <Button onClick={() => closeWindow(win.id)}>
-          {t(`${ns}.cancel`, { defaultValue: "取消" })}
+          {t(`${ns}.cancel`)}
         </Button>
         <Button
           variant="primary"
@@ -524,7 +476,7 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
           loading={startMutation.isPending}
           onClick={() => void handleStart()}
         >
-          {t(`${ns}.onlineMedia.start`, { defaultValue: "开始下载" })}
+          {t(`${ns}.onlineMedia.start`)}
         </Button>
       </div>
     </div>

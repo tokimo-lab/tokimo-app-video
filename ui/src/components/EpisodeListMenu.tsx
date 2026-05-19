@@ -11,6 +11,7 @@
 import { posterThumbUrl } from "@tokimo/sdk";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { api, type EpisodeOutput, type MediaFileOutput } from "../api";
 import { usePlayer, useVideoUiState } from "../hooks/shell-stubs";
 import {
@@ -28,6 +29,7 @@ interface EpisodeWithSeason extends EpisodeOutput {
 // ── Main button + panel controller ────────────────────────────────────────────
 
 export const EpisodeListMenu = memo(function EpisodeListMenu() {
+  const { t } = useTranslation();
   const { item, play } = usePlayer();
   const { onEndedRef } = useVideoUiState();
   const [open, setOpen] = useState(false);
@@ -67,7 +69,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
       const file = ep.files?.[0];
       if (!file) return;
       play(file as MediaFileOutput, {
-        title: ep.title ?? `第 ${ep.episodeNumber} 集`,
+        title: ep.title ?? t("media.detail.episodeNumber", { number: ep.episodeNumber }),
         posterPath: tvShow?.posterPath,
         tvShowId,
         episodeId: ep.id,
@@ -75,7 +77,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
         tmdbId: tvShow?.tmdbId,
       });
     },
-    [play, tvShow, tvShowId],
+    [play, tvShow, tvShowId, t],
   );
 
   const playNext = useCallback(() => {
@@ -109,7 +111,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
   return (
     <div ref={dismissRef} className="relative flex items-center gap-0.5">
       {/* Prev episode */}
-      <PlayerControlTooltip title="上一集">
+      <PlayerControlTooltip title={t("media.viewer.previousEpisode")}>
         <button
           type="button"
           disabled={!hasPrev}
@@ -119,7 +121,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
               ? "cursor-pointer text-white/80 hover:bg-white/10 hover:text-white"
               : "cursor-default text-white/25"
           }`}
-          aria-label="上一集"
+          aria-label={t("media.viewer.previousEpisode")}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
@@ -128,7 +130,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
       </PlayerControlTooltip>
 
       {/* Episode list toggle */}
-      <PlayerControlTooltip title="剧集列表">
+      <PlayerControlTooltip title={t("media.viewer.episodeList")}>
         <button
           type="button"
           onClick={(e) => {
@@ -156,7 +158,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
       </PlayerControlTooltip>
 
       {/* Next episode */}
-      <PlayerControlTooltip title="下一集">
+      <PlayerControlTooltip title={t("media.viewer.nextEpisode")}>
         <button
           type="button"
           disabled={!hasNext}
@@ -166,7 +168,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
               ? "cursor-pointer text-white/80 hover:bg-white/10 hover:text-white"
               : "cursor-default text-white/25"
           }`}
-          aria-label="下一集"
+          aria-label={t("media.viewer.nextEpisode")}
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
@@ -217,6 +219,7 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
   onSelect: (ep: EpisodeWithSeason) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const activeRef = useRef<HTMLButtonElement>(null);
   const hasMultipleSeasons = (tvShow.seasons?.length ?? 0) > 1;
 
@@ -254,7 +257,7 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
     >
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-4 py-2.5">
-        <h3 className="text-xs font-medium text-white/70">剧集列表</h3>
+        <h3 className="text-xs font-medium text-white/70">{t("media.viewer.episodeList")}</h3>
         <button
           type="button"
           className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
@@ -278,7 +281,7 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
           <div key={seasonNum}>
             {hasMultipleSeasons && (
               <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-white/40">
-                第 {seasonNum} 季
+                {t("media.detail.seasonNumber", { number: seasonNum })}
               </div>
             )}
             {eps.map((ep) => {
@@ -319,6 +322,7 @@ const EpisodeItem = memo(function EpisodeItem({
   hasFile: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const thumb = posterThumbUrl(episode.stillPath, 160);
   const handleClick = useCallback(() => {
     if (hasFile) onClick();
@@ -374,12 +378,12 @@ const EpisodeItem = memo(function EpisodeItem({
       {/* Title */}
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-medium">
-          第 {episode.episodeNumber} 集
+          {t("media.detail.episodeNumber", { number: episode.episodeNumber })}
           {episode.title ? ` · ${episode.title}` : ""}
         </div>
         {episode.runtime != null && episode.runtime > 0 && (
           <div className="mt-0.5 text-[10px] text-white/40">
-            {episode.runtime} 分钟
+            {t("media.detail.minutes", { count: episode.runtime })}
           </div>
         )}
       </div>
@@ -387,7 +391,7 @@ const EpisodeItem = memo(function EpisodeItem({
       {/* Playing indicator */}
       {isCurrent && (
         <span className="flex-shrink-0 text-[10px] font-medium text-[var(--accent)]">
-          播放中
+          {t("media.viewer.playing")}
         </span>
       )}
     </button>

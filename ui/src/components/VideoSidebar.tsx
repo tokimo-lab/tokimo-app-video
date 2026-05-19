@@ -1,6 +1,7 @@
 import { getAvatarColor, getAvatarIcon } from "@tokimo/sdk";
 import { AppSidebar, CircularProgress, Tooltip } from "@tokimo/ui";
 import { PanelLeft, PanelLeftClose, Plus, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { VideoOutput } from "../api";
 import { AppIcon } from "./AppIcon";
 
@@ -26,6 +27,7 @@ export default function VideoSidebar({
   /** When true, the settings (⚙) button shows a highlighted state. */
   settingsActive?: boolean;
 }) {
+  const { t } = useTranslation();
   const sections = [
     {
       items: categories.map((cat) => {
@@ -74,7 +76,7 @@ export default function VideoSidebar({
 
   const collapsedFooter = (
     <div className="flex flex-col items-center gap-1">
-      <Tooltip title="新建视频库" placement="right">
+      <Tooltip title={t("media.sidebar.newLibrary")} placement="right">
         <button
           type="button"
           onClick={onCreateClick}
@@ -83,7 +85,7 @@ export default function VideoSidebar({
           <Plus className="h-4 w-4" />
         </button>
       </Tooltip>
-      <Tooltip title="视频库设置" placement="right">
+      <Tooltip title={t("media.sidebar.librarySettings")} placement="right">
         <button
           type="button"
           onClick={onSettingsClick}
@@ -96,7 +98,7 @@ export default function VideoSidebar({
           <Settings className="h-4 w-4" />
         </button>
       </Tooltip>
-      <Tooltip title="展开侧边栏" placement="right">
+      <Tooltip title={t("media.sidebar.expand")} placement="right">
         <button
           type="button"
           onClick={onToggleCollapse}
@@ -110,7 +112,7 @@ export default function VideoSidebar({
 
   const fullFooter = (
     <div className="flex items-center gap-1">
-      <Tooltip title="新建视频库">
+      <Tooltip title={t("media.sidebar.newLibrary")}>
         <button
           type="button"
           onClick={onCreateClick}
@@ -119,7 +121,7 @@ export default function VideoSidebar({
           <Plus className="h-4 w-4" />
         </button>
       </Tooltip>
-      <Tooltip title="视频库设置">
+      <Tooltip title={t("media.sidebar.librarySettings")}>
         <button
           type="button"
           onClick={onSettingsClick}
@@ -132,7 +134,7 @@ export default function VideoSidebar({
           <Settings className="h-4 w-4" />
         </button>
       </Tooltip>
-      <Tooltip title="收起侧边栏">
+      <Tooltip title={t("media.sidebar.collapse")}>
         <button
           type="button"
           onClick={onToggleCollapse}

@@ -2,14 +2,14 @@ import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
 import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   api,
-  getGenreName,
+  getGenreKey,
   type TvShowOutput,
   type VideoItemOutput,
   type VideoOutput,
 } from "../api";
-import { useLang } from "../hooks/shell-stubs";
 import { useVideoNav } from "../router/useVideoNav";
 import { ContentSearch } from "../shell-shim/components";
 import type { FilterOption, MediaFilters } from "./MediaFilterPanel";
@@ -45,6 +45,7 @@ function MediaCard({
   onClick: () => void;
   landscape?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <PosterCard
       src={posterThumbUrl(item.posterPath, 300)}
@@ -71,7 +72,7 @@ function MediaCard({
           {"scrapedAt" in item && !(item as VideoItemOutput).scrapedAt && (
             <span
               className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange-400 ring-1 ring-black/30"
-              title="未刮削"
+              title={t("media.detail.notScraped")}
             />
           )}
         </>
@@ -121,7 +122,7 @@ export default function VideoContent({
   syncing?: boolean;
 }) {
   const { navigate } = useVideoNav();
-  const { lang } = useLang();
+  const { t } = useTranslation();
   const id = category.id;
   const libType = category.type;
   const isTv = libType === "tv" || libType === "anime";
@@ -274,16 +275,23 @@ export default function VideoContent({
 
   const genreOptions: FilterOption[] = useMemo(
     () =>
-      genres.map((g) => ({
-        label: getGenreName(g.tmdbGenreId, lang) || g.name,
-        value: g.id,
-      })),
-    [genres, lang],
+      genres.map((g) => {
+        const genreKey = getGenreKey(g.tmdbGenreId);
+        return {
+          label: genreKey ? t(genreKey) : g.name,
+          value: g.id,
+        };
+      }),
+    [genres, t],
   );
 
   const countryOptions: FilterOption[] = useMemo(
-    () => countries.map((c) => ({ label: getCountryDisplayName(c), value: c })),
-    [countries],
+    () =>
+      countries.map((c) => {
+        const countryKey = getCountryDisplayName(c);
+        return { label: t(countryKey), value: c };
+      }),
+    [countries, t],
   );
 
   return (
@@ -293,7 +301,11 @@ export default function VideoContent({
         <ContentSearch
           appId={id}
           searchType={isTv ? "tv" : "movie"}
-          placeholder={isTv ? "搜索电视剧…" : "搜索影片…"}
+          placeholder={
+            isTv
+              ? t("media.sidebar.searchTvPlaceholder")
+              : t("media.sidebar.searchMoviePlaceholder")
+          }
           onSelect={(item) => {
             if (isTv) {
               navigate(
@@ -331,8 +343,8 @@ export default function VideoContent({
             className="flex h-full items-center justify-center"
             description={
               activeFilterCount > 0
-                ? "该筛选条件下暂无资源"
-                : "暂无资源，请先同步"
+                ? t("media.sidebar.emptyFiltered")
+                : t("media.sidebar.emptySyncFirst")
             }
           />
         ) : (
@@ -359,7 +371,9 @@ export default function VideoContent({
             <div className="mt-2 flex justify-center py-3">
               {paginatedQuery.isFetching && <Spin />}
               {!hasMore && total > 0 && !paginatedQuery.isFetching && (
-                <p className="text-xs text-fg-muted">已加载全部 {total} 个</p>
+                <p className="text-xs text-fg-muted">
+                  {t("media.sidebar.allLoaded", { total })}
+                </p>
               )}
             </div>
           </>

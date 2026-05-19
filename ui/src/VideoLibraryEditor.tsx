@@ -23,6 +23,7 @@ import {
 } from "@tokimo/ui";
 import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { OrganizeSettings, VideoOutput } from "./api";
 import { api } from "./api";
 import { AvatarPicker } from "./shell-shim/components";
@@ -46,6 +47,7 @@ export default function VideoLibraryEditor({
   onDeleted,
   onCancel,
 }: VideoLibraryEditorProps) {
+  const { t } = useTranslation();
   const message = useMessage();
   const qc = useQueryClient();
   const [form] = Form.useForm();
@@ -126,12 +128,12 @@ export default function VideoLibraryEditor({
 
   const deleteMutation = api.video.delete.useMutation({
     onSuccess: () => {
-      message.success("视频库已删除");
+      message.success(t("media.libraryEditor.deleteSuccess"));
       api.video.list.invalidate(qc);
       setDeleteOpen(false);
       onDeleted?.();
     },
-    onError: (e) => message.error(e.message || "删除失败"),
+    onError: (e) => message.error(e.message || t("media.libraryEditor.deleteFailed")),
   });
 
   const handleSave = useCallback(async () => {
@@ -170,7 +172,7 @@ export default function VideoLibraryEditor({
           sources,
         });
         savedId = video.id;
-        message.success("已保存");
+        message.success(t("media.libraryEditor.saveSuccess"));
       } else {
         const created = await createMutation.mutateAsync({
           name: values.name as string,
@@ -181,13 +183,17 @@ export default function VideoLibraryEditor({
           sources,
         });
         savedId = created.id;
-        message.success("视频库已创建");
+        message.success(t("media.libraryEditor.createSuccess"));
       }
       api.video.list.invalidate(qc);
       onSaved?.(savedId);
     } catch (e) {
       const msg =
-        e instanceof Error ? e.message : video ? "保存失败" : "创建失败";
+        e instanceof Error
+          ? e.message
+          : video
+            ? t("media.libraryEditor.saveFailed")
+            : t("media.libraryEditor.createFailed");
       message.error(msg);
     }
   }, [
@@ -221,7 +227,7 @@ export default function VideoLibraryEditor({
         </ScrollArea>
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border-base px-5 py-3">
           <Button variant="default" onClick={onCancel}>
-            取消
+            {t("media.libraryEditor.cancel")}
           </Button>
           <Button
             disabled={!selectedType}
@@ -239,7 +245,7 @@ export default function VideoLibraryEditor({
               setShowTypeSelect(false);
             }}
           >
-            {video ? "确认切换" : "继续"}
+            {video ? t("media.libraryEditor.confirmSwitch") : t("media.libraryEditor.continue")}
           </Button>
         </div>
       </div>
@@ -257,7 +263,7 @@ export default function VideoLibraryEditor({
             typeInfo.bgClass,
           )}
           onClick={() => setShowTypeSelect(true)}
-          title="点击切换类型"
+          title={t("media.libraryEditor.switchTypeTooltip")}
         >
           <typeInfo.icon
             className={cn("mt-0.5 h-5 w-5 shrink-0", typeInfo.textClass)}
@@ -265,10 +271,10 @@ export default function VideoLibraryEditor({
           />
           <div className="flex-1">
             <span className={cn("text-sm font-bold", typeInfo.textClass)}>
-              {typeInfo.label}
+              {t(typeInfo.label)}
             </span>
             <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
-              {typeInfo.detailedDescription}
+              {t(typeInfo.detailedDescription)}
             </p>
           </div>
           <Pencil
@@ -291,7 +297,7 @@ export default function VideoLibraryEditor({
           {/* 基本信息 */}
           <div className="rounded-lg border border-border-base p-5">
             <h4 className="mb-4 text-sm font-semibold text-fg-primary">
-              基本信息
+              {t("media.libraryEditor.basicInfo")}
             </h4>
             <Form.Item name="type" hidden>
               <Input />
@@ -303,15 +309,15 @@ export default function VideoLibraryEditor({
 
             <Form.Item
               name="name"
-              label="名称"
-              rules={[{ required: true, message: "请输入视频库名称" }]}
+              label={t("media.libraryEditor.name")}
+              rules={[{ required: true, message: t("media.libraryEditor.nameRequired") }]}
             >
-              <Input placeholder="如：我的电影" size="large" />
+              <Input placeholder={t("media.libraryEditor.namePlaceholder")} size="large" />
             </Form.Item>
 
-            <Form.Item name="description" label="描述" className="!mb-0">
+            <Form.Item name="description" label={t("media.libraryEditor.description")} className="!mb-0">
               <Input.TextArea
-                placeholder="可选描述，如：收藏的蓝光电影..."
+                placeholder={t("media.libraryEditor.descriptionPlaceholder")}
                 rows={3}
               />
             </Form.Item>
@@ -320,7 +326,7 @@ export default function VideoLibraryEditor({
           {/* 关联配置 */}
           <div className="rounded-lg border border-border-base p-5">
             <h4 className="mb-4 text-sm font-semibold text-fg-primary">
-              关联配置
+              {t("media.libraryEditor.bindings")}
             </h4>
             <VideoBindingsField
               sources={vfsSources}
@@ -332,7 +338,7 @@ export default function VideoLibraryEditor({
           {/* 整理设置 */}
           <div className="rounded-lg border border-border-base p-5">
             <h4 className="mb-4 text-sm font-semibold text-fg-primary">
-              整理设置
+              {t("media.libraryEditor.organizeSettings")}
             </h4>
             <VideoOrganizeFields form={form as FormInstance} />
           </div>
@@ -344,21 +350,21 @@ export default function VideoLibraryEditor({
             {video && (
               <Button variant="danger" onClick={() => setDeleteOpen(true)}>
                 <Trash2 size={14} className="mr-1" />
-                删除
+                {t("media.libraryEditor.delete")}
               </Button>
             )}
           </div>
           <div className="flex items-center gap-2">
             {!video && (
               <Button variant="default" onClick={() => setShowTypeSelect(true)}>
-                切换类型
+                {t("media.libraryEditor.switchType")}
               </Button>
             )}
             <Button variant="default" onClick={onCancel}>
-              取消
+              {t("media.libraryEditor.cancel")}
             </Button>
             <Button loading={isPending} onClick={() => void handleSave()}>
-              {video ? "保存" : "创建"}
+              {video ? t("media.libraryEditor.save") : t("media.libraryEditor.create")}
             </Button>
           </div>
         </div>
@@ -377,6 +383,7 @@ export default function VideoLibraryEditor({
           }}
           onConfirm={() => deleteMutation.mutate(video.id)}
           loading={deleteMutation.isPending}
+          t={t}
         />
       )}
     </div>
@@ -392,6 +399,7 @@ function DeleteConfirmModal({
   onCancel,
   onConfirm,
   loading,
+  t,
 }: {
   video: VideoOutput;
   open: boolean;
@@ -400,15 +408,17 @@ function DeleteConfirmModal({
   onCancel: () => void;
   onConfirm: () => void;
   loading: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
-    <Modal title="⚠️ 删除视频库" open={open} onCancel={onCancel} footer={null}>
+    <Modal title={t("media.libraryEditor.deleteTitle")} open={open} onCancel={onCancel} footer={null}>
       <div className="space-y-4 pt-1">
         <p className="text-sm text-fg-secondary">
-          此操作将永久删除{" "}
+          {t("media.libraryEditor.deleteConfirmPrefix")}{" "}
           <span className="font-semibold text-fg-primary">{video.name}</span>{" "}
-          及其所有数据，
-          <span className="font-semibold text-red-500">不可恢复</span>。
+          {t("media.libraryEditor.deleteConfirmMiddle")}
+          <span className="font-semibold text-red-500">{t("media.libraryEditor.deleteConfirmIrreversible")}</span>
+          {t("media.libraryEditor.deleteConfirmSuffix")}
         </p>
         <Input
           value={deleteInput}
@@ -420,7 +430,7 @@ function DeleteConfirmModal({
         />
         <div className="flex justify-end gap-2">
           <Button variant="default" onClick={onCancel}>
-            取消
+            {t("media.libraryEditor.cancel")}
           </Button>
           <Button
             variant="danger"
@@ -428,7 +438,7 @@ function DeleteConfirmModal({
             loading={loading}
             onClick={onConfirm}
           >
-            确认删除
+            {t("media.libraryEditor.confirmDelete")}
           </Button>
         </div>
       </div>
