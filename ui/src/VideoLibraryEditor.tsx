@@ -7,8 +7,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type AvatarData,
-  getDefaultFileFormat,
-  getDefaultFolderFormat,
   parseAvatar,
   useToast as useMessage,
 } from "@tokimo/sdk";
@@ -26,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { OrganizeSettings, VideoOutput } from "./api";
 import { api } from "./api";
+import { getDefaultFileFormat, getDefaultFolderFormat } from "./lib/media-organize";
 import { AvatarPicker } from "./shell-shim/components";
 import VideoBindingsField, {
   type VideoBinding,
