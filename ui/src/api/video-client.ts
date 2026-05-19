@@ -34,7 +34,10 @@ export async function videoFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const url = `/api/apps/video${path}`;
+  // http_bridge matches `/api/apps/video` and `/api/apps/video/{*rest}`, but
+  // NOT `/api/apps/video/` (bare trailing slash). Normalize "/" → "".
+  const normalized = path === "/" ? "" : path;
+  const url = `/api/apps/video${normalized}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
