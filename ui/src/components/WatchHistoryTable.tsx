@@ -1,8 +1,8 @@
+import { parseUserAgent } from "@tokimo/sdk";
 import { Avatar, Spin } from "@tokimo/ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { api } from "../shell-shim/api";
-import { parseUserAgent } from "../shell-shim/lib";
 import { useAuth, useDateFormat } from "../shell-shim/system";
 
 dayjs.extend(relativeTime);

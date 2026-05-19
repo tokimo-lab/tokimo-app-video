@@ -1,6 +1,6 @@
+import { posterThumbUrl } from "@tokimo/sdk";
 import { ArrowLeftOutlined, Button } from "@tokimo/ui";
 import type { ReactNode } from "react";
-import { posterThumbUrl } from "../shell-shim/lib";
 import type { CollectionOutput, GenreOutput } from "../shell-shim/types";
 import {
   formatRuntime,

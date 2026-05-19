@@ -4,10 +4,16 @@ import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../shell-shim/api";
-import { useContainerWidth } from "../shell-shim/shared";
-import { useSidebarCollapsed } from "../shell-shim/shared";
-import { useSyncProgress } from "../shell-shim/shared";
-import { useWindowActions, useWindowId, useWindowNav } from "../shell-shim/system";
+import {
+  useContainerWidth,
+  useSidebarCollapsed,
+  useSyncProgress,
+} from "../shell-shim/shared";
+import {
+  useWindowActions,
+  useWindowId,
+  useWindowNav,
+} from "../shell-shim/system";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
@@ -56,8 +62,7 @@ export default function VideoApp() {
   const openEditorModal = useCallback(
     (opts: { videoId?: string } = {}) => {
       openModalWindow({
-        component: () =>
-          import("../shell-shim/apps-video-library-editor"),
+        component: () => import("../shell-shim/apps-video-library-editor"),
         parentWindowId: windowId,
         title: opts.videoId ? `TokimoVideo · 设置` : "TokimoVideo · 新建视频库",
         width: 720,

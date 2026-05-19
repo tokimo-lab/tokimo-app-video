@@ -5,6 +5,7 @@
  * Receives `win.metadata.defaultLibraryId` to pre-select a target library.
  */
 import { useQueryClient } from "@tanstack/react-query";
+import { buildProxiedImageUrl } from "@tokimo/sdk";
 import {
   Alert,
   Button,
@@ -24,7 +25,6 @@ import type {
   VideoOutput,
 } from "../shell-shim/api";
 import { api } from "../shell-shim/api";
-import { buildProxiedImageUrl } from "../shell-shim/lib";
 import { useMessage, useWindowActions } from "../shell-shim/system";
 import type { WindowState } from "../shell-shim/system-window-types";
 import type {

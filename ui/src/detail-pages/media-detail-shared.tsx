@@ -7,8 +7,8 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
+import { posterThumbUrl } from "@tokimo/sdk";
 import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
-import { getGenreName } from "../shell-shim/types";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -16,9 +16,13 @@ import {
   getMediaFileLocator,
 } from "../shell-shim/apps-finder";
 import { PersonDetailPopoverContent } from "../shell-shim/apps-media";
-import { posterThumbUrl } from "../shell-shim/lib";
 import { useLang, usePlayer } from "../shell-shim/system";
-import type { CreditOutput, GenreOutput, MediaFileOutput } from "../shell-shim/types";
+import type {
+  CreditOutput,
+  GenreOutput,
+  MediaFileOutput,
+} from "../shell-shim/types";
+import { getGenreName } from "../shell-shim/types";
 
 export function formatRuntime(minutes: number): string {
   const h = Math.floor(minutes / 60);

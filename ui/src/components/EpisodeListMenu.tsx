@@ -7,10 +7,11 @@
  *
  * Also provides prev/next episode navigation buttons and auto-play-next on ended.
  */
+
+import { posterThumbUrl } from "@tokimo/sdk";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../shell-shim/api";
-import { posterThumbUrl } from "../shell-shim/lib";
 import { usePlayer, useVideoUiState } from "../shell-shim/system";
 import type { EpisodeOutput, MediaFileOutput } from "../shell-shim/types";
 import {

@@ -5,9 +5,9 @@
  * Uses native HTML5 video controls for direct file playback.
  */
 
+import { buildFileUrl } from "@tokimo/sdk";
 import { Info } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildFileUrl } from "../../shell-shim/lib";
 import { useWindowActions, type WindowState } from "../../shell-shim/system";
 import { buildAgentFileUrl, buildSshFileUrl } from "../file-url";
 import { SiblingFileList } from "../SiblingFileList";

@@ -1,12 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { posterThumbUrl } from "@tokimo/sdk";
 import { Button, PillTabBar, Spin } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../shell-shim/api";
-import { posterThumbUrl } from "../shell-shim/lib";
-import { useBackgroundArt, usePlayer, useWindowNav } from "../shell-shim/system";
-import type { EpisodeOutput } from "../shell-shim/types";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
+import { api } from "../shell-shim/api";
+import {
+  useBackgroundArt,
+  usePlayer,
+  useWindowNav,
+} from "../shell-shim/system";
+import type { EpisodeOutput } from "../shell-shim/types";
 import {
   CollectionsSection,
   MediaDetailLayout,
