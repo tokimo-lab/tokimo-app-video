@@ -1,23 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type Dispose, defineApp, RuntimeProvider } from "@tokimo/sdk";
 import { ConfigProvider, ToastProvider } from "@tokimo/ui";
-import i18n from "i18next";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { I18nextProvider, initReactI18next } from "react-i18next";
+import { I18nextProvider } from "react-i18next";
 import VideoApp from "./components/VideoApp";
+import i18n, { SUPPORTED_LOCALES } from "./i18n";
 import "./index.css";
-
-// Simple i18n setup (no translations yet, just structure)
-i18n.use(initReactI18next).init({
-  lng: "en",
-  fallbackLng: "en",
-  resources: {
-    en: { translation: {} },
-    zh: { translation: {} },
-  },
-  interpolation: { escapeValue: false },
-});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +26,14 @@ export default defineApp({
     category: "app",
   },
   mount(container, ctx): Dispose {
+    // Sync language with host shell. TODO: subscribe reactively once
+    // ctx.shell exposes a locale change event.
+    const targetLocale = SUPPORTED_LOCALES.includes(ctx.locale)
+      ? ctx.locale
+      : "en-US";
+    if (i18n.language !== targetLocale) {
+      void i18n.changeLanguage(targetLocale);
+    }
     const root: Root = createRoot(container);
     root.render(
       <StrictMode>
