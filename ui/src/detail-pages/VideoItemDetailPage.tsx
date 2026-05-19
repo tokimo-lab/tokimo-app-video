@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl } from "@tokimo/sdk";
+import { posterThumbUrl, useWindowContainer } from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type MediaFileOutput } from "../api";
@@ -65,6 +65,7 @@ function ResumePromptModal({
   onRestart: () => void;
   onClose: () => void;
 }) {
+  const container = useWindowContainer();
   return (
     <Modal
       open={open}
@@ -75,6 +76,7 @@ function ResumePromptModal({
       width={360}
       centered
       onCancel={onClose}
+      container={container}
       styles={{ body: { padding: 0 } }}
     >
       <div className="flex flex-col">
