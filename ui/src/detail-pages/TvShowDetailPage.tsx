@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl } from "@tokimo/sdk";
+import { type PlayerPlayMeta, posterThumbUrl } from "@tokimo/sdk";
 import { Button, PillTabBar, Spin } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { api, type EpisodeOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import { useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
+import { createVideoSourceMetadata } from "../player-source-metadata";
 import { useVideoNav } from "../router/useVideoNav";
 import {
   CollectionsSection,
@@ -54,14 +55,7 @@ function EpisodeRow({
   playMeta,
 }: {
   episode: EpisodeOutput;
-  playMeta: {
-    title: string;
-    posterPath?: string | null;
-    episodeId?: string;
-    tvShowId?: string;
-    imdbId?: string | null;
-    tmdbId?: string | null;
-  };
+  playMeta: PlayerPlayMeta;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -89,7 +83,10 @@ function EpisodeRow({
                   t("media.detail.episodeNumber", {
                     number: episode.episodeNumber,
                   }),
-                episodeId: episode.id,
+                sourceMetadata: createVideoSourceMetadata({
+                  ...playMeta.sourceMetadata,
+                  episodeId: episode.id,
+                }),
               });
           }}
         >
@@ -167,7 +164,10 @@ function EpisodeRow({
                       t("media.detail.episodeNumber", {
                         number: episode.episodeNumber,
                       }),
-                    episodeId: episode.id,
+                    sourceMetadata: createVideoSourceMetadata({
+                      ...playMeta.sourceMetadata,
+                      episodeId: episode.id,
+                    }),
                   }}
                 />
               ))}
@@ -231,13 +231,16 @@ export default function TvShowDetailPage() {
           title:
             episode.title ??
             t("media.detail.episodeNumber", { number: episode.episodeNumber }),
-          posterPath: show.posterPath,
-          tvShowId: show.id,
-          episodeId: episode.id,
-          imdbId: show.imdbId,
-          tmdbId: show.tmdbId,
+          poster: show.posterPath,
+          sourceMetadata: createVideoSourceMetadata({
+            tvShowId: show.id,
+            episodeId: episode.id,
+            imdbId: show.imdbId,
+            tmdbId: show.tmdbId,
+            watchHistoryId: historyId,
+          }),
         },
-        { initialPosition: position, watchHistoryId: historyId },
+        { initialPosition: position },
       );
     },
     [fileMap, play, show, t],
@@ -358,10 +361,12 @@ export default function TvShowDetailPage() {
                   episode={ep}
                   playMeta={{
                     title: show.title,
-                    posterPath: show.posterPath,
-                    tvShowId: show.id,
-                    imdbId: show.imdbId,
-                    tmdbId: show.tmdbId,
+                    poster: show.posterPath,
+                    sourceMetadata: createVideoSourceMetadata({
+                      tvShowId: show.id,
+                      imdbId: show.imdbId,
+                      tmdbId: show.tmdbId,
+                    }),
                   }}
                 />
               ))}

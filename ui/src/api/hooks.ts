@@ -317,11 +317,12 @@ export const apiVideoGetVideoItemDetail = {
 
 export const apiVideoGetTvShowDetail = {
   queryKey: (input: { id: string }): unknown[] => [VIDEO_KEY, "tv", input.id],
+  fetch: (input: { id: string }) =>
+    videoFetch<TvShowDetailOutput>(`/tv/${encodeURIComponent(input.id)}`),
   useQuery: (input: { id: string }, opts?: { enabled?: boolean }) =>
     useQuery({
       queryKey: apiVideoGetTvShowDetail.queryKey(input),
-      queryFn: () =>
-        videoFetch<TvShowDetailOutput>(`/tv/${encodeURIComponent(input.id)}`),
+      queryFn: () => apiVideoGetTvShowDetail.fetch(input),
       enabled: opts?.enabled,
     }),
   invalidate: (qc: QueryClient, input?: { id: string }) => {
@@ -643,20 +644,21 @@ export const apiPlaybackWatchHistory = {
     "watch-history",
     input,
   ],
+  fetch: (input: WatchHistoryInput) => {
+    const params = new URLSearchParams();
+    if (input.videoItemId) params.set("videoItemId", input.videoItemId);
+    if (input.episodeId) params.set("episodeId", input.episodeId);
+    if (input.tvShowId) params.set("tvShowId", input.tvShowId);
+    if (input.limit != null) params.set("limit", String(input.limit));
+    const qs = params.toString();
+    return videoFetch<WatchHistoryEntry[]>(
+      `/playback/watch-history${qs ? `?${qs}` : ""}`,
+    );
+  },
   useQuery: (input: WatchHistoryInput, opts?: { enabled?: boolean }) =>
     useQuery({
       queryKey: apiPlaybackWatchHistory.queryKey(input),
-      queryFn: () => {
-        const params = new URLSearchParams();
-        if (input.videoItemId) params.set("videoItemId", input.videoItemId);
-        if (input.episodeId) params.set("episodeId", input.episodeId);
-        if (input.tvShowId) params.set("tvShowId", input.tvShowId);
-        if (input.limit != null) params.set("limit", String(input.limit));
-        const qs = params.toString();
-        return videoFetch<WatchHistoryEntry[]>(
-          `/playback/watch-history${qs ? `?${qs}` : ""}`,
-        );
-      },
+      queryFn: () => apiPlaybackWatchHistory.fetch(input),
       enabled: opts?.enabled,
     }),
   invalidate: (qc: QueryClient) =>
@@ -675,6 +677,18 @@ export const apiPlaybackDeleteWatchHistory = {
         }),
       onSuccess: opts?.onSuccess,
       onError: opts?.onError,
+    }),
+};
+
+export const apiPlaybackReportProgress = {
+  mutate: (input: {
+    watchHistoryId: string;
+    position: number;
+    duration: number;
+  }) =>
+    videoFetch<void>("/playback/progress", {
+      method: "POST",
+      body: JSON.stringify(input),
     }),
 };
 

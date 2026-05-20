@@ -5,7 +5,7 @@
  * panel anchored to the bottom-right (above the toolbar). Clicking an episode
  * switches playback. Auto-scrolls to the currently playing episode on open.
  *
- * Also provides prev/next episode navigation buttons and auto-play-next on ended.
+ * Also provides prev/next episode navigation buttons.
  */
 
 import { posterThumbUrl } from "@tokimo/sdk";
@@ -13,7 +13,11 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api, type EpisodeOutput, type MediaFileOutput } from "../api";
-import { usePlayer, useVideoUiState } from "../hooks/shell-stubs";
+import { usePlayer } from "../hooks/shell-stubs";
+import {
+  createVideoSourceMetadata,
+  getVideoSourceMetadata,
+} from "../player-source-metadata";
 import {
   PlayerControlTooltip,
   useDismissOnOutsidePointerDown,
@@ -31,7 +35,6 @@ interface EpisodeWithSeason extends EpisodeOutput {
 export const EpisodeListMenu = memo(function EpisodeListMenu() {
   const { t } = useTranslation();
   const { item, play } = usePlayer();
-  const { onEndedRef } = useVideoUiState();
   const [open, setOpen] = useState(false);
   const portalRef = useRef<HTMLDivElement | null>(null);
   const dismissRef = useDismissOnOutsidePointerDown(
@@ -42,8 +45,9 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
   );
   const portalPos = useDropdownPortalPos(dismissRef, open);
 
-  const tvShowId = item?.tvShowId;
-  const episodeId = item?.episodeId;
+  const sourceMetadata = getVideoSourceMetadata(item?.sourceMetadata);
+  const tvShowId = sourceMetadata?.tvShowId;
+  const episodeId = sourceMetadata?.episodeId;
 
   const { data: tvShow } = api.video.getTvShowDetail.useQuery(
     { id: tvShowId! },
@@ -72,11 +76,13 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
         title:
           ep.title ??
           t("media.detail.episodeNumber", { number: ep.episodeNumber }),
-        posterPath: tvShow?.posterPath,
-        tvShowId,
-        episodeId: ep.id,
-        imdbId: tvShow?.imdbId,
-        tmdbId: tvShow?.tmdbId,
+        poster: tvShow?.posterPath,
+        sourceMetadata: createVideoSourceMetadata({
+          tvShowId,
+          episodeId: ep.id,
+          imdbId: tvShow?.imdbId,
+          tmdbId: tvShow?.tmdbId,
+        }),
       });
     },
     [play, tvShow, tvShowId, t],
@@ -93,16 +99,6 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
     const prev = allEpisodes[currentIdx - 1];
     if (prev) playEpisode(prev);
   }, [currentIdx, allEpisodes, playEpisode]);
-
-  // Auto-play next episode when current one ends
-  useEffect(() => {
-    onEndedRef.current = () => {
-      playNext();
-    };
-    return () => {
-      onEndedRef.current = null;
-    };
-  }, [onEndedRef, playNext]);
 
   if (!tvShowId || !episodeId || total === 0) return null;
 

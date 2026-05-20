@@ -6,6 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import VideoApp from "./components/VideoApp";
 import i18n, { SUPPORTED_LOCALES } from "./i18n";
+import { createVideoPlayerExtension } from "./player-extension";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,9 @@ export default defineApp({
 
     applyLocale(ctx.locale);
     const unsubLocale = ctx.shell.subscribeLocale(applyLocale);
+    const unregisterPlayerExtension = ctx.shell.player.registerExtension(
+      createVideoPlayerExtension(ctx, queryClient),
+    );
 
     const root: Root = createRoot(container);
     root.render(
@@ -53,6 +57,7 @@ export default defineApp({
       </StrictMode>,
     );
     return () => {
+      unregisterPlayerExtension();
       unsubLocale();
       root.unmount();
     };

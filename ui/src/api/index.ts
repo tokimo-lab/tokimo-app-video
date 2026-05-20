@@ -25,6 +25,7 @@ import {
   apiOnlineMediaAnalyze,
   apiOnlineMediaStartDownload,
   apiPlaybackDeleteWatchHistory,
+  apiPlaybackReportProgress,
   apiPlaybackWatchHistory,
   apiVfsList,
   apiVfsProbe,
@@ -88,6 +89,7 @@ export const api = {
   playback: {
     watchHistory: apiPlaybackWatchHistory,
     deleteWatchHistory: apiPlaybackDeleteWatchHistory,
+    reportProgress: apiPlaybackReportProgress,
   },
   downloadManage: {
     list: apiDownloadManageList,

@@ -1,11 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { posterThumbUrl, useRuntimeCtx } from "@tokimo/sdk";
+import {
+  type PlayerPlayMeta,
+  posterThumbUrl,
+  useRuntimeCtx,
+} from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
 import { useAppEvent, useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
+import { createVideoSourceMetadata } from "../player-source-metadata";
 import { useVideoNav } from "../router/useVideoNav";
 import {
   CollectionsSection,
@@ -156,13 +161,15 @@ export default function VideoItemDetailPage() {
     }
   });
 
-  const playMeta = useMemo(
+  const playMeta = useMemo<PlayerPlayMeta>(
     () => ({
       title: movie?.title ?? "",
-      posterPath: movie?.posterPath,
-      videoItemId: movie?.id ?? "",
-      imdbId: movie?.imdbId,
-      tmdbId: movie?.tmdbId,
+      poster: movie?.posterPath,
+      sourceMetadata: createVideoSourceMetadata({
+        videoItemId: movie?.id ?? "",
+        imdbId: movie?.imdbId,
+        tmdbId: movie?.tmdbId,
+      }),
     }),
     [movie?.title, movie?.posterPath, movie?.id, movie?.imdbId, movie?.tmdbId],
   );
@@ -171,10 +178,19 @@ export default function VideoItemDetailPage() {
     (fileId: string, position: number, historyId: string) => {
       const file = movie?.files?.find((f) => f.id === fileId);
       if (!file) return;
-      play(file, playMeta, {
-        initialPosition: position,
-        watchHistoryId: historyId,
-      });
+      play(
+        file,
+        {
+          ...playMeta,
+          sourceMetadata: createVideoSourceMetadata({
+            ...playMeta.sourceMetadata,
+            watchHistoryId: historyId,
+          }),
+        },
+        {
+          initialPosition: position,
+        },
+      );
     },
     [movie?.files, play, playMeta],
   );
@@ -230,10 +246,19 @@ export default function VideoItemDetailPage() {
         position={resumePrompt?.position ?? 0}
         onResume={() => {
           if (resumePrompt) {
-            play(resumePrompt.file, playMeta, {
-              initialPosition: resumePrompt.position,
-              watchHistoryId: resumePrompt.watchHistoryId,
-            });
+            play(
+              resumePrompt.file,
+              {
+                ...playMeta,
+                sourceMetadata: createVideoSourceMetadata({
+                  ...playMeta.sourceMetadata,
+                  watchHistoryId: resumePrompt.watchHistoryId,
+                }),
+              },
+              {
+                initialPosition: resumePrompt.position,
+              },
+            );
           }
           setResumePrompt(null);
         }}

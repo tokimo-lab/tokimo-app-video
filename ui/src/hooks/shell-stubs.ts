@@ -5,9 +5,12 @@
  * are exposed.
  */
 
-import type { WindowState } from "@tokimo/sdk";
+import type {
+  PlayerPlayMeta,
+  PlayerSourceMetadata,
+  WindowState,
+} from "@tokimo/sdk";
 import { useShellApi } from "@tokimo/sdk";
-import type { RefObject } from "react";
 import { useSyncExternalStore } from "react";
 
 interface UseAuthResult {
@@ -57,14 +60,17 @@ export function useBackgroundArt(): BackgroundArtApi {
 }
 
 interface PlayerApi {
-  play: (...args: unknown[]) => void;
+  play: (
+    file: unknown,
+    meta: PlayerPlayMeta,
+    options?: { initialPosition?: number; startPaused?: boolean },
+  ) => Promise<void>;
   pause: () => void;
   isPlaying: boolean;
   currentTime: number;
   item: {
-    tvShowId?: string;
-    episodeId?: string;
-    [key: string]: unknown;
+    fileId: string;
+    sourceMetadata?: PlayerSourceMetadata;
   } | null;
 }
 
@@ -77,28 +83,11 @@ export function usePlayer(): PlayerApi {
     shell.player.getCurrentItem,
   );
   return {
-    play: shell.player.play as PlayerApi["play"],
+    play: shell.player.play,
     pause: () => {},
     isPlaying: false,
     currentTime: 0,
-    item: item as PlayerApi["item"],
-  };
-}
-
-interface VideoUiState {
-  episodeListOpen: boolean;
-  setEpisodeListOpen: (open: boolean) => void;
-  onEndedRef: RefObject<(() => void) | null>;
-}
-
-const DEFAULT_ON_ENDED_REF: RefObject<(() => void) | null> = { current: null };
-
-/** TODO(phase4c): video-local UI state context. */
-export function useVideoUiState(): VideoUiState {
-  return {
-    episodeListOpen: false,
-    setEpisodeListOpen: () => {},
-    onEndedRef: DEFAULT_ON_ENDED_REF,
+    item,
   };
 }
 

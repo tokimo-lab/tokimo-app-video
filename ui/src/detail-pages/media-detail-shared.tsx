@@ -7,7 +7,7 @@ import {
   size,
   useFloating,
 } from "@floating-ui/react";
-import { posterThumbUrl } from "@tokimo/sdk";
+import { type PlayerPlayMeta, posterThumbUrl } from "@tokimo/sdk";
 import { cn, Popover, ScrollArea, Tag } from "@tokimo/ui";
 import { Play } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -516,14 +516,7 @@ export function MediaFileCard({
   playMeta,
 }: {
   file: MediaFileOutput;
-  playMeta?: {
-    title: string;
-    posterPath?: string | null;
-    videoItemId?: string;
-    episodeId?: string;
-    imdbId?: string | null;
-    tmdbId?: string | null;
-  };
+  playMeta?: PlayerPlayMeta;
 }) {
   const { t } = useTranslation();
   const { play } = usePlayer();
@@ -643,14 +636,7 @@ export function FilesSection({
   playMeta,
 }: {
   files: MediaFileOutput[];
-  playMeta?: {
-    title: string;
-    posterPath?: string | null;
-    videoItemId?: string;
-    episodeId?: string;
-    imdbId?: string | null;
-    tmdbId?: string | null;
-  };
+  playMeta?: PlayerPlayMeta;
 }) {
   const { t } = useTranslation();
   if (!files.length) return null;
