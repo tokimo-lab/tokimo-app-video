@@ -38,6 +38,7 @@ export default defineApp({
     applyLocale(ctx.locale);
     const unsubLocale = ctx.shell.subscribeLocale(applyLocale);
     const unregisterPlayerExtension = ctx.shell.player.registerExtension(
+      ctx.appId,
       createVideoPlayerExtension(ctx, queryClient),
     );
 
