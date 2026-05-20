@@ -93,8 +93,8 @@ pub async fn handle(
 
     let record_uuid = Uuid::parse_str(record_id)?;
 
-    // Resolve target library from videos / musics / books tables.
-    use crate::db::entities::{books, musics, videos};
+    // Resolve target library from videos table only (music/book entities removed in B4)
+    use crate::db::entities::videos;
     use crate::db::repos::media::VideoRepo;
     let lib_uuid = Uuid::parse_str(target_app_id)?;
 
@@ -110,20 +110,9 @@ pub async fn handle(
             settings: v.settings,
             sources: v.sources,
         }
-    } else if let Some(m) = musics::Entity::find_by_id(lib_uuid).one(db).await? {
-        LibInfo {
-            r#type: "music".into(),
-            settings: m.settings,
-            sources: m.sources,
-        }
-    } else if let Some(b) = books::Entity::find_by_id(lib_uuid).one(db).await? {
-        LibInfo {
-            r#type: "book".into(),
-            settings: b.settings,
-            sources: b.sources,
-        }
     } else {
-        return Err("目标应用不存在".into());
+        // Music/book support removed - entities no longer available in video app
+        return Err("目标应用不存在或不支持（video app 仅支持 video 类型）".into());
     };
 
     // Get scraping settings for NFO generation.

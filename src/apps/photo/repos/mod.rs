@@ -1,3 +1,10 @@
+// =============================================================================
+// ⚠️ CROSS-APP DEPRECATED: photo repo inside video sidecar ⚠️
+// =============================================================================
+// COMMENTED OUT IN B4: photo entities removed from video app
+// =============================================================================
+
+/*
 use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 use serde_json::Value;
@@ -36,3 +43,4 @@ impl PhotoLibraryRepo {
             .collect()
     }
 }
+*/

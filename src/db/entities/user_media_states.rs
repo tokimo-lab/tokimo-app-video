@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "user_media_states")]
+#[sea_orm(schema_name = "video", table_name = "user_media_states")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -28,14 +28,7 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::book_items::Entity",
-        from = "Column::BookId",
-        to = "super::book_items::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    BookItems,
+    // BookItems relation removed - entity no longer in video app
     #[sea_orm(
         belongs_to = "super::episodes::Entity",
         from = "Column::EpisodeId",
@@ -70,11 +63,14 @@ pub enum Relation {
     VideoItems,
 }
 
+// Book items relation removed - entity no longer in video app
+/*
 impl Related<super::book_items::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::BookItems.def()
     }
 }
+*/
 
 impl Related<super::episodes::Entity> for Entity {
     fn to() -> RelationDef {

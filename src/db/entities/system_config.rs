@@ -1,5 +1,7 @@
 //! `SeaORM` Entity for system_config table.
 
+//! Shared public table; video sidecar must access it via bus/main-server APIs and must not write it directly.
+
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

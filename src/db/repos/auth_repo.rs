@@ -100,6 +100,8 @@ impl AuthRepo {
     }
 
     /// 更新用户最后登录时间。
+    /// COMMENTED OUT: users.last_login_at field doesn't exist in shared public schema
+    /*
     pub async fn update_last_login(db: &DatabaseConnection, user_id: Uuid) -> Result<(), AppError> {
         let model = users::Entity::find_by_id(user_id).one(db).await?;
         if let Some(m) = model {
@@ -109,6 +111,7 @@ impl AuthRepo {
         }
         Ok(())
     }
+    */
 
     /// 统计用户数量（判断是否为首次启动）。
     pub async fn count_users(db: &DatabaseConnection) -> Result<u64, AppError> {
@@ -117,13 +120,20 @@ impl AuthRepo {
     }
 
     /// Check whether a user has registered any passkeys.
-    pub async fn has_passkeys(db: &DatabaseConnection, user_id: Uuid) -> Result<bool, AppError> {
-        use crate::db::entities::pass_keys;
-        let count = pass_keys::Entity::find()
-            .filter(pass_keys::Column::UserId.eq(user_id))
-            .count(db)
-            .await?;
-        Ok(count > 0)
+    /// COMMENTED OUT: pass_keys entity removed in B4 cleanup
+    #[allow(dead_code)]
+    fn _has_passkeys_removed() {
+        // Original implementation commented out - pass_keys entity no longer available
+        /*
+        pub async fn has_passkeys(db: &DatabaseConnection, user_id: Uuid) -> Result<bool, AppError> {
+            use crate::db::entities::pass_keys;
+            let count = pass_keys::Entity::find()
+                .filter(pass_keys::Column::UserId.eq(user_id))
+                .count(db)
+                .await?;
+            Ok(count > 0)
+        }
+        */
     }
 }
 

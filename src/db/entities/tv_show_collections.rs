@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "tv_show_collections")]
+#[sea_orm(schema_name = "video", table_name = "tv_show_collections")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub tv_show_id: Uuid,

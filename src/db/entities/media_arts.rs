@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "media_arts")]
+#[sea_orm(schema_name = "video", table_name = "media_arts")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -29,22 +29,7 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::book_items::Entity",
-        from = "Column::BookId",
-        to = "super::book_items::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    BookItems,
-    #[sea_orm(
-        belongs_to = "super::music_albums::Entity",
-        from = "Column::AlbumId",
-        to = "super::music_albums::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    MusicAlbums,
+    // BookItems and MusicAlbums relations removed - entities no longer in video app
     #[sea_orm(
         belongs_to = "super::seasons::Entity",
         from = "Column::SeasonId",
@@ -71,6 +56,8 @@ pub enum Relation {
     VideoItems,
 }
 
+// Book and music relations removed - entities no longer in video app
+/*
 impl Related<super::book_items::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::BookItems.def()
@@ -82,6 +69,7 @@ impl Related<super::music_albums::Entity> for Entity {
         Relation::MusicAlbums.def()
     }
 }
+*/
 
 impl Related<super::seasons::Entity> for Entity {
     fn to() -> RelationDef {
