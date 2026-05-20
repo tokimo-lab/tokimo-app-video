@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_OPTIONS: --max-old-space-size=4096
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout Tokimo workspace
+        uses: actions/checkout@v4
+        with:
+          repository: tokimo-lab/tokimo
+          path: tokimo
+          submodules: recursive
+
+      - name: Checkout video app
+        uses: actions/checkout@v4
+        with:
+          path: tokimo/apps/tokimo-app-video
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build UI
+        working-directory: tokimo/apps/tokimo-app-video/ui
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tokimo -> target
+
+      - name: cargo build
+        working-directory: tokimo/apps/tokimo-app-video
+        run: cargo build
+
+  lint:
+    name: fmt & clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Tokimo workspace
+        uses: actions/checkout@v4
+        with:
+          repository: tokimo-lab/tokimo
+          path: tokimo
+          submodules: recursive
+
+      - name: Checkout video app
+        uses: actions/checkout@v4
+        with:
+          path: tokimo/apps/tokimo-app-video
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: UI checks
+        working-directory: tokimo/apps/tokimo-app-video/ui
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          if node -e "const s = require('./package.json').scripts || {}; process.exit(s.typecheck ? 0 : 1)"; then
+            pnpm typecheck
+          else
+            echo 'No ui typecheck script configured; build completed.'
+          fi
+          if node -e "const s = require('./package.json').scripts || {}; process.exit(s.lint ? 0 : 1)"; then
+            pnpm lint
+          else
+            echo 'No ui lint script configured; build completed.'
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tokimo -> target
+
+      - name: cargo fmt
+        working-directory: tokimo/apps/tokimo-app-video
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        working-directory: tokimo/apps/tokimo-app-video
+        run: cargo clippy -- -D warnings
