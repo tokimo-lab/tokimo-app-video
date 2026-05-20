@@ -58,7 +58,10 @@ pub async fn handle(
         .and_then(sea_orm::JsonValue::as_i64)
         .unwrap_or(0);
     let checksum = payload.get("checksum").and_then(|v| v.as_str());
-    let app_id = payload.get("appId").and_then(|v| v.as_str()).ok_or("Missing appId")?;
+    let video_id = payload
+        .get("videoId")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing videoId")?;
     let source_id = payload
         .get("sourceId")
         .and_then(|v| v.as_str())
@@ -68,7 +71,7 @@ pub async fn handle(
         .and_then(|v| v.as_str())
         .ok_or("Missing libType")?;
 
-    let app_uuid = Uuid::parse_str(app_id)?;
+    let app_uuid = Uuid::parse_str(video_id)?;
     let source_uuid = Uuid::parse_str(source_id)?;
     let lib_type = LibType::parse(lib_type_str)?;
 

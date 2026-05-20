@@ -15,7 +15,7 @@ use crate::queue::handlers::file_scrape;
 /// ```json
 /// {
 ///   "movieDir": "/path/to/MovieName (2024)",
-///   "appId": "uuid", "sourceId": "uuid", "libType": "movie",
+///   "videoId": "uuid", "sourceId": "uuid", "libType": "movie",
 ///   "files": [{ "filePath": "...", "dirPath": "...", "fileSize": 123, "checksum": "123:456" }]
 /// }
 /// ```
@@ -34,7 +34,7 @@ pub async fn handle(
         .get("movieDir")
         .and_then(|v| v.as_str())
         .ok_or("Missing movieDir")?;
-    let app_id = payload.get("appId").and_then(|v| v.as_str()).ok_or("Missing appId")?;
+    let video_id = payload.get("videoId").and_then(|v| v.as_str()).ok_or("Missing videoId")?;
     let source_id = payload
         .get("sourceId")
         .and_then(|v| v.as_str())
@@ -62,7 +62,7 @@ pub async fn handle(
             "dirPath": file.get("dirPath"),
             "fileSize": file.get("fileSize"),
             "checksum": file.get("checksum"),
-            "appId": app_id,
+            "videoId": video_id,
             "sourceId": source_id,
             "libType": lib_type,
         });

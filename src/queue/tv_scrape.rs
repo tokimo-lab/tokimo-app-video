@@ -16,7 +16,7 @@ use crate::queue::handlers::file_scrape;
 /// ```json
 /// {
 ///   "showDir": "/path/to/ShowName",
-///   "appId": "uuid", "sourceId": "uuid", "libType": "tv",
+///   "videoId": "uuid", "sourceId": "uuid", "libType": "tv",
 ///   "files": [{ "filePath": "...", "dirPath": "...", "fileSize": 123, "checksum": "123:456" }]
 /// }
 /// ```
@@ -36,7 +36,7 @@ pub async fn handle(
         .get("showDir")
         .and_then(|v| v.as_str())
         .ok_or("Missing showDir")?;
-    let app_id = payload.get("appId").and_then(|v| v.as_str()).ok_or("Missing appId")?;
+    let video_id = payload.get("videoId").and_then(|v| v.as_str()).ok_or("Missing videoId")?;
     let source_id = payload
         .get("sourceId")
         .and_then(|v| v.as_str())
@@ -66,7 +66,7 @@ pub async fn handle(
     {
         let file = &files[0];
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
-        let file_payload = make_file_payload(file, app_id, source_id, lib_type);
+        let file_payload = make_file_payload(file, video_id, source_id, lib_type);
         match file_scrape::handle(db, state, job_id, &file_payload, cancel).await {
             Ok(_) => {
                 processed.fetch_add(1, Ordering::Relaxed);
@@ -85,7 +85,7 @@ pub async fn handle(
         check_cancel(cancel)?;
         let mut handles = Vec::with_capacity(chunk.len());
         for file in chunk {
-            let file_payload = make_file_payload(file, app_id, source_id, lib_type);
+            let file_payload = make_file_payload(file, video_id, source_id, lib_type);
             let db = db.clone();
             let state = state.clone();
             let processed = processed.clone();
@@ -125,13 +125,13 @@ pub async fn handle(
     })))
 }
 
-fn make_file_payload(file: &JsonValue, app_id: &str, source_id: &str, lib_type: &str) -> JsonValue {
+fn make_file_payload(file: &JsonValue, video_id: &str, source_id: &str, lib_type: &str) -> JsonValue {
     json!({
         "filePath": file.get("filePath"),
         "dirPath": file.get("dirPath"),
         "fileSize": file.get("fileSize"),
         "checksum": file.get("checksum"),
-        "appId": app_id,
+        "videoId": video_id,
         "sourceId": source_id,
         "libType": lib_type,
     })
