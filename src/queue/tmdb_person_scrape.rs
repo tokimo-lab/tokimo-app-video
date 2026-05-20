@@ -13,7 +13,7 @@ use crate::queue::cancellation::{JobCancel, check_cancel};
 pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
-    _job_id: Uuid,
+    job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
@@ -80,6 +80,8 @@ pub async fn handle(
 
     // ── Dispatch image_upload job for the profile image ──
     if let Some(profile_path) = &detail.profile_path {
+        let job_owner_user_id =
+            crate::db::repos::job_repo::JobRepo::get_job_owner_user_id(db, job_id).await?;
         let storage_key = format!("tmdb-images/persons/{person_id}/profile.jpg");
         let tmdb_image_url = format!("https://image.tmdb.org/t/p/w500{profile_path}");
         crate::db::repos::job_repo::JobRepo::create_job_via_bus(
@@ -94,7 +96,7 @@ pub async fn handle(
                 "field": "profilePath",
             }),
             None,
-            None,
+            job_owner_user_id,
         )
         .await?;
     }

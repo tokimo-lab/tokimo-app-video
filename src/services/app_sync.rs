@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest};
 use crate::db::entities::{
     episodes, seasons, tv_shows, vfs, video_files, video_items, videos,
 };
@@ -19,7 +20,6 @@ use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::vfs::ops::walk_video_files_streaming;
 use tokimo_bus_client::BusClient;
-use tokimo_bus_protocol::CallerCtx;
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS `AppType`).
@@ -526,7 +526,6 @@ impl AppSyncService {
     /// Batch size for flushing accumulated jobs to DB.
     const JOB_BATCH_FLUSH_SIZE: usize = 50;
 
-    // TODO(phase F): replace raw jobs.create loop with a typed bus wrapper/batch API.
     async fn create_jobs_via_bus(
         bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         jobs_data: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)>,
@@ -542,26 +541,8 @@ impl AppSyncService {
             let Some(user_id) = user_id else {
                 return Err(AppError::Unauthorized("jobs.create via bus requires caller user_id".into()));
             };
-            let req_bytes = serde_json::to_vec(&json!({
-                "kind": job_type,
-                "payload": payload,
-                "meta": meta,
-            }))
-            .map_err(|e| AppError::Internal(format!("jobs.create encode: {e}")))?;
-            client
-                .invoke(
-                    "jobs",
-                    "create",
-                    req_bytes,
-                    CallerCtx {
-                        user_id: Some(user_id.to_string()),
-                        request_id: Uuid::new_v4().to_string(),
-                        workspace: None,
-                        caller_app_id: Some("video".to_string()),
-                    },
-                )
-                .await
-                .map_err(|e| AppError::Internal(format!("jobs.create via bus: {e}")))?;
+            let request = CreateJobRequest::new(job_type, payload).with_meta(meta);
+            jobs_client::create(client, jobs_client::video_caller(Some(user_id)), request).await?;
             inserted += 1;
         }
         Ok(inserted)

@@ -92,6 +92,7 @@ pub async fn handle(
         .ok_or("Missing targetAppId")?;
 
     let record_uuid = Uuid::parse_str(record_id)?;
+    let job_owner_user_id = JobRepo::get_job_owner_user_id(db, job_id).await?;
 
     // Resolve target library from videos table only (music/book entities removed in B4)
     use crate::db::entities::videos;
@@ -472,7 +473,7 @@ pub async fn handle(
                                     "libType": lib_type,
                                 }),
                                 None,
-                                None,
+                                job_owner_user_id,
                             )
                             .await
                             {
@@ -506,7 +507,7 @@ pub async fn handle(
                                     "libType": lib_type,
                                 }),
                                 None,
-                                None,
+                                job_owner_user_id,
                             )
                             .await
                             {

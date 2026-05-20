@@ -14,6 +14,7 @@ use tokio::{
 };
 use tracing::{info, warn};
 
+use crate::bus_clients::vfs as vfs_client;
 use crate::db::models::media::vfs::{VfsRecord, VfsStatus};
 use crate::db::repos::media::vfs_repo::VfsRepo;
 
@@ -305,24 +306,8 @@ async fn patch_config_via_bus(
         warn!("bus_client not initialized; cannot persist config for {}", source_id);
         return Ok(());
     };
-    let payload = serde_json::to_vec(&serde_json::json!({
-        "sourceId": source_id,
-        "patch": patch,
-    }))
-    .map_err(|e| format!("json encode: {e}"))?;
-    client
-        .invoke(
-            "vfs",
-            "patch_config",
-            payload,
-            tokimo_bus_protocol::CallerCtx {
-                user_id: None,
-                request_id: String::new(),
-                workspace: None,
-                caller_app_id: None,
-            },
-        )
+    let source_uuid = source_id.parse().map_err(|e| format!("invalid source id: {e}"))?;
+    vfs_client::patch_config(client, vfs_client::video_caller(), source_uuid, patch)
         .await
-        .map_err(|e| format!("bus invoke: {e}"))?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }

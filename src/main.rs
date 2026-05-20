@@ -8,6 +8,7 @@
 
 mod app_server;
 mod assets;
+mod bus_clients;
 mod bus_services;
 mod cli;
 mod config;
