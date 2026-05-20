@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type MenuBarConfig,
-  type TaskMetadata,
   useMenuBar,
   useToast as useMessage,
+  useRuntimeCtx,
   useWindowActions,
   useWindowId,
 } from "@tokimo/sdk";
@@ -12,6 +12,7 @@ import { FolderSync, Plus, RefreshCw } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
+import { registerBridge } from "../modal-bridge";
 import { useActiveLibrary } from "./ActiveLibraryContext";
 
 export default function VideoMenuBar({ children }: { children: ReactNode }) {
@@ -21,6 +22,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
   const windowId = useWindowId();
   const { openModalWindow } = useWindowActions();
   const activeLibrary = useActiveLibrary();
+  const ctx = useRuntimeCtx();
 
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncClearData, setSyncClearData] = useState(false);
@@ -71,20 +73,19 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
         label: t("media.sidebar.addOnlineMedia"),
         icon: <Plus size={14} />,
         onClick: () => {
+          const bridgeId = registerBridge({ kind: "add-online-media", ctx });
+          const metadata: Record<string, unknown> = { bridgeId };
+          if (activeLibrary.id) metadata.defaultLibraryId = activeLibrary.id;
+
           openModalWindow({
-            component: () =>
-              import("@/apps/video/components/AddOnlineMediaWindow"),
+            component: () => import("./AddOnlineMediaWindow"),
             parentWindowId: windowId,
             title: t("media.downloads.onlineMedia.title"),
             width: 680,
             height: 680,
             noResize: true,
             noMinimize: true,
-            metadata: activeLibrary.id
-              ? ({
-                  defaultLibraryId: activeLibrary.id,
-                } as Record<string, unknown> as TaskMetadata)
-              : undefined,
+            metadata,
           });
         },
       });
@@ -124,6 +125,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
     activeLibrary.id,
     windowId,
     openModalWindow,
+    ctx,
     t,
   ]);
 

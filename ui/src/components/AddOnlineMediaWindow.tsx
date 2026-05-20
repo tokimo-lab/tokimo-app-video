@@ -33,6 +33,9 @@ import {
   type StartOnlineMediaDownloadStartedOutput,
   type VideoOutput,
 } from "../api";
+import { queryClient } from "../index";
+import { getBridge } from "../modal-bridge";
+import { withProviders } from "../shared/providers";
 
 const ns = "media.downloads";
 
@@ -175,9 +178,11 @@ function AnalysisCard({
 
 // ── Main modal window ───────────────────────────────────────────────────────
 
-export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
-  const meta = win.metadata as Record<string, unknown>;
-  const defaultLibraryId = (meta?.defaultLibraryId as string) ?? undefined;
+function AddOnlineMediaContent({ win }: { win: WindowState }) {
+  const defaultLibraryId =
+    typeof win.metadata?.defaultLibraryId === "string"
+      ? win.metadata.defaultLibraryId
+      : undefined;
 
   const { t } = useTranslation();
   const [form] = Form.useForm();
@@ -463,5 +468,21 @@ export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function AddOnlineMediaWindow({ win }: { win: WindowState }) {
+  const bridgeId =
+    typeof win.metadata?.bridgeId === "string"
+      ? win.metadata.bridgeId
+      : undefined;
+  const [bridge] = useState(() => (bridgeId ? getBridge(bridgeId) : undefined));
+
+  if (bridge?.kind !== "add-online-media") return null;
+
+  return withProviders(
+    bridge.ctx,
+    queryClient,
+    <AddOnlineMediaContent win={win} />,
   );
 }

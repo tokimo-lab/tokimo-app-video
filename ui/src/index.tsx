@@ -9,7 +9,7 @@ import i18n, { SUPPORTED_LOCALES } from "./i18n";
 import { createVideoPlayerExtension } from "./player-extension";
 import "./index.css";
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false, refetchOnWindowFocus: false },
   },

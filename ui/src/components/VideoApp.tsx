@@ -1,5 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useSyncProgress, useWindowActions, useWindowId } from "@tokimo/sdk";
+import {
+  useRuntimeCtx,
+  useSyncProgress,
+  useWindowActions,
+  useWindowId,
+} from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect } from "react";
@@ -7,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
+import { registerBridge } from "../modal-bridge";
 import { useVideoNav } from "../router/useVideoNav";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
@@ -33,6 +39,7 @@ export default function VideoApp() {
 
   const windowId = useWindowId();
   const { openModalWindow } = useWindowActions();
+  const ctx = useRuntimeCtx();
 
   // Active category is stored in the window route (persisted in DB via user_tasks).
   const activeCategoryId = params.categoryId ?? null;
@@ -55,8 +62,17 @@ export default function VideoApp() {
 
   const openEditorModal = useCallback(
     (opts: { videoId?: string } = {}) => {
+      const bridgeId = registerBridge({
+        kind: "library-editor",
+        ctx,
+        onSaved: () => {},
+        onDeleted: () => {},
+      });
+      const metadata: Record<string, unknown> = { bridgeId };
+      if (opts.videoId) metadata.videoId = opts.videoId;
+
       openModalWindow({
-        component: () => import("../VideoLibraryEditor"),
+        component: () => import("./VideoLibraryEditorWindow"),
         parentWindowId: windowId,
         title: opts.videoId
           ? t("media.libraryEditor.settingsTitle")
@@ -65,12 +81,10 @@ export default function VideoApp() {
         height: 640,
         noResize: true,
         noMinimize: true,
-        metadata: opts.videoId
-          ? ({ videoId: opts.videoId } as Record<string, unknown>)
-          : undefined,
+        metadata,
       });
     },
-    [openModalWindow, windowId, t],
+    [ctx, openModalWindow, windowId, t],
   );
 
   const activeCategory = categories?.find((c) => c.id === activeCategoryId);
