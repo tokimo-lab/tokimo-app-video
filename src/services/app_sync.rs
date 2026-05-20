@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use chrono::Utc;
 use regex::Regex;
@@ -10,20 +10,16 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::apps::photo::repos::PhotoLibraryRepo;
 use crate::db::entities::{
-    book_files, books, episodes, music_album_artists, music_albums, music_artists, music_files, music_tracks, musics,
-    photo_albums, photo_libraries, photo_persons, photos, seasons, tv_shows, vfs, video_files, video_items, videos,
+    episodes, seasons, tv_shows, vfs, video_files, video_items, videos,
 };
-use crate::db::repos::book_repo::BookRepo;
 use crate::db::repos::job_repo::JobRepo;
-use crate::db::repos::media::MusicRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::vfs::ops::{
-    AUDIO_EXTENSIONS, BOOK_EXTENSIONS, PHOTO_EXTENSIONS, walk_files_streaming, walk_video_files_streaming,
-};
+use crate::handlers::vfs::ops::walk_video_files_streaming;
+use tokimo_bus_client::BusClient;
+use tokimo_bus_protocol::CallerCtx;
 use crate::services::media::source::SourceRegistry;
 
 /// Types of media libraries (matches TS `AppType`).
@@ -119,6 +115,7 @@ pub struct SyncResult {
 // ── music sync types ────────────────────────────────────────────────────
 
 /// Audio tag info extracted from a file via lofty.
+#[cfg(any())]
 struct AudioTagInfo {
     title: Option<String>,
     artist: Option<String>,
@@ -137,6 +134,7 @@ struct AudioTagInfo {
 }
 
 /// Collected audio file info for music sync.
+#[cfg(any())]
 struct CollectedAudioFile {
     file_path: String,
     dir_path: String,
@@ -147,6 +145,7 @@ struct CollectedAudioFile {
 }
 
 /// Grouped album info.
+#[cfg(any())]
 struct AlbumGroup {
     artist_name: String,
     album_title: String,
@@ -165,6 +164,7 @@ impl AppSyncService {
         db: &DatabaseConnection,
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        bus_client: Arc<OnceLock<Arc<BusClient>>>,
         video_id: Uuid,
         clear_data: bool,
         _http_client: reqwest::Client,
@@ -180,7 +180,7 @@ impl AppSyncService {
             video.name, video_id, lib_type
         );
 
-        let result = Self::do_video_sync(db, sources, storage, &video, lib_type, is_movie, is_tv, clear_data).await;
+        let result = Self::do_video_sync(db, sources, storage, &bus_client, &video, lib_type, is_movie, is_tv, clear_data).await;
 
         match &result {
             Ok(sync_result) => {
@@ -204,87 +204,30 @@ impl AppSyncService {
 
     /// Sync a music library. Reads sources from JSON column in `musics` table.
     pub async fn execute_music_sync(
-        db: &DatabaseConnection,
-        sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        music_id: Uuid,
-        clear_data: bool,
+        _db: &DatabaseConnection,
+        _sources: &SourceRegistry,
+        _storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        _music_id: Uuid,
+        _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        let music = MusicRepo::get_by_id(db, music_id)
-            .await?
-            .not_found("music library not found")?;
-
-        info!(
-            "Starting music sync for \"{}\" (id={}, type={})",
-            music.name, music_id, music.r#type
-        );
-
-        let result = Self::do_music_sync(db, sources, storage, &music, clear_data).await;
-
-        match &result {
-            Ok(sync_result) => {
-                let now = Utc::now();
-                MusicRepo::update_sync_status(db, music_id, "completed", Some(now.fixed_offset())).await?;
-                info!(
-                    "Music sync completed: \"{}\" — {} jobs dispatched",
-                    music.name, sync_result.total_jobs
-                );
-            }
-            Err(err) => {
-                error!("Music sync failed for \"{}\": {}", music.name, err);
-                if let Err(e) = MusicRepo::update_sync_status(db, music_id, "failed", None).await {
-                    warn!("app_sync music {music_id}: failed to mark sync_status=failed: {e}");
-                }
-            }
-        }
-
-        result
+        Err(AppError::BadRequest("music sync is not supported by tokimo-app-video".into()))
     }
 
     /// Execute sync for a book container.
     ///
     /// Similar to `execute_music_sync` but reads from `books` table.
     pub async fn execute_book_sync(
-        db: &DatabaseConnection,
-        sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        book_id: Uuid,
-        clear_data: bool,
+        _db: &DatabaseConnection,
+        _sources: &SourceRegistry,
+        _storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        _book_id: Uuid,
+        _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        let book = BookRepo::get_container_by_id(db, book_id)
-            .await?
-            .not_found("book library not found")?;
-
-        let lib_type = &book.r#type;
-
-        info!(
-            "Starting book sync for \"{}\" (id={}, type={})",
-            book.name, book_id, lib_type
-        );
-
-        let result = Self::do_book_sync(db, sources, storage, &book, clear_data).await;
-
-        match &result {
-            Ok(sync_result) => {
-                let now = Utc::now();
-                BookRepo::update_sync_status(db, book_id, "completed", Some(now.fixed_offset())).await?;
-                info!(
-                    "Book sync completed: \"{}\" — {} jobs dispatched",
-                    book.name, sync_result.total_jobs
-                );
-            }
-            Err(err) => {
-                error!("Book sync failed for \"{}\": {}", book.name, err);
-                if let Err(e) = BookRepo::update_sync_status(db, book_id, "failed", None).await {
-                    warn!("app_sync book {book_id}: failed to mark sync_status=failed: {e}");
-                }
-            }
-        }
-
-        result
+        Err(AppError::BadRequest("book sync is not supported by tokimo-app-video".into()))
     }
 
     /// Core book sync logic: parses sources from JSON and walks each.
+    #[cfg(any())]
     async fn do_book_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -329,46 +272,19 @@ impl AppSyncService {
     }
 
     /// Execute sync for a photo library.
-    ///
-    /// Mirrors `execute_book_sync` — walks configured sources for image files
-    /// and dispatches `file_scrape` jobs.
     pub async fn execute_photo_sync(
-        db: &DatabaseConnection,
-        sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
-        library_id: Uuid,
-        clear_data: bool,
-        user_id: Option<Uuid>,
+        _db: &DatabaseConnection,
+        _sources: &SourceRegistry,
+        _storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        _library_id: Uuid,
+        _clear_data: bool,
+        _user_id: Option<Uuid>,
     ) -> Result<SyncResult, AppError> {
-        let library = PhotoLibraryRepo::get_by_id(db, library_id)
-            .await?
-            .not_found("photo library not found")?;
-
-        info!("Starting photo sync for \"{}\" (id={})", library.name, library_id);
-
-        let result = Self::do_photo_sync(db, sources, storage, &library, clear_data, user_id).await;
-
-        match &result {
-            Ok(sync_result) => {
-                let now = Utc::now();
-                PhotoLibraryRepo::update_sync_status(db, library_id, "completed", Some(now)).await?;
-                info!(
-                    "Photo sync completed: \"{}\" — {} jobs dispatched",
-                    library.name, sync_result.total_jobs
-                );
-            }
-            Err(err) => {
-                error!("Photo sync failed for \"{}\": {}", library.name, err);
-                if let Err(e) = PhotoLibraryRepo::update_sync_status(db, library_id, "failed", None).await {
-                    warn!("app_sync photo library {library_id}: failed to mark sync_status=failed: {e}");
-                }
-            }
-        }
-
-        result
+        Err(AppError::BadRequest("photo sync is not supported by tokimo-app-video".into()))
     }
 
     /// Core photo sync logic: parses sources from JSON and walks each.
+    #[cfg(any())]
     async fn do_photo_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -415,6 +331,7 @@ impl AppSyncService {
     }
 
     /// Core music sync logic: parses sources from JSON and walks each.
+    #[cfg(any())]
     async fn do_music_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -465,6 +382,7 @@ impl AppSyncService {
         db: &DatabaseConnection,
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         video: &videos::Model,
         lib_type: &str,
         is_movie: bool,
@@ -491,7 +409,7 @@ impl AppSyncService {
                 .ok_or_else(|| AppError::NotFound(format!("source {source_id} not found")))?;
 
             let jobs = Self::sync_fs_source(
-                db, sources, storage, video_id, lib_type, is_movie, is_tv, false, // is_music = false for video
+                db, sources, storage, bus_client, video_id, lib_type, is_movie, is_tv,
                 &source, root_path, None,
             )
             .await?;
@@ -582,81 +500,6 @@ impl AppSyncService {
                 .await?
                 .rows_affected;
             info!("  Deleted {deleted} tv shows (cascade: seasons + episodes)");
-        } else if is_music_type(lib_type) {
-            let deleted = music_albums::Entity::delete_many()
-                .filter(music_albums::Column::MusicId.eq(app_id))
-                .exec(db)
-                .await?
-                .rows_affected;
-            info!("  Deleted {deleted} music albums");
-        } else if is_book_type(lib_type) {
-            use crate::db::entities::{book_chapters, book_items, book_volumes};
-
-            let book_ids: Vec<Uuid> = book_items::Entity::find()
-                .filter(book_items::Column::BookId.eq(app_id))
-                .all(db)
-                .await?
-                .into_iter()
-                .map(|n| n.id)
-                .collect();
-            if !book_ids.is_empty() {
-                let ch_deleted = book_chapters::Entity::delete_many()
-                    .filter(book_chapters::Column::BookId.is_in(book_ids.clone()))
-                    .exec(db)
-                    .await?
-                    .rows_affected;
-                info!("  Deleted {ch_deleted} book chapters");
-
-                let vol_deleted = book_volumes::Entity::delete_many()
-                    .filter(book_volumes::Column::BookId.is_in(book_ids.clone()))
-                    .exec(db)
-                    .await?
-                    .rows_affected;
-                info!("  Deleted {vol_deleted} book volumes");
-
-                let mf_deleted = book_files::Entity::delete_many()
-                    .filter(book_files::Column::BookId.is_in(book_ids.clone()))
-                    .exec(db)
-                    .await?
-                    .rows_affected;
-                info!("  Deleted {mf_deleted} book files (linked to book items)");
-            }
-
-            let deleted = book_items::Entity::delete_many()
-                .filter(book_items::Column::BookId.eq(app_id))
-                .exec(db)
-                .await?
-                .rows_affected;
-            info!("  Deleted {deleted} book items");
-        } else if is_photo_type(lib_type) {
-            // Delete photo_persons first (faces will cascade from photos, but persons
-            // are only linked to appId and won't be cleaned up by photo deletion).
-            let persons_deleted = photo_persons::Entity::delete_many()
-                .filter(photo_persons::Column::AppId.eq(app_id))
-                .exec(db)
-                .await?
-                .rows_affected;
-            if persons_deleted > 0 {
-                info!("  Deleted {persons_deleted} photo persons");
-            }
-
-            // Delete photo_albums (they become empty after photos are cleared and
-            // won't be rebuilt by re-sync).
-            let albums_deleted = photo_albums::Entity::delete_many()
-                .filter(photo_albums::Column::AppId.eq(app_id))
-                .exec(db)
-                .await?
-                .rows_affected;
-            if albums_deleted > 0 {
-                info!("  Deleted {albums_deleted} photo albums");
-            }
-
-            let deleted = photos::Entity::delete_many()
-                .filter(photos::Column::AppId.eq(app_id))
-                .exec(db)
-                .await?
-                .rows_affected;
-            info!("  Deleted {deleted} photos");
         }
 
         // Delete orphaned video_files (unlinked, with movie_id AND episode_id both NULL)
@@ -673,28 +516,7 @@ impl AppSyncService {
                 info!("  Deleted {orphan_deleted} orphaned video files");
             }
         }
-        if !source_ids.is_empty() && is_music_type(lib_type) {
-            let orphan_deleted = music_files::Entity::delete_many()
-                .filter(music_files::Column::SourceId.is_in(source_ids.clone()))
-                .filter(music_files::Column::TrackId.is_null())
-                .exec(db)
-                .await?
-                .rows_affected;
-            if orphan_deleted > 0 {
-                info!("  Deleted {orphan_deleted} orphaned music files");
-            }
-        }
-        if !source_ids.is_empty() && is_book_type(lib_type) {
-            let orphan_deleted = book_files::Entity::delete_many()
-                .filter(book_files::Column::SourceId.is_in(source_ids.clone()))
-                .filter(book_files::Column::BookId.is_null())
-                .exec(db)
-                .await?
-                .rows_affected;
-            if orphan_deleted > 0 {
-                info!("  Deleted {orphan_deleted} orphaned book files");
-            }
-        }
+
 
         Ok(())
     }
@@ -704,15 +526,55 @@ impl AppSyncService {
     /// Batch size for flushing accumulated jobs to DB.
     const JOB_BATCH_FLUSH_SIZE: usize = 50;
 
+    // TODO(phase F): replace raw jobs.create loop with a typed bus wrapper/batch API.
+    async fn create_jobs_via_bus(
+        bus_client: &Arc<OnceLock<Arc<BusClient>>>,
+        jobs_data: Vec<(&str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)>,
+    ) -> Result<u64, AppError> {
+        if jobs_data.is_empty() {
+            return Ok(0);
+        }
+        let Some(client) = bus_client.get() else {
+            return Err(AppError::Internal("bus client is not initialized; refusing to write public.jobs directly".into()));
+        };
+        let mut inserted = 0u64;
+        for (job_type, payload, meta, user_id) in jobs_data {
+            let Some(user_id) = user_id else {
+                return Err(AppError::Unauthorized("jobs.create via bus requires caller user_id".into()));
+            };
+            let req_bytes = serde_json::to_vec(&json!({
+                "kind": job_type,
+                "payload": payload,
+                "meta": meta,
+            }))
+            .map_err(|e| AppError::Internal(format!("jobs.create encode: {e}")))?;
+            client
+                .invoke(
+                    "jobs",
+                    "create",
+                    req_bytes,
+                    CallerCtx {
+                        user_id: Some(user_id.to_string()),
+                        request_id: Uuid::new_v4().to_string(),
+                        workspace: None,
+                        caller_app_id: Some("video".to_string()),
+                    },
+                )
+                .await
+                .map_err(|e| AppError::Internal(format!("jobs.create via bus: {e}")))?;
+            inserted += 1;
+        }
+        Ok(inserted)
+    }
+
     /// Emit grouped jobs (book dirs, TV shows, movie dirs) accumulated during the walk.
     /// Returns the total number of jobs created.
     #[allow(clippy::too_many_arguments)]
     async fn flush_grouped_jobs<'a>(
-        db: &DatabaseConnection,
+        bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         jobs_batch: &mut Vec<(&'a str, serde_json::Value, Option<serde_json::Value>, Option<Uuid>)>,
         tv_groups: HashMap<String, Vec<serde_json::Value>>,
         movie_groups: HashMap<String, Vec<serde_json::Value>>,
-        book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>>,
         app_id: Uuid,
         source_id: Uuid,
         lib_type: &'a str,
@@ -720,23 +582,6 @@ impl AppSyncService {
     ) -> Result<u64, AppError> {
         let mut total = 0u64;
         let flush_size = Self::JOB_BATCH_FLUSH_SIZE;
-
-        for (dir_path, files) in &book_dir_files {
-            let chapter_files: Vec<serde_json::Value> = files
-                .iter()
-                .map(|f| json!({ "filePath": f.file_path, "fileSize": f.file_size, "checksum": format!("{}:{}", f.file_size, f.mtime) }))
-                .collect();
-            let total_size: u64 = files.iter().map(|f| f.file_size).sum();
-            jobs_batch.push((
-                "book_scrape",
-                json!({ "dirPath": dir_path, "chapterFiles": chapter_files, "totalSize": total_size, "appId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type }),
-                None,
-                user_id,
-            ));
-            if jobs_batch.len() >= flush_size {
-                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
-            }
-        }
 
         for (show_dir, files) in tv_groups {
             jobs_batch.push((
@@ -746,7 +591,7 @@ impl AppSyncService {
                 user_id,
             ));
             if jobs_batch.len() >= flush_size {
-                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
+                total += Self::create_jobs_via_bus(bus_client, std::mem::take(jobs_batch)).await?;
             }
         }
 
@@ -758,7 +603,7 @@ impl AppSyncService {
                 user_id,
             ));
             if jobs_batch.len() >= flush_size {
-                total += JobRepo::create_jobs_batch(db, std::mem::take(jobs_batch)).await?;
+                total += Self::create_jobs_via_bus(bus_client, std::mem::take(jobs_batch)).await?;
             }
         }
 
@@ -770,27 +615,17 @@ impl AppSyncService {
         db: &DatabaseConnection,
         sources: &SourceRegistry,
         storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         app_id: Uuid,
         lib_type: &str,
         is_movie: bool,
         is_tv: bool,
-        is_music: bool,
         source: &vfs::Model,
         root_path: &str,
         user_id: Option<Uuid>,
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
 
-        if is_book_type(lib_type) {
-            info!(
-                "Book app sync: walking file system source \"{}\" for book files",
-                source.name
-            );
-        }
-
-        if is_music {
-            return Self::sync_music_source(db, sources, storage, app_id, source, root_path).await;
-        }
 
         let is_local = source_type == "local";
         let is_remote = is_remote_fs_type(source_type);
@@ -819,16 +654,8 @@ impl AppSyncService {
         let (tx, mut rx) = mpsc::channel::<crate::handlers::vfs::ops::VideoFileInfo>(256);
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
-        let is_photo = is_photo_type(lib_type);
-        let is_book = is_book_type(lib_type);
         let walk_handle = tokio::spawn(async move {
-            if is_photo {
-                walk_files_streaming(vfs, &walk_root, &walk_source_id, &PHOTO_EXTENSIONS, tx).await
-            } else if is_book {
-                walk_files_streaming(vfs, &walk_root, &walk_source_id, &BOOK_EXTENSIONS, tx).await
-            } else {
-                walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await
-            }
+            walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await
         });
 
         // Consume files as they arrive — check DB + accumulate jobs incrementally
@@ -845,60 +672,28 @@ impl AppSyncService {
         let mut tv_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
         let mut movie_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
 
-        // For books: buffer .txt files grouped by directory, emit one job per directory.
-        // Non-txt book files (epub/mobi/etc.) get individual jobs like before.
-        let mut book_dir_files: HashMap<String, Vec<crate::handlers::vfs::ops::VideoFileInfo>> = HashMap::new();
-
-        // Pre-load existing photo paths for this source to skip already-indexed photos
-        // without creating 170K+ redundant file_scrape jobs every sync.
-        let existing_photo_paths: HashSet<String> = if is_photo {
-            photos::Entity::find()
-                .filter(photos::Column::AppId.eq(app_id))
-                .filter(photos::Column::SourceId.eq(source_id))
-                .select_only()
-                .column(photos::Column::Path)
-                .into_tuple::<String>()
-                .all(db)
-                .await?
-                .into_iter()
-                .collect()
-        } else {
-            HashSet::new()
-        };
 
         while let Some(video) = rx.recv().await {
             seen_paths.insert(video.file_path.clone());
             let checksum = format!("{}:{}", video.file_size, video.mtime);
 
-            // Photo libraries: skip already-indexed photos (dedup by path).
-            if is_photo && existing_photo_paths.contains(&video.file_path) {
-                skipped += 1;
-                continue;
-            }
 
             // Video/TV/Movie libraries: check video_files table with checksum.
-            if !is_photo && !is_book {
-                let existing = Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv).await?;
+            let existing = Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv).await?;
 
-                if let Some(existing) = existing {
-                    let checksum_matches = existing.checksum.as_deref() == Some(&checksum);
+            if let Some(existing) = existing {
+                let checksum_matches = existing.checksum.as_deref() == Some(&checksum);
 
-                    if checksum_matches && !Self::needs_artwork_backfill(db, &existing, is_movie, is_tv).await? {
-                        skipped += 1;
-                        continue; // Unchanged and has artwork — skip
-                    }
+                if checksum_matches && !Self::needs_artwork_backfill(db, &existing, is_movie, is_tv).await? {
+                    skipped += 1;
+                    continue; // Unchanged and has artwork — skip
+                }
 
-                    if !checksum_matches {
-                        Self::reset_video_file_link(db, existing.id, &checksum).await?;
-                    }
+                if !checksum_matches {
+                    Self::reset_video_file_link(db, existing.id, &checksum).await?;
                 }
             }
 
-            // Book .txt files: group by parent directory for chapter-based books
-            if is_book && video.file_path.to_lowercase().ends_with(".txt") {
-                book_dir_files.entry(video.dir_path.clone()).or_default().push(video);
-                continue;
-            }
 
             // TV/Anime: buffer by show-level dir (collapse season subdirs to show dir).
             if is_tv {
@@ -923,10 +718,9 @@ impl AppSyncService {
                 continue;
             }
 
-            // All other types (custom, online_video, photo, book non-txt): per-file job.
-            let job_type = if is_book { "book_scrape" } else { "file_scrape" };
+            // Custom/online_video: per-file job.
             jobs_batch.push((
-                job_type,
+                "file_scrape",
                 json!({
                     "filePath": video.file_path,
                     "dirPath": video.dir_path,
@@ -942,17 +736,16 @@ impl AppSyncService {
 
             // Flush batch periodically
             if jobs_batch.len() >= Self::JOB_BATCH_FLUSH_SIZE {
-                total_jobs += JobRepo::create_jobs_batch(db, std::mem::take(&mut jobs_batch)).await?;
+                total_jobs += Self::create_jobs_via_bus(bus_client, std::mem::take(&mut jobs_batch)).await?;
             }
         }
 
         // Emit entity-level TV/Movie/Book jobs + flush remaining per-file jobs.
         total_jobs += Self::flush_grouped_jobs(
-            db,
+            bus_client,
             &mut jobs_batch,
             tv_groups,
             movie_groups,
-            book_dir_files,
             app_id,
             source_id,
             lib_type,
@@ -962,7 +755,7 @@ impl AppSyncService {
 
         // Flush remaining jobs
         if !jobs_batch.is_empty() {
-            total_jobs += JobRepo::create_jobs_batch(db, jobs_batch).await?;
+            total_jobs += Self::create_jobs_via_bus(bus_client, jobs_batch).await?;
         }
 
         // Wait for walk to complete and check for errors
@@ -982,11 +775,7 @@ impl AppSyncService {
         );
 
         // Cleanup missing files (use vfs_root so DB paths match walk output)
-        if is_photo {
-            Self::cleanup_missing_photos(db, app_id, source_id, &vfs_root, &seen_paths).await?;
-        } else {
-            Self::cleanup_missing_files(db, app_id, source_id, source_type, &vfs_root, &seen_paths).await?;
-        }
+        Self::cleanup_missing_files(db, app_id, source_id, source_type, &vfs_root, &seen_paths).await?;
 
         Ok(total_jobs)
     }
@@ -994,6 +783,7 @@ impl AppSyncService {
     // ── music sync ──────────────────────────────────────────────────────
 
     /// Audio MIME types by extension.
+    #[cfg(any())]
     fn audio_mime_type(file_path: &str) -> &'static str {
         let ext = file_path.rsplit('.').next().unwrap_or("").to_lowercase();
         match ext.as_str() {
@@ -1026,6 +816,7 @@ impl AppSyncService {
     ];
 
     /// Read audio tags from a local file using lofty.
+    #[cfg(any())]
     fn read_audio_tags(path: &std::path::Path) -> Option<AudioTagInfo> {
         use lofty::file::{AudioFile, TaggedFileExt};
         use lofty::tag::Accessor;
@@ -1089,6 +880,7 @@ impl AppSyncService {
 
     /// Parse music filename to extract track number, title, and artist.
     /// Patterns: "01. Artist - Title", "01 - Title", "01 Title", fallback to filename.
+    #[cfg(any())]
     fn parse_music_filename(
         file_name: &str,
         parent_dir: Option<&str>,
@@ -1150,6 +942,7 @@ impl AppSyncService {
     /// Handles two patterns:
     /// - `"2002年07月18日 - 八度空间"` → `"八度空间"`
     /// - `"2003年11月11日《寻找周杰伦EP》"` → `"寻找周杰伦EP"`
+    #[cfg(any())]
     fn extract_clean_title(title: &str) -> String {
         let t = title.trim();
 
@@ -1198,6 +991,7 @@ impl AppSyncService {
         t.to_string()
     }
 
+    #[cfg(any())]
     fn get_album_info(file: &CollectedAudioFile) -> (String, String, Option<i32>) {
         if let Some(ref tags) = file.tags
             && let Some(ref album) = tags.album
@@ -1228,6 +1022,7 @@ impl AppSyncService {
     }
 
     /// Group collected audio files into album groups.
+    #[cfg(any())]
     fn group_files_into_albums(files: Vec<CollectedAudioFile>) -> Vec<AlbumGroup> {
         let mut groups: HashMap<String, AlbumGroup> = HashMap::new();
         for file in files {
@@ -1250,6 +1045,7 @@ impl AppSyncService {
 
     /// Find or create a `MusicArtist` record by name.
     #[allow(dead_code)]
+    #[cfg(any())]
     async fn find_or_create_music_artist(db: &DatabaseConnection, name: &str) -> Result<Uuid, AppError> {
         if let Some(a) = music_artists::Entity::find()
             .filter(music_artists::Column::Name.eq(name))
@@ -1285,6 +1081,7 @@ impl AppSyncService {
     }
 
     /// Find or create a `MusicAlbum` for the given group.
+    #[cfg(any())]
     async fn find_or_create_album(db: &DatabaseConnection, app_id: Uuid, group: &AlbumGroup) -> Result<Uuid, AppError> {
         // Find existing albums with matching title in this library
         let candidates = music_albums::Entity::find()
@@ -1346,6 +1143,7 @@ impl AppSyncService {
 
     /// Ensure an "artist" link exists between a music artist and an album.
     #[allow(dead_code)]
+    #[cfg(any())]
     async fn ensure_artist_credit(db: &DatabaseConnection, album_id: Uuid, artist_id: Uuid) -> Result<(), AppError> {
         let existing = music_album_artists::Entity::find()
             .filter(music_album_artists::Column::ArtistId.eq(artist_id))
@@ -1371,6 +1169,7 @@ impl AppSyncService {
     }
 
     /// Upsert a `MusicTrack` record.
+    #[cfg(any())]
     async fn upsert_track(
         db: &DatabaseConnection,
         album_id: Uuid,
@@ -1478,6 +1277,7 @@ impl AppSyncService {
     }
 
     /// Upsert a `MediaFile` record linked to a music track.
+    #[cfg(any())]
     async fn upsert_music_media_file(
         db: &DatabaseConnection,
         file: &CollectedAudioFile,
@@ -1530,6 +1330,7 @@ impl AppSyncService {
     }
 
     /// Update album metadata after all tracks have been processed.
+    #[cfg(any())]
     async fn update_album_metadata(
         db: &DatabaseConnection,
         album_id: Uuid,
@@ -1612,6 +1413,7 @@ impl AppSyncService {
     }
 
     /// Process one album group: create album, artist, credits, tracks, media files.
+    #[cfg(any())]
     async fn process_album_group(
         db: &DatabaseConnection,
         app_id: Uuid,
@@ -1649,6 +1451,7 @@ impl AppSyncService {
     }
 
     /// Full music sync for a single file-system source.
+    #[cfg(any())]
     async fn sync_music_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
@@ -1799,7 +1602,7 @@ impl AppSyncService {
                             None,
                         ));
                         if scrape_jobs.len() >= Self::JOB_BATCH_FLUSH_SIZE {
-                            total_jobs += JobRepo::create_jobs_batch(db, std::mem::take(&mut scrape_jobs)).await?;
+                            total_jobs += Self::create_jobs_via_bus(bus_client, std::mem::take(&mut scrape_jobs)).await?;
                         }
                     }
                 }
@@ -1816,7 +1619,7 @@ impl AppSyncService {
         }
 
         if !scrape_jobs.is_empty() {
-            total_jobs += JobRepo::create_jobs_batch(db, scrape_jobs).await?;
+            total_jobs += Self::create_jobs_via_bus(bus_client, scrape_jobs).await?;
         }
 
         // Cleanup missing files
@@ -1835,6 +1638,7 @@ impl AppSyncService {
     }
 
     /// Remove music-related DB records for files no longer on disk.
+    #[cfg(any())]
     async fn cleanup_missing_music_files(
         db: &DatabaseConnection,
         _app_id: Uuid,
@@ -2092,6 +1896,7 @@ impl AppSyncService {
     }
 
     /// Remove photos from the DB that no longer exist on disk.
+    #[cfg(any())]
     async fn cleanup_missing_photos(
         db: &DatabaseConnection,
         app_id: Uuid,

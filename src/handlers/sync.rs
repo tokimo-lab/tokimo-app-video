@@ -51,7 +51,7 @@ pub async fn sync_video(
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
-        match AppSyncService::execute_video_sync(&db, &sources, &storage, uid, false, http_client).await {
+        match AppSyncService::execute_video_sync(&db, &sources, &storage, state.bus_client.clone(), uid, false, http_client).await {
             Ok(result) => {
                 info!("video sync completed, {} jobs dispatched", result.total_jobs);
             }

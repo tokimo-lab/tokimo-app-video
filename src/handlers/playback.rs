@@ -18,7 +18,7 @@ use crate::AppState;
 use crate::db::entities::{vfs, video_files};
 use crate::db::models::playback::{AudioStreamInfo, ResumePositionDto, StreamUrlDto, WatchHistoryItemDto};
 use crate::db::repos::media::playback_session_repo::CreatePlaybackSessionInput;
-use crate::db::repos::media::{MusicRepo, PlaybackRepo, PlaybackSessionRepo};
+use crate::db::repos::media::{PlaybackRepo, PlaybackSessionRepo};
 use crate::db::repos::subtitle_repo::SubtitleRepo;
 use crate::handlers::media::utils::resolve_local_path;
 use crate::handlers::user::AuthUser;
@@ -142,23 +142,7 @@ pub async fn stream_url(
     };
 
     let Some((file, source)) = video_row else {
-        // Not a video file — try music files and return direct stream URL.
-        match MusicRepo::load_stream_target(db, &file_id).await {
-            Ok(Some(_)) => {
-                let url = format!("/api/apps/music/files/{file_id}/stream");
-                return ok(StreamUrlDto {
-                    url,
-                    watch_history_id: None,
-                })
-                .into_response();
-            }
-            Ok(None) => {
-                return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "File not found".into()).into_response();
-            }
-            Err(e) => {
-                return err_resp::<StreamUrlDto>(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
-            }
-        }
+        return err_resp::<StreamUrlDto>(StatusCode::NOT_FOUND, "Video file not found".into()).into_response();
     };
 
     // ── Watch history: create or reuse ──────────────────────────────────────
