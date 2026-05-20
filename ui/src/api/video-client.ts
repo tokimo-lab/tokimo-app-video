@@ -1,5 +1,10 @@
 /**
- * Low-level fetch wrappers for the video app's three API domains.
+ * Low-level fetch wrappers for the video app's API domains.
+ *
+ * All host-shell + sidecar endpoints return a `{ success, data?, error? }`
+ * envelope; this module unwraps it and normalises the bare `/` path so it
+ * matches axum's route definitions (which only register `/api/...` and
+ * `/api/.../{*rest}`, not the literal `/api/.../`).
  */
 
 async function apiFetch<T>(
@@ -7,7 +12,8 @@ async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const url = `${baseUrl}${path}`;
+  const normalized = path === "/" ? "" : path;
+  const url = `${baseUrl}${normalized}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string> | undefined),
@@ -17,38 +23,11 @@ async function apiFetch<T>(
     let message = res.statusText;
     try {
       const body = await res.json();
-      if (typeof body === "object" && body !== null && "message" in body) {
-        message = String((body as { message: unknown }).message);
-      }
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(`[${res.status}] ${message}`);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
-}
-
-/** Routes under /api/apps/video/ (proxied to video sidecar) */
-export async function videoFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  // http_bridge matches `/api/apps/video` and `/api/apps/video/{*rest}`, but
-  // NOT `/api/apps/video/` (bare trailing slash). Normalize "/" → "".
-  const normalized = path === "/" ? "" : path;
-  const url = `/api/apps/video${normalized}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  const res = await fetch(url, { ...init, headers });
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = await res.json();
-      if (typeof body === "object" && body !== null && "error" in body) {
-        message = String((body as { error: unknown }).error);
+      if (typeof body === "object" && body !== null) {
+        if ("error" in body)
+          message = String((body as { error: unknown }).error);
+        else if ("message" in body)
+          message = String((body as { message: unknown }).message);
       }
     } catch {
       // ignore parse error
@@ -65,6 +44,11 @@ export async function videoFetch<T>(
     throw new Error(payload.error ?? `Request failed: ${path}`);
   }
   return payload.data as T;
+}
+
+/** Routes under /api/apps/video/ (proxied to video sidecar) */
+export function videoFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiFetch<T>("/api/apps/video", path, init);
 }
 
 /** Routes under /api/vfs/ (host shell VFS API) */
