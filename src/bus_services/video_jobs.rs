@@ -1,6 +1,6 @@
 //! `video_jobs` bus service — sidecar-side handler registration.
 //!
-//! Exposes five methods so the main server worker can hand off video jobs
+//! Exposes six methods so the main server worker can hand off video jobs
 //! via `client.invoke("video", "<method>", payload, caller)` instead of
 //! running the handler inline.
 //!
@@ -11,6 +11,7 @@
 //! | `dispatch_movie_scrape`     | `queue::video_item_scrape::handle`       |
 //! | `dispatch_tmdb_person_scrape` | `queue::tmdb_person_scrape::handle`    |
 //! | `dispatch_online_video_download` | `queue::online_media_download::handle` |
+//! | `capabilities`              | bus capability handshake                 |
 //!
 //! # Payload contract (JSON)
 //! ```json
@@ -153,5 +154,21 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
             }
+        })
+        // ── capabilities ──────────────────────────────────────────────────────
+        .method(decl("capabilities", "Return video bus service capabilities"))
+        .on_invoke("capabilities", |_req| async move {
+            serde_json::to_vec(&serde_json::json!({
+                "version": env!("CARGO_PKG_VERSION"),
+                "methods": [
+                    "dispatch_file_scrape",
+                    "dispatch_tv_scrape",
+                    "dispatch_movie_scrape",
+                    "dispatch_tmdb_person_scrape",
+                    "dispatch_online_video_download",
+                    "capabilities",
+                ],
+            }))
+            .map_err(|e| BusError::Internal(e.to_string()))
         })
 }
