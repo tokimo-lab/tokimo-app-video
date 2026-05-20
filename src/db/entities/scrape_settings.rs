@@ -1,11 +1,11 @@
-//! Temporary SeaORM entity stub for video.scrape_settings.
-//! TODO(F7): regenerate this file with `bun db:sync` after schema updates land.
+//! SeaORM entity for `scrape_settings` (public schema, singleton-row config).
+//! Owned by app-video; mirrors prisma model `ScrapeSettings`. Keep in sync.
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "scrape_settings", schema_name = "video")]
+#[sea_orm(table_name = "scrape_settings")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
