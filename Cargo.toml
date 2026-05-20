@@ -9,10 +9,10 @@ repository  = "https://github.com/tokimo-lab/tokimo-app-video"
 
 [dependencies]
 # Tokimo bus (independent submodule repo, git rev pinned — matches helloworld范式)
-tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340" }
-tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340", features = ["axum"] }
-tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340", features = ["axum", "cli-db"] }
-tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340" }
+tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e" }
+tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e", features = ["axum"] }
+tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e", features = ["axum", "cli-db"] }
+tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e" }
 
 # Workspace path deps — packages 暂时 path 引用主仓 (dashcam 范式). 等独立仓库化后切 git rev pin.
 # 格式：每行末尾标 OWNER (谁负责) + DEADLINE (满足什么条件后切 git pin).

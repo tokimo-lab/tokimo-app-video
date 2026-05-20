@@ -36,7 +36,7 @@ impl AppCtx {
         client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
-        let sources = Arc::new(crate::services::source::SourceRegistry::new(db.clone()));
+        let sources = Arc::new(crate::services::source::SourceRegistry::new(db.clone(), Arc::clone(&client_slot)));
         let data_local_path = std::env::var("DATA_LOCAL_PATH")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("./data/local"));
@@ -100,6 +100,7 @@ impl AppCtx {
                 user_id: None,
                 request_id: String::new(),
                 workspace: None,
+                caller_app_id: None,
             }).await {
                 warn!(err = %e, "bus_notify_job: failed to upsert job on bus");
             }

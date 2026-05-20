@@ -5,7 +5,7 @@ mod support;
 use sea_orm::DatabaseConnection;
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 use tokimo_vfs::{Driver, Vfs};
 use tokio::{
@@ -34,13 +34,15 @@ pub type ManagedSourceStatus = VfsStatus;
 
 pub struct SourceRegistry {
     db: DatabaseConnection,
+    bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
     sources: RwLock<HashMap<String, ManagedSource>>,
 }
 
 impl SourceRegistry {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: DatabaseConnection, bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>) -> Self {
         Self {
             db,
+            bus_client,
             sources: RwLock::new(HashMap::new()),
         }
     }
@@ -201,13 +203,13 @@ impl SourceRegistry {
                 // on first token exchange, Quark cookie on every response).
                 // This is the equivalent of OpenList's op.MustSaveDriverStorage.
                 let persister = if record.vfs_type == "baidu_netdisk" || record.vfs_type == "quark" {
-                    let db = self.db.clone();
+                    let bus = Arc::clone(&self.bus_client);
                     let record_id = record.id.clone();
                     let p: tokimo_vfs::ConfigPersister = Arc::new(move |patch| {
-                        let db = db.clone();
+                        let bus = Arc::clone(&bus);
                         let id = record_id.clone();
                         tokio::spawn(async move {
-                            if let Err(err) = VfsRepo::patch_config(&db, &id, patch).await {
+                            if let Err(err) = patch_config_via_bus(&bus, &id, patch).await {
                                 warn!("failed to persist config for {}: {}", id, err);
                             }
                         });
@@ -223,7 +225,7 @@ impl SourceRegistry {
         // resolved during init() but not covered by the persister callback.
         if is_new
             && let Some(patch) = driver.resolved_config_patch()
-            && let Err(err) = VfsRepo::patch_config(&self.db, &record.id, patch).await
+            && let Err(err) = patch_config_via_bus(&self.bus_client, &record.id, patch).await
         {
             warn!("failed to persist config patch for {}: {}", record.id, err);
         }
@@ -292,4 +294,35 @@ async fn to_managed_status(source_id: &str, managed: &ManagedSource) -> ManagedS
         state: format!("{:?}", status.state).to_lowercase(),
         error: status.error,
     }
+}
+
+async fn patch_config_via_bus(
+    bus_client: &Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
+    source_id: &str,
+    patch: serde_json::Value,
+) -> Result<(), String> {
+    let Some(client) = bus_client.get() else {
+        warn!("bus_client not initialized; cannot persist config for {}", source_id);
+        return Ok(());
+    };
+    let payload = serde_json::to_vec(&serde_json::json!({
+        "sourceId": source_id,
+        "patch": patch,
+    }))
+    .map_err(|e| format!("json encode: {e}"))?;
+    client
+        .invoke(
+            "vfs",
+            "patch_config",
+            payload,
+            tokimo_bus_protocol::CallerCtx {
+                user_id: None,
+                request_id: String::new(),
+                workspace: None,
+                caller_app_id: None,
+            },
+        )
+        .await
+        .map_err(|e| format!("bus invoke: {e}"))?;
+    Ok(())
 }
