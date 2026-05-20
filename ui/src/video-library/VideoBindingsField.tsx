@@ -149,8 +149,11 @@ export default function VideoBindingsField({
 
   const update = (index: number, patch: Partial<VideoBinding>) => {
     const next = [...bindings];
-    next[index] = { ...next[index], ...patch };
-    if ("sourceId" in patch) next[index].rootPath = "";
+    const prev = next[index];
+    next[index] = { ...prev, ...patch };
+    if ("sourceId" in patch && patch.sourceId !== prev.sourceId) {
+      next[index].rootPath = "";
+    }
     sync(next);
   };
 
