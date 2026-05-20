@@ -162,9 +162,4 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
             "/playback/progress",
             post(handlers::playback::report_progress),
         )
-        .route(
-            "/playback/state",
-            get(handlers::playback_state::get_playback_state)
-                .post(handlers::playback_state::save_playback_state),
-        )
 }

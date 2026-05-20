@@ -6,7 +6,6 @@ pub mod jellyfin;
 pub mod image_proxy;
 pub mod media;
 pub mod playback;
-pub mod playback_state;
 pub mod subtitle;
 pub mod subtitle_events;
 pub mod sync;
