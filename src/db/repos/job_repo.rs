@@ -1,8 +1,11 @@
 use chrono::Utc;
-use sea_orm::{sea_query::Expr, *};
+use sea_orm::{prelude::DateTimeWithTimeZone, sea_query::Expr, *};
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
+use tokimo_bus_protocol::CallerCtx;
 use uuid::Uuid;
 
+use crate::AppState;
 use crate::db::entities::jobs;
 use crate::db::models::job::{JobOutput, JobStatsOutput};
 use crate::db::pagination::{Page, PageInput};
@@ -1538,4 +1541,120 @@ pub struct TaskProgressRow {
     pub failed: i64,
     /// `meta` JSON from the most recent running job (if any).
     pub running_meta: Option<JsonValue>,
+}
+
+// ── Bus-backed helpers ────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BusJobView {
+    id: Uuid,
+    #[serde(rename = "type")]
+    job_type: String,
+    status: String,
+    user_id: Option<Uuid>,
+    parent_job_id: Option<Uuid>,
+    task_type: Option<String>,
+    payload: JsonValue,
+    meta: Option<JsonValue>,
+    progress: i32,
+    priority: i32,
+    error: Option<String>,
+    started_at: Option<DateTimeWithTimeZone>,
+    completed_at: Option<DateTimeWithTimeZone>,
+    created_at: DateTimeWithTimeZone,
+    updated_at: DateTimeWithTimeZone,
+}
+
+impl From<BusJobView> for jobs::Model {
+    fn from(view: BusJobView) -> Self {
+        Self {
+            id: view.id,
+            r#type: view.job_type,
+            status: view.status,
+            user_id: view.user_id,
+            parent_job_id: view.parent_job_id,
+            task_type: view.task_type,
+            payload: view.payload,
+            meta: view.meta,
+            progress: view.progress,
+            retry_count: 0,
+            max_retries: 3,
+            error: view.error,
+            started_at: view.started_at,
+            completed_at: view.completed_at,
+            created_at: view.created_at,
+            updated_at: view.updated_at,
+            dedupe_key: None,
+            alias_job_id: None,
+            priority: view.priority,
+        }
+    }
+}
+
+fn video_bus_caller() -> CallerCtx {
+    CallerCtx {
+        user_id: None,
+        request_id: Uuid::new_v4().to_string(),
+        workspace: None,
+        caller_app_id: Some("video".to_string()),
+    }
+}
+
+impl JobRepo {
+    pub async fn create_job_via_bus(
+        state: &AppState,
+        job_type: &str,
+        payload: JsonValue,
+        meta: Option<JsonValue>,
+        user_id: Option<Uuid>,
+    ) -> Result<jobs::Model, AppError> {
+        let Some(client) = state.bus_client.get() else {
+            return Self::create_job(&state.db, job_type, payload, meta, user_id).await;
+        };
+        let req_bytes = serde_json::to_vec(&serde_json::json!({
+            "appId": "video",
+            "kind": job_type,
+            "payload": payload,
+            "meta": meta,
+            "userId": user_id,
+        }))
+        .map_err(|e| AppError::Internal(format!("create_job_via_bus encode: {e}")))?;
+        let resp_bytes = client
+            .invoke("jobs", "create", req_bytes, video_bus_caller())
+            .await
+            .map_err(|e| AppError::Internal(format!("create_job_via_bus bus: {e}")))?;
+        serde_json::from_slice::<BusJobView>(&resp_bytes)
+            .map(jobs::Model::from)
+            .map_err(|e| AppError::Internal(format!("create_job_via_bus decode: {e}")))
+    }
+
+    pub async fn update_progress_via_bus(
+        state: &AppState,
+        job_id: Uuid,
+        progress: i32,
+        meta: Option<JsonValue>,
+    ) -> Result<Option<jobs::Model>, AppError> {
+        let Some(client) = state.bus_client.get() else {
+            return Self::update_progress(&state.db, job_id, progress, meta).await;
+        };
+        let mut req = serde_json::json!({
+            "appId": "video",
+            "jobId": job_id,
+            "status": "running",
+            "progress": progress,
+        });
+        if let Some(m) = meta {
+            req["result"] = m;
+        }
+        let req_bytes = serde_json::to_vec(&req)
+            .map_err(|e| AppError::Internal(format!("update_progress_via_bus encode: {e}")))?;
+        let resp_bytes = client
+            .invoke("jobs", "update_status", req_bytes, video_bus_caller())
+            .await
+            .map_err(|e| AppError::Internal(format!("update_progress_via_bus bus: {e}")))?;
+        serde_json::from_slice::<BusJobView>(&resp_bytes)
+            .map(|view| Some(jobs::Model::from(view)))
+            .map_err(|e| AppError::Internal(format!("update_progress_via_bus decode: {e}")))
+    }
 }

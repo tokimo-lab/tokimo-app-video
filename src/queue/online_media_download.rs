@@ -365,8 +365,8 @@ pub async fn handle(
         // Progress updates are automatically broadcast via the job worker's
         // mark_completed / mark_failed lifecycle. For intermediate progress,
         // we update the job row directly so the SSE stream picks it up.
-        if let Ok(Some(model)) = crate::db::repos::job_repo::JobRepo::update_progress(
-            db,
+        if let Ok(Some(model)) = crate::db::repos::job_repo::JobRepo::update_progress_via_bus(
+            state,
             job_id,
             resp.progress.map_or(0, |p| p.round() as i32),
             Some(json!({
@@ -471,8 +471,8 @@ pub async fn handle(
                                 .rsplit_once('/')
                                 .map(|(d, _)| d.to_string())
                                 .unwrap_or_default();
-                            match JobRepo::create_job(
-                                db,
+                            match JobRepo::create_job_via_bus(
+                                state,
                                 "file_scrape",
                                 json!({
                                     "filePath": file.vfs_path,
@@ -505,8 +505,8 @@ pub async fn handle(
                                 .rsplit_once('/')
                                 .map(|(d, _)| d.to_string())
                                 .unwrap_or_default();
-                            match JobRepo::create_job(
-                                db,
+                            match JobRepo::create_job_via_bus(
+                                state,
                                 "file_scrape",
                                 json!({
                                     "filePath": rel_path,

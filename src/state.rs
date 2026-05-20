@@ -100,7 +100,7 @@ impl AppCtx {
                 user_id: None,
                 request_id: String::new(),
                 workspace: None,
-                caller_app_id: None,
+                caller_app_id: Some("video".to_string()),
             }).await {
                 warn!(err = %e, "bus_notify_job: failed to upsert job on bus");
             }

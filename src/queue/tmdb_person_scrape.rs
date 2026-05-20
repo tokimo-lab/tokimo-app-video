@@ -82,8 +82,8 @@ pub async fn handle(
     if let Some(profile_path) = &detail.profile_path {
         let storage_key = format!("tmdb-images/persons/{person_id}/profile.jpg");
         let tmdb_image_url = format!("https://image.tmdb.org/t/p/w500{profile_path}");
-        crate::db::repos::job_repo::JobRepo::create_job(
-            db,
+        crate::db::repos::job_repo::JobRepo::create_job_via_bus(
+            state,
             "image_upload",
             json!({
                 "plexUrl": tmdb_image_url,
