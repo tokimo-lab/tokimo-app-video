@@ -657,6 +657,7 @@ export interface VideoOutput {
 
 export interface VfsDisplayHints {
   protocolPrefix?: string | null;
+  rootPath?: string | null;
 }
 
 export interface VfsDto {

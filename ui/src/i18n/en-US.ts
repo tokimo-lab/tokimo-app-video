@@ -853,6 +853,7 @@ const enUS = {
       selectStorageSource: "Select storage source",
       path: "Path",
       selectSourceFirst: "Select a storage source first",
+      browseDirectory: "Browse directory",
     },
     libraryEditor: {
       settingsTitle: "TokimoVideo · Settings",

@@ -839,6 +839,7 @@ const zhCN = {
       selectStorageSource: "选择存储源",
       path: "路径",
       selectSourceFirst: "请先选择存储源",
+      browseDirectory: "浏览目录",
     },
     libraryEditor: {
       settingsTitle: "TokimoVideo · 设置",
