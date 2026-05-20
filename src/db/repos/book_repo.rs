@@ -1,3 +1,14 @@
+// =============================================================================
+// ⚠️ CROSS-APP DEPRECATED: book repo inside video sidecar ⚠️
+// =============================================================================
+// Book domain code does not belong in the video app. Lives here only because the
+// video sidecar inherited shared media repositories during extraction.
+//
+// DEADLINE: remove once `tokimo-app-book` sidecar exists and owns these tables.
+// Until then, treat this as read-only legacy — DO NOT add features here.
+// See plan.md F9 (cross-app marker).
+// =============================================================================
+
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, Order,

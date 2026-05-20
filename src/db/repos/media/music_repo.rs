@@ -1,3 +1,14 @@
+// =============================================================================
+// ⚠️ CROSS-APP DEPRECATED: music repo inside video sidecar ⚠️
+// =============================================================================
+// Music domain code does not belong in the video app. Lives here only because
+// the video sidecar inherited shared media repositories during extraction.
+//
+// DEADLINE: remove once `tokimo-app-music` sidecar exists and owns these tables.
+// Until then, treat this as read-only legacy — DO NOT add features here.
+// See plan.md F9 (cross-app marker).
+// =============================================================================
+
 use chrono::Utc;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{sea_query::Expr, *};

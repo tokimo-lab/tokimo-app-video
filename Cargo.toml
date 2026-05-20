@@ -15,16 +15,18 @@ tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", re
 tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "b68aa99c846fbe9e201df5b6a7ea91d84b642340" }
 
 # Workspace path deps — packages 暂时 path 引用主仓 (dashcam 范式). 等独立仓库化后切 git rev pin.
-tokimo-vfs            = { path = "../../packages/tokimo-package-vfs/packages/fs" }
-tokimo-vfs-core       = { path = "../../packages/tokimo-package-vfs/packages/core" }
-tokimo-vfs-op         = { path = "../../packages/tokimo-package-vfs/packages/op" }
-tokimo-package-hls    = { path = "../../packages/tokimo-package-hls" }
-tokimo-package-subtitle = { path = "../../packages/tokimo-package-subtitle" }
-tokimo-package-image  = { path = "../../packages/tokimo-package-image" }
-tokimo-package-iso    = { path = "../../packages/tokimo-package-iso" }
-tokimo-package-ffmpeg = { path = "../../packages/tokimo-package-ffmpeg" }
-rust-online-media-ingest = { path = "../../packages/rust-online-media-ingest" }
-rust-subtitle-download = { path = "../../packages/rust-subtitle-download" }
+# 格式：每行末尾标 OWNER (谁负责) + DEADLINE (满足什么条件后切 git pin).
+# 通用 DEADLINE：包提取为独立 GitHub repo 并发布 v0.1.0 后，本仓切 git rev pin 锁版本.
+tokimo-vfs            = { path = "../../packages/tokimo-package-vfs/packages/fs" }            # OWNER: vfs-team        | DEADLINE: tokimo-package-vfs 独立仓库化 + 锁 v0.1.0
+tokimo-vfs-core       = { path = "../../packages/tokimo-package-vfs/packages/core" }          # OWNER: vfs-team        | DEADLINE: 同 tokimo-vfs
+tokimo-vfs-op         = { path = "../../packages/tokimo-package-vfs/packages/op" }            # OWNER: vfs-team        | DEADLINE: 同 tokimo-vfs
+tokimo-package-hls    = { path = "../../packages/tokimo-package-hls" }                        # OWNER: media-team      | DEADLINE: HLS session API 稳定 + 独立仓库化
+tokimo-package-subtitle = { path = "../../packages/tokimo-package-subtitle" }                 # OWNER: media-team      | DEADLINE: 字幕解析格式覆盖完整后独立仓库化
+tokimo-package-image  = { path = "../../packages/tokimo-package-image" }                      # OWNER: media-team      | DEADLINE: 缩略图/EXIF API 稳定 + 独立仓库化
+tokimo-package-iso    = { path = "../../packages/tokimo-package-iso" }                        # OWNER: media-team      | DEADLINE: ISO/BDMV 解析稳定 + 独立仓库化
+tokimo-package-ffmpeg = { path = "../../packages/tokimo-package-ffmpeg" }                     # OWNER: media-team      | DEADLINE: rsmpeg 适配层稳定 + 独立仓库化
+rust-online-media-ingest = { path = "../../packages/rust-online-media-ingest" }               # OWNER: ingest-team     | DEADLINE: 抓取源接入完成（YouTube/Bili/...）+ 独立仓库化
+rust-subtitle-download = { path = "../../packages/rust-subtitle-download" }                   # OWNER: media-team      | DEADLINE: 字幕源聚合 API 冻结 + 独立仓库化
 
 # Standard deps
 clap              = { version = "4", features = ["derive", "env"] }
@@ -59,10 +61,10 @@ ts-rs              = { version = "12", features = ["serde-json-impl", "uuid-impl
 base64             = "0.22"
 tokio-util         = { workspace = true, features = ["io"] }
 async-trait        = "0.1"
-rust-client-api    = { path = "../../packages/rust-client-api" }
+rust-client-api    = { path = "../../packages/rust-client-api" }                              # OWNER: client-api-team | DEADLINE: TMDB/OMDb/Douban/Bangumi 客户端 API 稳定 + 独立仓库化
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
-tokimo-jellyfin-api = { path = "../../packages/tokimo-jellyfin-api" }
+tokimo-jellyfin-api = { path = "../../packages/tokimo-jellyfin-api" }                         # OWNER: media-team      | DEADLINE: Jellyfin adapter API 稳定 + 独立仓库化
 libc               = "0.2"
 opendal            = { version = "0.55", features = ["services-fs"] }
 

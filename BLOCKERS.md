@@ -73,18 +73,42 @@ then iterate and call `bus_notify_job` for each.
 
 ---
 
-## B-5  `scraping_settings` table is now orphan, can be dropped via Prisma migration
+## B-5  Scraping settings live in OS `system_config`, must migrate to `video.scrape_settings`
 
-**Context:** Scraping settings were previously stored in a dedicated `scraping_settings`
-table (accessed via raw SQL in `MediaContentRepo`). They have been unified under
-`SystemConfigRepo` / `system_config` table (scope=`metadata`, scope_id=`scraping`).  
-**Current state:** The `scraping_settings` table and its Prisma schema entry still
-exist but are no longer read or written by any application code.  
-**Impact:** Dead table consuming space; no functional impact.  
-**Data note:** Any rows in `scraping_settings` are orphaned. The canonical settings
-now live in `system_config`. If users had previously saved settings, those were
-stored in `scraping_settings` and are NOT automatically migrated to `system_config`.
-The first GET after this change returns `ScrapingSettings::default()` until the
-user saves new settings via the UI.  
-**To unblock:** Remove `scraping_settings` from `prisma/schema.prisma` and run
-`bun db:sync` to generate a DROP TABLE migration.
+**Context:** Scraping settings (TMDB API key, Douban / Bangumi options, etc.) are
+currently stored in the **OS-owned** `system_config` table (scope=`metadata`,
+scope_id=`scraping`), read/written by video via `SystemConfigRepo`. This is a
+cross-boundary violation: scraping configuration is video-domain data and should
+not pollute the OS-wide `system_config` namespace.
+
+**Current state:**
+- `system_config (scope='metadata', scope_id='scraping')` holds the live settings
+- A legacy `scraping_settings` table also exists (Prisma schema), unused since the
+  unification — it is **truly orphan** and should be dropped
+- Video reads/writes scraping settings through `SystemConfigRepo` (the OS table)
+
+**Target state (F7):**
+- New schema + table: `video.scrape_settings` (single row, JSON or columns)
+- Video has its own `ScrapeSettingsRepo` pointing to `video.scrape_settings`
+- OS `system_config` drops the `metadata/scraping` rows (scraping is no longer
+  an OS concern)
+- Legacy `scraping_settings` table is dropped at the same time
+
+**Impact:** OS `system_config` table currently carries video-specific keys, which
+ties the OS schema to video's domain shape. Until F7 lands, any change to scraping
+config requires touching OS-owned data.
+
+**Migration plan (F7, requires user confirmation + DB backup):**
+1. New Prisma migration: create `video` schema (if not already), create
+   `video.scrape_settings` table, copy existing rows from
+   `system_config WHERE scope='metadata' AND scope_id='scraping'`
+2. Drop `scraping_settings` (legacy orphan table)
+3. Delete the copied rows from `system_config`
+4. Video: rename `SystemConfigRepo` → `ScrapeSettingsRepo`, point at
+   `video.scrape_settings`
+5. OS: remove `scraping` scope_id support from `system_config` repo / handlers
+6. `bun db:sync` to apply
+
+**Why not auto-applied:** schema migrations on production data are irreversible
+and the OS owner must confirm + back up `tokimo_db` first
+(`docker exec tokimo-postgres pg_dump -U postgres -d tokimo_db > backup.sql`).
