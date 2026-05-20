@@ -55,6 +55,7 @@ pub mod playback_sessions;
 pub mod pt_sites;
 pub mod scheduled_task_logs;
 pub mod scheduled_tasks;
+pub mod scrape_settings;
 pub mod scrape_tasks;
 pub mod sea_orm_active_enums;
 pub mod search_histories;

@@ -154,8 +154,8 @@ pub async fn get_video_scraping_settings(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     use crate::config::ScrapingSettings;
-    use crate::db::repos::system_config_repo::SystemConfigRepo;
-    let settings = SystemConfigRepo::get::<ScrapingSettings>(&state.db).await?;
+    use crate::db::repos::scrape_settings_repo::ScrapeSettingsRepo;
+    let settings = ScrapeSettingsRepo::get::<ScrapingSettings>(&state.db).await?;
     Ok(ok(serde_json::to_value(settings)?))
 }
 
@@ -165,8 +165,8 @@ pub async fn update_video_scraping_settings(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     use crate::config::ScrapingSettings;
-    use crate::db::repos::system_config_repo::SystemConfigRepo;
+    use crate::db::repos::scrape_settings_repo::ScrapeSettingsRepo;
     let settings: ScrapingSettings = serde_json::from_value(body)?;
-    SystemConfigRepo::set::<ScrapingSettings>(&state.db, &settings).await?;
+    ScrapeSettingsRepo::set::<ScrapingSettings>(&state.db, &settings).await?;
     Ok(ok(serde_json::to_value(settings)?))
 }

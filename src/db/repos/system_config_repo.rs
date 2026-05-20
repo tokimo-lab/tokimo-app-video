@@ -1,3 +1,4 @@
+// TODO(F7): remove this legacy system_config repo after scrape_settings migration.
 use chrono::Utc;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::*;
@@ -23,6 +24,7 @@ pub trait SystemConfigSection: Serialize + DeserializeOwned + Send + Sync {
 
 // ── SystemConfigRepo ─────────────────────────────────────────────────────────
 
+#[deprecated(note = "F7 migrates scraping settings to video.scrape_settings; remove this repo after remaining system_config users move away")]
 pub struct SystemConfigRepo;
 
 impl SystemConfigRepo {

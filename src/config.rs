@@ -1,3 +1,4 @@
+use crate::db::repos::scrape_settings_repo::ScrapeSettingsSection;
 use crate::db::repos::system_config_repo::SystemConfigSection;
 use serde::{Deserialize, Serialize};
 
@@ -67,9 +68,7 @@ impl SystemConfigSection for TmdbSettings {
     }
 }
 
-impl SystemConfigSection for ScrapingSettings {
-    const SCOPE: &'static str = "metadata";
-    const SCOPE_ID: &'static str = "scraping";
+impl ScrapeSettingsSection for ScrapingSettings {
     fn default_value() -> Self {
         Self::default()
     }

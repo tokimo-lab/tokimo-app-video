@@ -128,8 +128,8 @@ pub async fn handle(
 
     // Get scraping settings for NFO generation.
     use crate::config::ScrapingSettings;
-    use crate::db::repos::system_config_repo::SystemConfigRepo;
-    let scraping_row = SystemConfigRepo::get::<ScrapingSettings>(db).await.ok();
+    use crate::db::repos::scrape_settings_repo::ScrapeSettingsRepo;
+    let scraping_row = ScrapeSettingsRepo::get::<ScrapingSettings>(db).await.ok();
     let generate_nfo = scraping_row.as_ref().is_some_and(|s| s.generate_nfo);
 
     // Resolve default download source root path from sources JSON.
