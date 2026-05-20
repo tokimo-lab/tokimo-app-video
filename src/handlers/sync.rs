@@ -14,6 +14,7 @@ use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::{ApiResponse, ok};
+use crate::handlers::user::AuthUser;
 use crate::services::media::app_sync::AppSyncService;
 
 use super::{VideoSyncInput, parse_uuid};
@@ -22,8 +23,13 @@ use super::{VideoSyncInput, parse_uuid};
 pub async fn sync_video(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
+    auth: AuthUser,
     body: Option<Json<VideoSyncInput>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    let caller_user_id: Uuid = auth.user_id
+        .parse()
+        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
+
     let uid: Uuid = id
         .parse()
         .map_err(|_| AppError::BadRequest("invalid video id".into()))?;
@@ -51,7 +57,7 @@ pub async fn sync_video(
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
-        match AppSyncService::execute_video_sync(&db, &sources, &storage, state.bus_client.clone(), uid, false, http_client).await {
+        match AppSyncService::execute_video_sync(&db, &sources, &storage, state.bus_client.clone(), uid, false, http_client, caller_user_id).await {
             Ok(result) => {
                 info!("video sync completed, {} jobs dispatched", result.total_jobs);
             }

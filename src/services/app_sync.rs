@@ -168,6 +168,7 @@ impl AppSyncService {
         video_id: Uuid,
         clear_data: bool,
         _http_client: reqwest::Client,
+        user_id: Uuid,
     ) -> Result<SyncResult, AppError> {
         let video = VideoRepo::get_by_id(db, video_id).await?.not_found("video not found")?;
 
@@ -180,7 +181,7 @@ impl AppSyncService {
             video.name, video_id, lib_type
         );
 
-        let result = Self::do_video_sync(db, sources, storage, &bus_client, &video, lib_type, is_movie, is_tv, clear_data).await;
+        let result = Self::do_video_sync(db, sources, storage, &bus_client, &video, lib_type, is_movie, is_tv, clear_data, user_id).await;
 
         match &result {
             Ok(sync_result) => {
@@ -388,6 +389,7 @@ impl AppSyncService {
         is_movie: bool,
         is_tv: bool,
         clear_data: bool,
+        user_id: Uuid,
     ) -> Result<SyncResult, AppError> {
         let video_id = video.id;
 
@@ -410,7 +412,7 @@ impl AppSyncService {
 
             let jobs = Self::sync_fs_source(
                 db, sources, storage, bus_client, video_id, lib_type, is_movie, is_tv,
-                &source, root_path, None,
+                &source, root_path, Some(user_id),
             )
             .await?;
             total_jobs += jobs;
