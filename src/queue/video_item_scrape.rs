@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 
+use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
 
@@ -51,6 +52,8 @@ pub async fn handle(
     let total = files.len();
     info!("[movie_scrape] dir=\"{movie_dir}\" files={total}");
 
+    let user_id = JobRepo::get_job_owner_user_id(db, job_id).await?;
+
     let mut processed = 0u32;
     let mut errors = 0u32;
 
@@ -67,7 +70,7 @@ pub async fn handle(
             "libType": lib_type,
         });
 
-        match file_scrape::handle(db, state, job_id, &file_payload, cancel).await {
+        match file_scrape::handle(db, state, job_id, &file_payload, cancel, user_id).await {
             Ok(_) => processed += 1,
             Err(e) => {
                 error!("[movie_scrape] Error on \"{file_path}\": {e}");
@@ -77,6 +80,10 @@ pub async fn handle(
     }
 
     info!("[movie_scrape] dir=\"{movie_dir}\" done: {processed}/{total} ok, {errors} errors");
+
+    if errors > 0 && processed == 0 {
+        return Err(format!("all {errors} files failed").into());
+    }
 
     Ok(Some(json!({
         "movieDir": movie_dir,

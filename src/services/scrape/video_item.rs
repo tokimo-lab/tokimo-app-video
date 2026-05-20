@@ -41,6 +41,7 @@ pub async fn scrape(
     nfo_backdrop_tmdb: &Option<String>,
     parsed_title: &str,
     parsed_year: Option<i32>,
+    user_id: Option<Uuid>,
 ) -> Result<VideoItemResult, Box<dyn std::error::Error + Send + Sync>> {
     find_or_create_video_item(
         db,
@@ -55,6 +56,7 @@ pub async fn scrape(
         artwork,
         nfo_poster_tmdb.as_deref(),
         nfo_backdrop_tmdb.as_deref(),
+        user_id,
     )
     .await
 }
@@ -83,6 +85,7 @@ pub async fn find_or_create_video_item(
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
+    user_id: Option<Uuid>,
 ) -> Result<VideoItemResult, Box<dyn std::error::Error + Send + Sync>> {
     let should_use_tmdb = lib_type.uses_tmdb();
     let is_adult = lib_type.is_adult();
@@ -234,7 +237,7 @@ pub async fn find_or_create_video_item(
             vec![]
         };
         let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
-        sync_people_for_media(db, &cast, &directors, Some(movie_id), None, None).await?;
+        sync_people_for_media(db, &cast, &directors, Some(movie_id), None, None, user_id).await?;
     }
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;

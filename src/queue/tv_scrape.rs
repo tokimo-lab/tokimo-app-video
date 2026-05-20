@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 
+use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
 
@@ -59,6 +60,8 @@ pub async fn handle(
         })));
     }
 
+    let user_id = JobRepo::get_job_owner_user_id(db, job_id).await?;
+
     let processed = Arc::new(AtomicU32::new(0));
     let errors = Arc::new(AtomicU32::new(0));
 
@@ -67,7 +70,7 @@ pub async fn handle(
         let file = &files[0];
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
         let file_payload = make_file_payload(file, video_id, source_id, lib_type);
-        match file_scrape::handle(db, state, job_id, &file_payload, cancel).await {
+        match file_scrape::handle(db, state, job_id, &file_payload, cancel, user_id).await {
             Ok(_) => {
                 processed.fetch_add(1, Ordering::Relaxed);
             }
@@ -97,7 +100,7 @@ pub async fn handle(
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                match file_scrape::handle(&db, &state, job_id, &file_payload, &cancel).await {
+                match file_scrape::handle(&db, &state, job_id, &file_payload, &cancel, user_id).await {
                     Ok(_) => {
                         processed.fetch_add(1, Ordering::Relaxed);
                     }
@@ -116,6 +119,10 @@ pub async fn handle(
     let p = processed.load(Ordering::Relaxed);
     let e = errors.load(Ordering::Relaxed);
     info!("[tv_scrape] show=\"{show_dir}\" done: {p}/{total} ok, {e} errors");
+
+    if e > 0 && p == 0 {
+        return Err(format!("all {e} files failed").into());
+    }
 
     Ok(Some(json!({
         "showDir": show_dir,

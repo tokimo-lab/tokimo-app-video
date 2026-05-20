@@ -85,7 +85,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
                 let cancel = CancellationToken::new();
-                crate::queue::handlers::file_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel)
+                let user_id = crate::db::repos::job_repo::JobRepo::get_job_owner_user_id(&ctx.db, job_id)
+                    .await
+                    .unwrap_or(None);
+                crate::queue::handlers::file_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))

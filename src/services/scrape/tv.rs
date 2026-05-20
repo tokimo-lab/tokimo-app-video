@@ -100,6 +100,7 @@ pub async fn scrape(
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb: &Option<String>,
     nfo_backdrop_tmdb: &Option<String>,
+    user_id: Option<Uuid>,
 ) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
     let _ = lib_type; // currently all TV uses TMDB
 
@@ -129,6 +130,7 @@ pub async fn scrape(
         artwork,
         nfo_poster_tmdb.as_deref(),
         nfo_backdrop_tmdb.as_deref(),
+        user_id,
     )
     .await
 }
@@ -156,6 +158,7 @@ pub async fn find_or_create_tv(
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
+    user_id: Option<Uuid>,
 ) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
     // IDs from NFO — used for the pre-lock existence check.
     let nfo_tmdb_id = nfo.and_then(|n| n.tmdb_id.as_deref());
@@ -335,7 +338,7 @@ pub async fn find_or_create_tv(
     // Cast sync: only for new shows and only when we have a season_id to link to
     if is_new
         && let Err(e) =
-            sync_people_for_media(db, &pending_cast, &pending_directors, None, Some(tv_show_id), season_id).await
+            sync_people_for_media(db, &pending_cast, &pending_directors, None, Some(tv_show_id), season_id, user_id).await
     {
         warn!("[tv_scrape] TV cast sync failed: {e}");
     }

@@ -951,6 +951,7 @@ pub async fn sync_people_for_media(
     movie_id: Option<Uuid>,
     tv_show_id: Option<Uuid>,
     season_id: Option<Uuid>,
+    user_id: Option<Uuid>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if cast.is_empty() && directors.is_empty() {
         return Ok(());
@@ -1130,7 +1131,7 @@ pub async fn sync_people_for_media(
         // Dispatch person scrape when person needs detailed data
         if needs_scrape {
             let person_type = if movie_id.is_some() { "movie" } else { "tv" };
-            if let Err(e) = dispatch_person_tmdb_scrape(db, person_id, person_type, movie_id, tv_show_id).await {
+            if let Err(e) = dispatch_person_tmdb_scrape(db, person_id, person_type, movie_id, tv_show_id, user_id).await {
                 warn!("person tmdb scrape dispatch failed for person {person_id}: {e}");
             }
         }
@@ -1452,11 +1453,12 @@ pub async fn dispatch_person_tmdb_scrape(
     person_type: &str,
     movie_id: Option<Uuid>,
     tv_show_id: Option<Uuid>,
+    user_id: Option<Uuid>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if !should_dispatch_person_scrape(db, person_id, person_type).await? {
         return Ok(());
     }
-    create_person_scrape_job(db, person_id, person_type, movie_id, tv_show_id).await
+    create_person_scrape_job(db, person_id, person_type, movie_id, tv_show_id, user_id).await
 }
 
 async fn create_person_scrape_job(
@@ -1465,6 +1467,7 @@ async fn create_person_scrape_job(
     person_type: &str,
     movie_id: Option<Uuid>,
     tv_show_id: Option<Uuid>,
+    user_id: Option<Uuid>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _ = JobRepo::create_job(
         db,
@@ -1476,7 +1479,7 @@ async fn create_person_scrape_job(
             "tvShowId": tv_show_id.map(|u| u.to_string()),
         }),
         None,
-        None,
+        user_id,
     )
     .await;
     Ok(())

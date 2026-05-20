@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::queue::cancellation::{JobCancel, check_cancel};
+use crate::services::common::is_unique_violation;
 
 pub async fn handle(
     db: &DatabaseConnection,
@@ -124,20 +125,38 @@ async fn persist_tmdb_id(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if person_type == "tv" {
         use crate::db::entities::tv_persons;
-        tv_persons::Entity::update_many()
+        match tv_persons::Entity::update_many()
             .col_expr(tv_persons::Column::TmdbId, Expr::value(tmdb_str))
             .col_expr(tv_persons::Column::UpdatedAt, Expr::cust("NOW()"))
             .filter(tv_persons::Column::Id.eq(person_uuid))
             .exec(db)
-            .await?;
+            .await
+        {
+            Ok(_) => {}
+            Err(e) if is_unique_violation(&e) => {
+                warn!(
+                    "[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for tv_person {person_uuid}, skipping"
+                );
+            }
+            Err(e) => return Err(e.into()),
+        }
     } else {
         use crate::db::entities::video_persons;
-        video_persons::Entity::update_many()
+        match video_persons::Entity::update_many()
             .col_expr(video_persons::Column::TmdbId, Expr::value(tmdb_str))
             .col_expr(video_persons::Column::UpdatedAt, Expr::cust("NOW()"))
             .filter(video_persons::Column::Id.eq(person_uuid))
             .exec(db)
-            .await?;
+            .await
+        {
+            Ok(_) => {}
+            Err(e) if is_unique_violation(&e) => {
+                warn!(
+                    "[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for video_person {person_uuid}, skipping"
+                );
+            }
+            Err(e) => return Err(e.into()),
+        }
     }
     Ok(())
 }

@@ -42,6 +42,7 @@ pub async fn handle(
     _job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
+    user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, BoxError> {
     check_cancel(cancel)?;
     // ── 0. Parse payload ──
@@ -211,6 +212,7 @@ pub async fn handle(
                 &nfo_backdrop_tmdb,
                 parsed_title_str,
                 parsed_year,
+                user_id,
             )
             .await?;
             movie_id = Some(result.video_item_id);
@@ -232,6 +234,7 @@ pub async fn handle(
                 &artwork,
                 &nfo_poster_tmdb,
                 &nfo_backdrop_tmdb,
+                user_id,
             )
             .await?;
             tv_show_id = Some(result.tv_show_id);
