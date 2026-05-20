@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import VideoApp from "./components/VideoApp";
+import VideoMenuBar from "./components/VideoMenuBar";
 import i18n, { SUPPORTED_LOCALES } from "./i18n";
 import { createVideoPlayerExtension } from "./player-extension";
 import "./index.css";
@@ -48,7 +49,9 @@ export default defineApp({
             <ToastProvider>
               <QueryClientProvider client={queryClient}>
                 <RuntimeProvider value={ctx}>
-                  <VideoApp />
+                  <VideoMenuBar>
+                    <VideoApp />
+                  </VideoMenuBar>
                 </RuntimeProvider>
               </QueryClientProvider>
             </ToastProvider>
