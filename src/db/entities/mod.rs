@@ -7,7 +7,7 @@ pub mod file_favorites;
 pub mod genres;
 pub mod jobs;
 pub mod media_arts;
-pub mod online_media_auth_settings;
+pub mod ytdlp_provider_auth;
 pub mod playback_sessions;
 pub mod pt_sites;
 pub mod scrape_settings;

@@ -10,7 +10,7 @@ use ts_rs::TS;
 
 use crate::{
     AppState,
-    db::repos::online_media_auth_settings_repo::OnlineMediaAuthSettingsRepo,
+    db::repos::ytdlp_provider_auth_repo::YtdlpProviderAuthRepo,
     error::AppError,
     handlers::{ApiResponse, ok},
 };
@@ -116,7 +116,7 @@ pub async fn get_auth_settings(
         .collect();
 
     // Get stored settings
-    let stored_settings = OnlineMediaAuthSettingsRepo::get_all(db).await?;
+    let stored_settings = YtdlpProviderAuthRepo::get_all(db).await?;
     let stored_map: std::collections::HashMap<String, _> = stored_settings
         .into_iter()
         .map(|s| (s.provider.clone(), s))
@@ -181,7 +181,7 @@ pub async fn update_auth_setting(
     }
 
     // Get current stored setting if it exists
-    let current = OnlineMediaAuthSettingsRepo::get_one(db, &provider_id).await?;
+    let current = YtdlpProviderAuthRepo::get_one(db, &provider_id).await?;
     let current_data: Option<OnlineMediaAuthData> = current
         .as_ref()
         .and_then(|s| serde_json::from_value(s.value.clone()).ok());
@@ -220,7 +220,7 @@ pub async fn update_auth_setting(
         .map_err(|e| AppError::Internal(format!("failed to serialize auth data: {}", e)))?;
 
     // Upsert via repo
-    let updated = OnlineMediaAuthSettingsRepo::upsert(db, &provider_id, value).await?;
+    let updated = YtdlpProviderAuthRepo::upsert(db, &provider_id, value).await?;
 
     Ok(ok(AuthSettingResponse {
         provider_id,
