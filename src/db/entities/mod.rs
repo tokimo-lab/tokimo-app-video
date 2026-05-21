@@ -1,3 +1,4 @@
+pub mod books;
 pub mod chapters;
 pub mod collections;
 pub mod download_clients;
@@ -7,6 +8,8 @@ pub mod file_favorites;
 pub mod genres;
 pub mod jobs;
 pub mod media_arts;
+pub mod musics;
+pub mod organize_reports;
 pub mod ytdlp_provider_auth;
 pub mod playback_sessions;
 pub mod pt_sites;

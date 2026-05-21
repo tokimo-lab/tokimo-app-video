@@ -6,6 +6,7 @@ use tokimo_bus_protocol::CallerCtx;
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 use tracing::warn;
 
+use crate::apps::media_organize::services::OrganizeSession;
 use crate::db::models::job::JobOutput;
 use crate::queue::AppEvent;
 use crate::services::downloads::log_bus::LogBus;
@@ -31,6 +32,7 @@ pub struct AppCtx {
     pub download_tasks: Arc<TokioMutex<HashMap<uuid::Uuid, String>>>,
     pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
+    pub organize_session: Arc<tokio::sync::RwLock<Option<OrganizeSession>>>,
     pub active_subscription_runs: Arc<RwLock<HashMap<String, String>>>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
 }
@@ -78,6 +80,7 @@ impl AppCtx {
             download_tasks: Default::default(),
             ytdlp_root,
             screenshot_semaphore,
+            organize_session: Arc::new(tokio::sync::RwLock::new(None)),
             active_subscription_runs: Arc::new(RwLock::new(HashMap::new())),
             bus_client: client_slot,
         })
