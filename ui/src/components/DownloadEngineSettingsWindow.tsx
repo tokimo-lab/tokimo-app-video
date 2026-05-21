@@ -38,6 +38,17 @@ function DownloadEngineSettingsContent() {
   // ── yt-dlp status ────────────────────────────────────────────────────────
   const ytdlpStatusQuery = api.video.ytdlpStatus.useQuery();
   const ytdlpStatus = ytdlpStatusQuery.data;
+  const [checkedLatestVersion, setCheckedLatestVersion] = useState<
+    string | null
+  >(null);
+  const [isCheckingLatest, setIsCheckingLatest] = useState(false);
+  const displayLatestVersion =
+    ytdlpStatus?.latestVersion ?? checkedLatestVersion ?? null;
+  const isYtdlpAlreadyLatest = Boolean(
+    ytdlpStatus?.version &&
+      displayLatestVersion &&
+      ytdlpStatus.version === displayLatestVersion,
+  );
   const updateYtdlpMutation = api.video.updateYtdlp.useMutation({
     onSuccess: (data) => {
       message.success(
@@ -50,6 +61,38 @@ function DownloadEngineSettingsContent() {
       );
     },
   });
+
+  const handleCheckLatestVersion = useCallback(async () => {
+    setIsCheckingLatest(true);
+    try {
+      const result = await ytdlpStatusQuery.refetch();
+      if (result.error) {
+        message.error(
+          t(`${ns}.ytdlp.checkLatestFailed`, {
+            error: getErrorMessage(result.error),
+          }),
+        );
+        return;
+      }
+
+      const latestVersion = result.data?.latestVersion;
+      if (!latestVersion) {
+        message.error(t(`${ns}.ytdlp.checkLatestNoVersion`));
+        return;
+      }
+
+      setCheckedLatestVersion(latestVersion);
+      message.success(
+        t(`${ns}.ytdlp.checkLatestSuccess`, { version: latestVersion }),
+      );
+    } catch (error) {
+      message.error(
+        t(`${ns}.ytdlp.checkLatestFailed`, { error: getErrorMessage(error) }),
+      );
+    } finally {
+      setIsCheckingLatest(false);
+    }
+  }, [message, t, ytdlpStatusQuery]);
 
   // ── Providers & auth settings ───────────────────────────────────────────
   const providersQuery = api.videoOnlineMedia.providers.useQuery();
@@ -220,16 +263,27 @@ function DownloadEngineSettingsContent() {
                 </SettingRow>
               )}
 
-              {ytdlpStatus.latestVersion && (
-                <SettingRow
-                  label={t(`${ns}.ytdlp.latestVersion`)}
-                  orientation="horizontal"
-                >
+              <SettingRow
+                label={t(`${ns}.ytdlp.latestVersion`)}
+                orientation="horizontal"
+              >
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-fg-muted">
-                    {ytdlpStatus.latestVersion}
+                    {displayLatestVersion ?? t(`${ns}.ytdlp.unknown`)}
                   </span>
-                </SettingRow>
-              )}
+                  {isYtdlpAlreadyLatest && (
+                    <Tag color="success" size="small">
+                      {t(`${ns}.ytdlp.alreadyLatest`)}
+                    </Tag>
+                  )}
+                  <Button
+                    loading={isCheckingLatest}
+                    onClick={() => void handleCheckLatestVersion()}
+                  >
+                    {t(`${ns}.ytdlp.checkLatest`)}
+                  </Button>
+                </div>
+              </SettingRow>
 
               <SettingRow
                 label={t(`${ns}.ytdlp.update`)}

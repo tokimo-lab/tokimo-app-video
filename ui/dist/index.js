@@ -53738,6 +53738,11 @@ var l0e = F((() => {
 						path: "Install Path",
 						unknown: "Unknown",
 						update: "Update",
+						checkLatest: "Check latest version",
+						checkLatestSuccess: "Latest version checked: {{version}}",
+						checkLatestFailed: "Failed to check latest version: {{error}}",
+						checkLatestNoVersion: "No latest version was returned",
+						alreadyLatest: "Already latest",
 						updateSuccess: "Updated to {{version}}",
 						updateFailed: "Update failed: {{error}}"
 					},
@@ -54680,6 +54685,11 @@ var l0e = F((() => {
 						path: "インストールパス",
 						unknown: "不明",
 						update: "更新",
+						checkLatest: "最新バージョンを確認",
+						checkLatestSuccess: "最新バージョンを確認しました：{{version}}",
+						checkLatestFailed: "最新バージョンの確認に失敗しました：{{error}}",
+						checkLatestNoVersion: "最新バージョン情報が返されませんでした",
+						alreadyLatest: "最新です",
 						updateSuccess: "{{version}} に更新しました",
 						updateFailed: "更新失敗：{{error}}"
 					},
@@ -55324,6 +55334,11 @@ var l0e = F((() => {
 						path: "安装路径",
 						unknown: "未知",
 						update: "更新",
+						checkLatest: "检查最新版本",
+						checkLatestSuccess: "已检查到最新版本：{{version}}",
+						checkLatestFailed: "检查最新版本失败：{{error}}",
+						checkLatestNoVersion: "未返回最新版本信息",
+						alreadyLatest: "已是最新",
 						updateSuccess: "已更新到 {{version}}",
 						updateFailed: "更新失败：{{error}}"
 					},
@@ -57778,40 +57793,63 @@ function q9(e) {
 	return e instanceof Error ? e.message : String(e);
 }
 function d4e() {
-	let { t: e } = I(), t = see(), n = H.video.ytdlpStatus.useQuery(), r = n.data, i = H.video.updateYtdlp.useMutation({
+	let { t: e } = I(), t = see(), n = H.video.ytdlpStatus.useQuery(), r = n.data, [i, a] = M(null), [o, s] = M(!1), c = r?.latestVersion ?? i ?? null, l = !!(r?.version && c && r.version === c), u = H.video.updateYtdlp.useMutation({
 		onSuccess: (n) => {
 			t.success(e(`${$}.ytdlp.updateSuccess`, { version: n.version }));
 		},
 		onError: (n) => {
 			t.error(e(`${$}.ytdlp.updateFailed`, { error: q9(n) }));
 		}
-	}), a = H.videoOnlineMedia.providers.useQuery(), o = H.videoOnlineMedia.authSettings.useQuery(), s = H.videoOnlineMedia.updateAuthSetting.useMutation(), c = a.data?.providers ?? [], l = o.data ?? [], u = j(() => {
+	}), d = k(async () => {
+		s(!0);
+		try {
+			let r = await n.refetch();
+			if (r.error) {
+				t.error(e(`${$}.ytdlp.checkLatestFailed`, { error: q9(r.error) }));
+				return;
+			}
+			let i = r.data?.latestVersion;
+			if (!i) {
+				t.error(e(`${$}.ytdlp.checkLatestNoVersion`));
+				return;
+			}
+			a(i), t.success(e(`${$}.ytdlp.checkLatestSuccess`, { version: i }));
+		} catch (n) {
+			t.error(e(`${$}.ytdlp.checkLatestFailed`, { error: q9(n) }));
+		} finally {
+			s(!1);
+		}
+	}, [
+		t,
+		e,
+		n
+	]), f = H.videoOnlineMedia.providers.useQuery(), p = H.videoOnlineMedia.authSettings.useQuery(), m = H.videoOnlineMedia.updateAuthSetting.useMutation(), h = f.data?.providers ?? [], g = p.data ?? [], _ = j(() => {
 		let e = /* @__PURE__ */ new Map();
-		for (let t of l) e.set(t.providerId, t.cookie ?? "");
+		for (let t of g) e.set(t.providerId, t.cookie ?? "");
 		return e;
-	}, [l]), [d, f] = M(/* @__PURE__ */ new Map()), [p, m] = M(!1);
+	}, [g]), [v, y] = M(/* @__PURE__ */ new Map()), [b, x] = M(!1);
 	A(() => {
-		f(new Map(u));
-	}, [u]);
-	let h = j(() => {
-		if (d.size !== u.size) return !0;
-		for (let [e, t] of d) if ((u.get(e) ?? "") !== t) return !0;
+		y(new Map(_));
+	}, [_]);
+	let C = j(() => {
+		if (v.size !== _.size) return !0;
+		for (let [e, t] of v) if ((_.get(e) ?? "") !== t) return !0;
 		return !1;
-	}, [d, u]), g = k((e, t) => {
-		f((n) => new Map(n).set(e, t));
-	}, []), _ = k(() => {
-		f(new Map(u));
-	}, [u]), v = k(async () => {
-		m(!0);
+	}, [v, _]), w = k((e, t) => {
+		y((n) => new Map(n).set(e, t));
+	}, []), T = k(() => {
+		y(new Map(_));
+	}, [_]), ee = k(async () => {
+		x(!0);
 		try {
 			let n = [];
-			for (let [e, t] of d) (u.get(e) ?? "") !== t && n.push({
+			for (let [e, t] of v) (_.get(e) ?? "") !== t && n.push({
 				providerId: e,
 				cookie: t
 			});
 			for (let { providerId: e, cookie: t } of n) {
-				let n = l.find((t) => t.providerId === e);
-				await s.mutateAsync({
+				let n = g.find((t) => t.providerId === e);
+				await m.mutateAsync({
 					provider: e,
 					displayName: n?.displayName,
 					cookie: t.trim(),
@@ -57819,26 +57857,26 @@ function d4e() {
 				});
 			}
 			t.success(e(`${$}.cookies.saved`));
-			let r = await o.refetch();
+			let r = await p.refetch();
 			if (r.data) {
 				let e = /* @__PURE__ */ new Map();
 				for (let t of r.data) e.set(t.providerId, t.cookie ?? "");
-				f(e);
+				y(e);
 			}
 		} catch (n) {
 			t.error(e(`${$}.cookies.saveFailed`, { error: q9(n) }));
 		} finally {
-			m(!1);
+			x(!1);
 		}
 	}, [
-		d,
-		u,
-		l,
-		s,
-		o,
+		v,
+		_,
+		g,
+		m,
+		p,
 		t,
 		e
-	]), y = o.isLoading, b = o.isError;
+	]), te = p.isLoading, ne = p.isError;
 	return /* @__PURE__ */ P("div", {
 		className: "flex flex-col h-full",
 		children: [/* @__PURE__ */ P("div", {
@@ -57896,20 +57934,35 @@ function d4e() {
 									children: r.path ?? e(`${$}.ytdlp.unknown`)
 								})
 							}),
-							r.latestVersion && /* @__PURE__ */ N(fe, {
+							/* @__PURE__ */ N(fe, {
 								label: e(`${$}.ytdlp.latestVersion`),
 								orientation: "horizontal",
-								children: /* @__PURE__ */ N("span", {
-									className: "text-fg-muted",
-									children: r.latestVersion
+								children: /* @__PURE__ */ P("div", {
+									className: "flex flex-wrap items-center gap-2",
+									children: [
+										/* @__PURE__ */ N("span", {
+											className: "text-fg-muted",
+											children: c ?? e(`${$}.ytdlp.unknown`)
+										}),
+										l && /* @__PURE__ */ N(me, {
+											color: "success",
+											size: "small",
+											children: e(`${$}.ytdlp.alreadyLatest`)
+										}),
+										/* @__PURE__ */ N(E, {
+											loading: o,
+											onClick: () => void d(),
+											children: e(`${$}.ytdlp.checkLatest`)
+										})
+									]
 								})
 							}),
 							/* @__PURE__ */ N(fe, {
 								label: e(`${$}.ytdlp.update`),
 								orientation: "horizontal",
 								children: /* @__PURE__ */ N(E, {
-									loading: i.isPending,
-									onClick: () => void i.mutateAsync(),
+									loading: u.isPending,
+									onClick: () => void u.mutateAsync(),
 									children: e(`${$}.ytdlp.update`)
 								})
 							})
@@ -57920,23 +57973,23 @@ function d4e() {
 				title: e(`${$}.cookies.title`),
 				desc: e(`${$}.cookies.desc`),
 				children: [
-					y && /* @__PURE__ */ P("div", {
+					te && /* @__PURE__ */ P("div", {
 						className: "flex items-center gap-2 text-fg-muted",
 						children: [/* @__PURE__ */ N(pe, { size: "small" }), /* @__PURE__ */ N("span", { children: e(`${$}.cookies.loading`) })]
 					}),
-					b && /* @__PURE__ */ N(S, {
+					ne && /* @__PURE__ */ N(S, {
 						type: "error",
 						showIcon: !0,
 						message: e(`${$}.cookies.loadFailed`)
 					}),
-					!y && !b && l.length === 0 && /* @__PURE__ */ N(S, {
+					!te && !ne && g.length === 0 && /* @__PURE__ */ N(S, {
 						type: "info",
 						message: e(`${$}.cookies.empty`)
 					}),
-					!y && !b && l.length > 0 && /* @__PURE__ */ N("div", {
+					!te && !ne && g.length > 0 && /* @__PURE__ */ N("div", {
 						className: "space-y-4",
-						children: l.map((t) => {
-							let n = c.find((e) => e.id === t.providerId), r = d.get(t.providerId) ?? "", i = n?.commonSourceSites.join(", "), a = [];
+						children: g.map((t) => {
+							let n = h.find((e) => e.id === t.providerId), r = v.get(t.providerId) ?? "", i = n?.commonSourceSites.join(", "), a = [];
 							return n?.requiresAuth && a.push(e(`${$}.cookies.requiresAuth`)), n?.authConfigurable && a.push(e(`${$}.cookies.configurable`)), i && a.push(e(`${$}.cookies.sources`, { sites: i })), /* @__PURE__ */ P(fe, {
 								label: /* @__PURE__ */ P("div", {
 									className: "flex items-center gap-2",
@@ -57950,7 +58003,7 @@ function d4e() {
 								orientation: "vertical",
 								children: [/* @__PURE__ */ N(se.TextArea, {
 									value: r,
-									onChange: (e) => g(t.providerId, e.target.value),
+									onChange: (e) => w(t.providerId, e.target.value),
 									rows: 3,
 									placeholder: e(`${$}.cookies.placeholder`),
 									className: "font-mono text-xs"
@@ -57964,10 +58017,10 @@ function d4e() {
 				]
 			})]
 		}), /* @__PURE__ */ N(oee, {
-			dirty: h,
-			loading: p,
-			onSave: () => void v(),
-			onReset: _,
+			dirty: C,
+			loading: b,
+			onSave: () => void ee(),
+			onReset: T,
 			saveLabel: e(`${$}.save`),
 			resetLabel: e(`${$}.reset`),
 			message: e(`${$}.unsavedChanges`)
