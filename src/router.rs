@@ -10,20 +10,50 @@ use crate::AppState;
 
 pub fn build_video_app_routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/api/v1/ytdlp/status", get(handlers::ytdlp::status))
-        .route("/api/v1/ytdlp/update", post(handlers::ytdlp::update))
-        // Online media providers & auth settings
+        .route("/ytdlp/status", get(handlers::ytdlp::status))
+        .route("/ytdlp/update", post(handlers::ytdlp::update))
+        // Online media providers, ingest tasks & auth settings
         .route(
-            "/api/v1/online-media/providers",
+            "/online-media/health",
+            get(handlers::online_media::health).post(handlers::online_media::health),
+        )
+        .route(
+            "/online-media/providers",
             get(handlers::online_media::list_providers),
         )
         .route(
-            "/api/v1/online-media/auth-settings",
+            "/online-media/auth-settings",
             get(handlers::online_media::get_auth_settings),
         )
         .route(
-            "/api/v1/online-media/auth-settings/{provider}",
+            "/online-media/auth-settings/{provider}",
             put(handlers::online_media::update_auth_setting),
+        )
+        .route("/online-media/analyze", post(handlers::online_media::analyze))
+        .route("/online-media/tasks", post(handlers::online_media::create_task))
+        .route(
+            "/online-media/tasks/{task_id}",
+            get(handlers::online_media::get_task),
+        )
+        .route(
+            "/online-media/tasks/{task_id}/cancel",
+            post(handlers::online_media::cancel_task),
+        )
+        .route(
+            "/online-media/resolve-collection",
+            post(handlers::online_media::resolve_collection),
+        )
+        .route(
+            "/online-media/batch-tasks",
+            post(handlers::online_media::batch_create_tasks),
+        )
+        .route(
+            "/online-media/start-download",
+            post(handlers::online_media::start_online_media_download),
+        )
+        .route(
+            "/online-media/retry-download",
+            post(handlers::online_media::retry_online_media_download),
         )
         // Category CRUD
         .route(

@@ -1,4 +1,5 @@
 pub mod auth_repo;
+pub mod download_record_repo;
 pub mod job_repo;
 pub mod media;
 pub mod ytdlp_provider_auth_repo;
