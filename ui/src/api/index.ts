@@ -40,10 +40,15 @@ import {
   apiVideoListTvShows,
   apiVideoListVideoItems,
   apiVideoOnlineMediaAnalyze,
+  apiVideoOnlineMediaAuthSettings,
+  apiVideoOnlineMediaProviders,
   apiVideoOnlineMediaStartDownload,
+  apiVideoOnlineMediaUpdateAuthSetting,
   apiVideoSync,
   apiVideoToggleFavorite,
   apiVideoUpdate,
+  apiVideoYtdlpStatus,
+  apiVideoYtdlpUpdate,
 } from "./hooks";
 
 export const api = {
@@ -63,6 +68,8 @@ export const api = {
     getVideoItemDetail: apiVideoGetVideoItemDetail,
     getTvShowDetail: apiVideoGetTvShowDetail,
     getPersonDetail: apiVideoGetPersonDetail,
+    ytdlpStatus: apiVideoYtdlpStatus,
+    updateYtdlp: apiVideoYtdlpUpdate,
   },
   vfs: {
     list: apiVfsList,
@@ -71,6 +78,9 @@ export const api = {
   videoOnlineMedia: {
     analyze: apiVideoOnlineMediaAnalyze,
     startDownload: apiVideoOnlineMediaStartDownload,
+    providers: apiVideoOnlineMediaProviders,
+    authSettings: apiVideoOnlineMediaAuthSettings,
+    updateAuthSetting: apiVideoOnlineMediaUpdateAuthSetting,
   },
   mediaOrganize: {
     getSession: apiMediaOrganizeGetSession,

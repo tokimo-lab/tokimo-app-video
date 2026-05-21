@@ -8,7 +8,7 @@ import {
   useWindowId,
 } from "@tokimo/sdk";
 import { Checkbox, Modal } from "@tokimo/ui";
-import { FolderSync, Plus, RefreshCw } from "lucide-react";
+import { FolderSync, Plus, RefreshCw, Settings } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
@@ -90,6 +90,23 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
         },
       });
     }
+
+    // Download Engine Settings (always visible, not gated by isOnlineVideo)
+    extraItems.push({
+      key: "download-engine-settings",
+      label: t("media.downloads.engineSettings.menu"),
+      icon: <Settings size={14} />,
+      onClick: () => {
+        openModalWindow({
+          component: () => import("./DownloadEngineSettingsWindow"),
+          parentWindowId: windowId,
+          title: t("media.downloads.engineSettings.title"),
+          width: 720,
+          height: 640,
+          noMinimize: true,
+        });
+      },
+    });
 
     return {
       menus: [

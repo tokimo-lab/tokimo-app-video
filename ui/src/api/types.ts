@@ -514,12 +514,25 @@ export interface OrganizeSession {
 
 // ── Online media (from packages/web/src/types/online-media.ts) ──────────────
 
-export interface OnlineMediaProvider {
+export interface OnlineMediaAnalyzeProvider {
   id: string;
   name: string;
   displayName?: string;
-  supportedContentTypes: ContentType[];
+  supportedContentTypes: string[];
   requiresAuth: boolean;
+}
+
+export interface OnlineMediaProvider {
+  id: string;
+  name: string;
+  displayName: string;
+  sourceSite: string;
+  supportedContentTypes: string[];
+  requiresAuth: boolean;
+  authConfigurable: boolean;
+  commonSourceSites: string[];
+  sourceSiteAliases: string[];
+  hostSuffixes: string[];
 }
 
 export interface OnlineMediaCapability {
@@ -531,7 +544,7 @@ export interface OnlineMediaCapability {
 
 export interface OnlineMediaAnalyzeResult {
   isSupported: boolean;
-  provider?: OnlineMediaProvider | null;
+  provider?: OnlineMediaAnalyzeProvider | null;
   capability?: OnlineMediaCapability | null;
   sourceSite?: string | null;
   sourceId?: string | null;
@@ -600,7 +613,7 @@ export interface AnalyzeOnlineMediaRequest {
 
 export interface AnalyzeOnlineMediaResponse {
   isSupported: boolean;
-  provider: OnlineMediaProvider | null;
+  provider: OnlineMediaAnalyzeProvider | null;
   capability: OnlineMediaCapability | null;
   sourceSite: string | null;
   sourceId: string | null;
@@ -623,6 +636,37 @@ export interface AnalyzeOnlineMediaResponse {
   requiresAuth: boolean;
   warnings: string[];
   rawMetadata: unknown;
+}
+
+export interface YtdlpStatus {
+  installed: boolean;
+  path: string;
+  version?: string | null;
+  latestVersion?: string | null;
+}
+
+export interface YtdlpUpdateResult {
+  version: string;
+}
+
+export interface OnlineMediaProvidersResponse {
+  providers: OnlineMediaProvider[];
+  ytdlpAvailable: boolean;
+}
+
+export interface OnlineMediaAuthSetting {
+  providerId: string;
+  displayName: string;
+  requiresAuth: boolean;
+  cookie?: string | null;
+  isEnabled: boolean;
+  updatedAt?: string | null;
+}
+
+export interface UpdateAuthSettingInput {
+  displayName?: string;
+  cookie?: string | null;
+  isEnabled?: boolean;
 }
 
 // ── Generated rust-types ────────────────────────────────────────────────────

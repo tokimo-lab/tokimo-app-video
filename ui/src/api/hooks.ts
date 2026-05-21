@@ -10,12 +10,19 @@
  *   - `fetch(input?)` — bypass React Query (used by polling helpers)
  */
 
-import { type QueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   AnalyzeOnlineMediaRequest,
   AnalyzeOnlineMediaResponse,
   FileProbeResult,
   LinkMode,
+  OnlineMediaAuthSetting,
+  OnlineMediaProvidersResponse,
   OrganizeItem,
   OrganizeSession,
   PersonDetailOutput,
@@ -23,12 +30,15 @@ import type {
   StartOnlineMediaDownloadOutput,
   TvShowDetailOutput,
   TvShowOutput,
+  UpdateAuthSettingInput,
   VfsDto,
   VideoItemDetailOutput,
   VideoItemOutput,
   VideoOutput,
   VideoSyncProgressOutput,
   WatchHistoryEntry,
+  YtdlpStatus,
+  YtdlpUpdateResult,
 } from "./types";
 import {
   mediaOrganizeFetch,
@@ -424,6 +434,91 @@ export const apiVideoOnlineMediaStartDownload = {
       onSuccess: opts?.onSuccess,
       onError: opts?.onError,
     }),
+};
+
+export const apiVideoYtdlpStatus = {
+  queryKey: (): unknown[] => [VIDEO_KEY, "ytdlp", "status"],
+  useQuery: (opts?: { enabled?: boolean }) =>
+    useQuery({
+      queryKey: apiVideoYtdlpStatus.queryKey(),
+      queryFn: () => videoFetch<YtdlpStatus>("/ytdlp/status"),
+      enabled: opts?.enabled,
+    }),
+  invalidate: (qc: QueryClient) =>
+    qc.invalidateQueries({ queryKey: apiVideoYtdlpStatus.queryKey() }),
+};
+
+export const apiVideoYtdlpUpdate = {
+  useMutation: (opts?: {
+    onSuccess?: (data: YtdlpUpdateResult) => void;
+    onError?: (error: Error) => void;
+  }) => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: () =>
+        videoFetch<YtdlpUpdateResult>("/ytdlp/update", { method: "POST" }),
+      onSuccess: (data) => {
+        apiVideoYtdlpStatus.invalidate(qc);
+        opts?.onSuccess?.(data);
+      },
+      onError: opts?.onError,
+    });
+  },
+};
+
+export const apiVideoOnlineMediaProviders = {
+  queryKey: (): unknown[] => [VIDEO_KEY, "online-media", "providers"],
+  useQuery: (opts?: { enabled?: boolean }) =>
+    useQuery({
+      queryKey: apiVideoOnlineMediaProviders.queryKey(),
+      queryFn: () =>
+        videoOnlineMediaFetch<OnlineMediaProvidersResponse>("/providers"),
+      enabled: opts?.enabled,
+    }),
+  invalidate: (qc: QueryClient) =>
+    qc.invalidateQueries({ queryKey: apiVideoOnlineMediaProviders.queryKey() }),
+};
+
+export const apiVideoOnlineMediaAuthSettings = {
+  queryKey: (): unknown[] => [VIDEO_KEY, "online-media", "auth-settings"],
+  useQuery: (opts?: { enabled?: boolean }) =>
+    useQuery({
+      queryKey: apiVideoOnlineMediaAuthSettings.queryKey(),
+      queryFn: () =>
+        videoOnlineMediaFetch<OnlineMediaAuthSetting[]>("/auth-settings"),
+      enabled: opts?.enabled,
+    }),
+  invalidate: (qc: QueryClient) =>
+    qc.invalidateQueries({
+      queryKey: apiVideoOnlineMediaAuthSettings.queryKey(),
+    }),
+};
+
+export const apiVideoOnlineMediaUpdateAuthSetting = {
+  useMutation: (opts?: {
+    onSuccess?: (data: OnlineMediaAuthSetting) => void;
+    onError?: (error: Error) => void;
+  }) => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        provider,
+        ...body
+      }: { provider: string } & UpdateAuthSettingInput) =>
+        videoOnlineMediaFetch<OnlineMediaAuthSetting>(
+          `/auth-settings/${encodeURIComponent(provider)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          },
+        ),
+      onSuccess: (data) => {
+        apiVideoOnlineMediaAuthSettings.invalidate(qc);
+        opts?.onSuccess?.(data);
+      },
+      onError: opts?.onError,
+    });
+  },
 };
 
 // ─── Media Organize API ────────────────────────────────────────────────────
