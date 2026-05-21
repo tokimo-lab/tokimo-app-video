@@ -23,6 +23,7 @@ mod apps;
 
 pub use state::AppCtx as AppState;
 
+use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 use clap::{Parser, Subcommand};
@@ -31,6 +32,28 @@ use tokimo_bus_client::{BusClient, ClientConfig};
 use tracing::{error, info};
 
 use crate::state::AppCtx;
+
+fn data_local_path() -> PathBuf {
+    std::env::var("DATA_LOCAL_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("./data/local"))
+}
+
+fn video_ytdlp_root() -> PathBuf {
+    data_local_path().join("apps/video/bin/yt-dlp")
+}
+
+async fn init_ytdlp_root() -> anyhow::Result<PathBuf> {
+    let root = video_ytdlp_root();
+    rust_online_media_ingest::tooling::set_ytdlp_root_override(root.clone()).map_err(|root| {
+        anyhow::anyhow!(
+            "yt-dlp root override already initialized before video startup: {}",
+            root.display()
+        )
+    })?;
+    rust_online_media_ingest::tooling::ensure_ytdlp_available_at(&root).await;
+    Ok(root)
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -118,8 +141,9 @@ async fn run_server() -> anyhow::Result<()> {
     db::init_schema(&db).await?;
     info!("video: db ready");
 
+    let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
-    let ctx = AppCtx::new(db, Arc::clone(&client_slot)).await?;
+    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root).await?;
     let ctx = Arc::new(ctx);
 
     let app_socket = app_server::spawn("video", Arc::clone(&ctx))
@@ -162,8 +186,9 @@ async fn run_standalone(port: u16) -> anyhow::Result<()> {
     db::init_schema(&db).await?;
     info!("video: db ready");
 
+    let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
-    let ctx = AppCtx::new(db, Arc::clone(&client_slot)).await?;
+    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root).await?;
     let ctx = Arc::new(ctx);
 
     app_server::spawn_tcp(port, ctx).await?;

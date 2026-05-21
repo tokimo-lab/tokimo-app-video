@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use sea_orm::DatabaseConnection;
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
@@ -26,6 +27,7 @@ pub struct AppCtx {
     pub event_tx: broadcast::Sender<AppEvent>,
     pub download_log_bus: Arc<LogBus>,
     pub online_media: Arc<rust_online_media_ingest::AppState>,
+    pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
 }
@@ -34,6 +36,7 @@ impl AppCtx {
     pub async fn new(
         db: sea_orm::DatabaseConnection,
         client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
+        ytdlp_root: PathBuf,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
         let sources = Arc::new(crate::services::source::SourceRegistry::new(db.clone(), Arc::clone(&client_slot)));
@@ -64,6 +67,7 @@ impl AppCtx {
             event_tx,
             download_log_bus: Arc::new(crate::services::downloads::log_bus::LogBus::new()),
             online_media,
+            ytdlp_root,
             screenshot_semaphore,
             bus_client: client_slot,
         })
