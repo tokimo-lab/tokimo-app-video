@@ -7,6 +7,7 @@
 //! 4. 主 server 把 `/api/apps/video/<rest>` 全部反代到本 sock 的 `/<rest>`
 
 mod app_server;
+mod apps;
 mod assets;
 mod bus_clients;
 mod bus_services;
@@ -19,7 +20,6 @@ mod queue;
 mod router;
 mod services;
 mod state;
-mod apps;
 
 pub use state::AppCtx as AppState;
 
@@ -29,7 +29,7 @@ use std::sync::{Arc, OnceLock};
 use clap::{Parser, Subcommand};
 use tokimo_bus_cli::TokimoAuthArgs;
 use tokimo_bus_client::{BusClient, ClientConfig};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::state::AppCtx;
 
@@ -150,18 +150,20 @@ async fn run_server() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("app_server spawn: {e}"))?;
 
-    let client = bus_services::video_jobs::register(
-        BusClient::builder(cfg)
-            .service("video", env!("CARGO_PKG_VERSION"))
-            .data_plane(app_socket),
-        Arc::clone(&ctx),
-    )
-    .build()
-    .await
-    .map_err(|e| anyhow::anyhow!("bus build: {e}"))?;
+    let builder = BusClient::builder(cfg)
+        .service("video", env!("CARGO_PKG_VERSION"))
+        .data_plane(app_socket);
+    let builder = bus_services::video_jobs::register(builder, Arc::clone(&ctx));
+    let builder = bus_services::downloader::register(builder, Arc::clone(&ctx));
+    let client = builder.build().await.map_err(|e| anyhow::anyhow!("bus build: {e}"))?;
     client_slot
         .set(Arc::clone(&client))
         .map_err(|_| anyhow::anyhow!("client_slot already set"))?;
+
+    if let Err(error) = crate::bus_clients::downloader::register_downloaders(&client).await {
+        warn!(%error, "video: failed to register downloader SDK with host");
+    }
+    bus_services::downloader::spawn_pt_status_sync(Arc::clone(&ctx));
 
     info!("video: registered with broker");
 
@@ -192,7 +194,10 @@ async fn run_standalone(port: u16) -> anyhow::Result<()> {
     let ctx = Arc::new(ctx);
 
     app_server::spawn_tcp(port, ctx).await?;
-    info!(port, "video: standalone server started — http://127.0.0.1:{port}/health");
+    info!(
+        port,
+        "video: standalone server started — http://127.0.0.1:{port}/health"
+    );
 
     tokio::signal::ctrl_c().await?;
     info!("video: SIGINT received");
