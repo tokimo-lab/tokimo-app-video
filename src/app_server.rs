@@ -47,6 +47,7 @@ pub async fn spawn_tcp(port: u16, ctx: Arc<AppCtx>) -> anyhow::Result<()> {
 
 fn build_router(ctx: Arc<AppCtx>) -> Router {
     router::build_video_app_routes()
+        .merge(tokimo_jellyfin_api::build_jellyfin_routes::<crate::AppState>())
         .route("/assets/{*path}", get(assets::serve))
         .route("/health", get(health))
         .with_state(ctx)
