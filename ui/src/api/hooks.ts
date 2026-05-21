@@ -41,6 +41,7 @@ import type {
   YtdlpUpdateResult,
 } from "./types";
 import {
+  externalDbFetch,
   mediaOrganizeFetch,
   vfsFetch,
   videoFetch,
@@ -796,4 +797,98 @@ export const apiDownloadManageList = {
   queryKey: (): unknown[] => ["downloads", "list"],
   invalidate: (qc: QueryClient) =>
     qc.invalidateQueries({ queryKey: apiDownloadManageList.queryKey() }),
+};
+
+// ─── Host external database settings API ────────────────────────────────────
+
+const EXTERNAL_DB_KEY = "external-db";
+
+export interface TmdbSettings {
+  apiKey: string | null;
+  dailyLimit: number | null;
+}
+
+export interface UpdateTmdbSettingsInput {
+  apiKey: string | null;
+  dailyLimit: number | null;
+}
+
+export interface ProviderStatus {
+  isConfigured: boolean;
+  dailyUsage: number;
+  dailyLimit: number | null;
+}
+
+export interface TmdbProviderStatus {
+  tmdb: ProviderStatus;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  errorMessage?: string;
+  sampleTitle?: string;
+}
+
+export const apiExternalDbStatus = {
+  queryKey: (): unknown[] => [EXTERNAL_DB_KEY, "status"],
+  useQuery: (opts?: { enabled?: boolean }) =>
+    useQuery({
+      queryKey: apiExternalDbStatus.queryKey(),
+      queryFn: () => externalDbFetch<TmdbProviderStatus>("/status"),
+      enabled: opts?.enabled,
+    }),
+  invalidate: (qc: QueryClient) =>
+    qc.invalidateQueries({ queryKey: apiExternalDbStatus.queryKey() }),
+};
+
+export const apiExternalDbGetTmdb = {
+  queryKey: (): unknown[] => [EXTERNAL_DB_KEY, "tmdb"],
+  useQuery: (opts?: { enabled?: boolean }) =>
+    useQuery({
+      queryKey: apiExternalDbGetTmdb.queryKey(),
+      queryFn: () => externalDbFetch<TmdbSettings>("/tmdb"),
+      enabled: opts?.enabled,
+    }),
+  invalidate: (qc: QueryClient) =>
+    qc.invalidateQueries({ queryKey: apiExternalDbGetTmdb.queryKey() }),
+};
+
+export const apiExternalDbUpdateTmdb = {
+  useMutation: (opts?: {
+    onSuccess?: (data: TmdbSettings) => void;
+    onError?: (error: Error) => void;
+  }) => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: (input: UpdateTmdbSettingsInput) =>
+        externalDbFetch<TmdbSettings>("/tmdb", {
+          method: "PUT",
+          body: JSON.stringify(input),
+        }),
+      onSuccess: (data) => {
+        apiExternalDbGetTmdb.invalidate(qc);
+        apiExternalDbStatus.invalidate(qc);
+        opts?.onSuccess?.(data);
+      },
+      onError: opts?.onError,
+    });
+  },
+};
+
+export const apiExternalDbTestTmdb = {
+  useMutation: (opts?: {
+    onSuccess?: (data: TestConnectionResult) => void;
+    onError?: (error: Error) => void;
+  }) => {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: () =>
+        externalDbFetch<TestConnectionResult>("/tmdb/test", { method: "POST" }),
+      onSuccess: (data) => {
+        apiExternalDbStatus.invalidate(qc);
+        opts?.onSuccess?.(data);
+      },
+      onError: opts?.onError,
+    });
+  },
 };

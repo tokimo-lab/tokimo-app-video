@@ -79,3 +79,10 @@ export function downloadsFetch<T>(
 ): Promise<T> {
   return apiFetch<T>("/api/apps/downloads", path, init);
 }
+/** Routes under /api/admin/external-db/ (host shell external DB settings API) */
+export function externalDbFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  return apiFetch<T>("/api/admin/external-db", path, init);
+}

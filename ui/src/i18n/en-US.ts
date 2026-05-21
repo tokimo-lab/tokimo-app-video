@@ -76,9 +76,72 @@ const enUS = {
       scheduledTasksAction: "New Scheduled Task",
     },
   },
+  systemSettings: {
+    apiUsage: {
+      title: "Daily API Usage",
+      todayUsed: "Used Today",
+      remaining: "Remaining",
+      unlimited: "Unlimited",
+      dailyLimit: "Daily Limit",
+      dailyLimitExtra: "Leave empty for no limit",
+    },
+  },
   media: {
+    common: {
+      loading: "Loading",
+      notConfigured: "Not configured",
+      save: "Save",
+      cancel: "Cancel",
+    },
     menu: {
       settings: "Settings",
+    },
+    tmdbSettings: {
+      title: "TMDB Settings",
+      description:
+        "Configure The Movie Database (TMDB) API for searching and fetching media metadata",
+      apiKey: "API Key",
+      apiKeyPlaceholder: "Enter TMDB API Key",
+      apiKeyExtra: "API Key (v3 auth) from TMDB website",
+      apiKeyConfig: "API Key Configuration",
+      language: "Language",
+      includeAdult: "Include Adult Content",
+      saveSuccess: "TMDB settings saved",
+      saveFailed: "Save failed",
+      testConnection: "Test Connection",
+      testSuccess: "TMDB connection successful",
+      testFailed: "TMDB connection failed",
+      getApiKeyHint: "Get API Key from TMDB website",
+      connectionStatus: "Connection Status",
+      configStatus: "Configuration Status",
+      connected: "Connected",
+      disconnected: "Disconnected",
+      errorMessage: "Error Message",
+      howToGetApiKey: "How to Get API Key",
+      getApiKeySteps: "Steps",
+      step1Visit: "Visit",
+      step1Link: "TMDB Website",
+      step1Register: "to register an account",
+      step2Login: "After logging in, go to",
+      step2Link: "API Settings Page",
+      step3: "Apply for an API Key (select Developer type)",
+      step4:
+        "Copy API Key (v3 auth) and paste it in the input above, then save",
+      featureDescription: "Features",
+      mediaSearch: "Media Search",
+      mediaSearchDesc:
+        "Search for detailed movie and TV show information via TMDB, including posters, synopsis, ratings, etc.",
+      metadataFetch: "Metadata Fetching",
+      metadataFetchDesc:
+        "Automatically fetch complete metadata for media, used for organizing and displaying your app",
+      ptSiteIntegration: "PT Site Integration",
+      ptSiteIntegrationDesc:
+        "Combine with PT site search results to provide richer resource information",
+      relatedLinks: "Related Links",
+      tmdbWebsite: "TMDB Website",
+      registerAccount: "Register TMDB Account",
+      getApiKeyLink: "Get API Key",
+      apiDocs: "API Documentation",
     },
     video: {
       filter: {

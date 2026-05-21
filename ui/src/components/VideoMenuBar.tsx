@@ -135,6 +135,21 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
                 });
               },
             },
+            {
+              key: "tmdb-settings",
+              label: t("media.tmdbSettings.title"),
+              icon: <Settings size={14} />,
+              onClick: () => {
+                openModalWindow({
+                  component: () => import("./TmdbSettingsWindow"),
+                  parentWindowId: windowId,
+                  title: t("media.tmdbSettings.title"),
+                  width: 760,
+                  height: 680,
+                  noMinimize: true,
+                });
+              },
+            },
           ],
         },
       ],

@@ -2,6 +2,7 @@ export * from "./hooks";
 export * from "./types";
 export {
   downloadsFetch,
+  externalDbFetch,
   mediaOrganizeFetch,
   vfsFetch,
   videoFetch,
@@ -10,6 +11,10 @@ export {
 
 import {
   apiDownloadManageList,
+  apiExternalDbGetTmdb,
+  apiExternalDbStatus,
+  apiExternalDbTestTmdb,
+  apiExternalDbUpdateTmdb,
   apiMediaOrganizeCancel,
   apiMediaOrganizeClear,
   apiMediaOrganizeExecute,
@@ -103,5 +108,11 @@ export const api = {
   },
   downloadManage: {
     list: apiDownloadManageList,
+  },
+  externalDb: {
+    status: apiExternalDbStatus,
+    getTmdb: apiExternalDbGetTmdb,
+    updateTmdb: apiExternalDbUpdateTmdb,
+    testTmdb: apiExternalDbTestTmdb,
   },
 } as const;
