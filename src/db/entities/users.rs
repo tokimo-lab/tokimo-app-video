@@ -24,8 +24,6 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::download_records::Entity")]
-    DownloadRecords,
     #[sea_orm(has_many = "super::file_favorites::Entity")]
     FileFavorites,
     #[sea_orm(has_many = "super::playback_sessions::Entity")]
@@ -44,12 +42,6 @@ pub enum Relation {
     UserPreferences,
     #[sea_orm(has_many = "super::watch_histories::Entity")]
     WatchHistories,
-}
-
-impl Related<super::download_records::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::DownloadRecords.def()
-    }
 }
 
 impl Related<super::file_favorites::Entity> for Entity {

@@ -7,7 +7,7 @@ use chrono::Datelike;
 use sea_orm::prelude::Expr;
 use sea_orm::sea_query::Condition;
 use sea_orm::*;
-use serde_json::json;
+use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
@@ -17,12 +17,54 @@ use crate::db::entities::{download_records, video_items};
 
 use crate::services::common::is_unique_violation;
 use crate::services::nfo_parser::NfoInfo;
-use crate::services::scrape::shared::artwork::{
-    DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
-};
+use crate::services::scrape::shared::artwork::{DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop};
 
 pub struct OnlineVideoResult {
     pub video_item_id: Uuid,
+}
+
+fn app_metadata(record: &download_records::Model) -> Option<&JsonValue> {
+    record.app_metadata.as_ref()
+}
+
+fn metadata_string(record: &download_records::Model, key: &str) -> Option<String> {
+    app_metadata(record)
+        .and_then(|m| m.get(key))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+}
+
+fn analysis(record: &download_records::Model) -> Option<&JsonValue> {
+    app_metadata(record).and_then(|m| m.get("analysis"))
+}
+
+fn analysis_string(record: &download_records::Model, key: &str) -> Option<String> {
+    analysis(record)
+        .and_then(|m| m.get(key))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+}
+
+fn duration_seconds(record: &download_records::Model) -> Option<i32> {
+    app_metadata(record)
+        .and_then(|m| m.get("durationSeconds"))
+        .and_then(|v| v.as_i64())
+        .and_then(|v| i32::try_from(v).ok())
+}
+
+fn release_date_from_record(record: &download_records::Model) -> Option<chrono::NaiveDate> {
+    analysis(record).and_then(|s| {
+        s.get("releaseDate")
+            .or_else(|| s.get("release_date"))
+            .and_then(|v| v.as_str())
+            .and_then(normalize_date_to_naive)
+            .or_else(|| {
+                s.get("rawMetadata")
+                    .and_then(|rm| rm.get("upload_date"))
+                    .and_then(|v| v.as_str())
+                    .and_then(normalize_date_to_naive)
+            })
+    })
 }
 
 /// Fetch matching `download_record` for an `online_video` file by directory name.
@@ -39,12 +81,13 @@ pub async fn fetch_online_record(
         return Ok(None);
     }
     let record = download_records::Entity::find()
-        .filter(download_records::Column::TargetVideoId.eq(app_id))
-        .filter(download_records::Column::SourceOrigin.eq("online_media"))
+        .filter(download_records::Column::AppId.eq("video"))
+        .filter(download_records::Column::DownloaderType.eq("yt-dlp"))
         .filter(
             Condition::any()
-                .add(download_records::Column::ExternalId.eq(dir_basename))
-                .add(download_records::Column::TargetPath.contains(dir_basename)),
+                .add(download_records::Column::Title.contains(dir_basename))
+                .add(download_records::Column::TargetPath.contains(dir_basename))
+                .add(download_records::Column::DownloadPath.contains(dir_basename)),
         )
         .order_by_desc(download_records::Column::CreatedAt)
         .one(db)
@@ -70,7 +113,9 @@ pub async fn find_or_create_online_video(
 ) -> Result<OnlineVideoResult, Box<dyn std::error::Error + Send + Sync>> {
     // Title: NFO → download_records → fallback (parsed filename / dir name)
     let nfo_title = nfo.and_then(|n| n.title.clone());
-    let record_title = online_record.and_then(|r| r.media_title.clone());
+    let record_title = online_record
+        .and_then(|r| metadata_string(r, "mediaTitle"))
+        .or_else(|| online_record.map(|r| r.title.clone()));
     let title = nfo_title.or(record_title).unwrap_or_else(|| fallback_title.to_string());
 
     // Advisory lock to prevent duplicate creation
@@ -109,18 +154,7 @@ pub async fn find_or_create_online_video(
                         update = update.col_expr(video_items::Column::Metadata, Expr::value(mj));
                     }
                     if missing_year {
-                        let snapshot_date = online_record.and_then(|r| r.analysis_snapshot.as_ref()).and_then(|s| {
-                            s.get("releaseDate")
-                                .or_else(|| s.get("release_date"))
-                                .and_then(|v| v.as_str())
-                                .and_then(normalize_date_to_naive)
-                                .or_else(|| {
-                                    s.get("rawMetadata")
-                                        .and_then(|rm| rm.get("upload_date"))
-                                        .and_then(|v| v.as_str())
-                                        .and_then(normalize_date_to_naive)
-                                })
-                        });
+                        let snapshot_date = online_record.and_then(release_date_from_record);
                         if let Some(d) = snapshot_date {
                             update = update.col_expr(video_items::Column::Year, Expr::value(d.year()));
                             update = update.col_expr(video_items::Column::ReleaseDate, Expr::value(d));
@@ -129,8 +163,7 @@ pub async fn find_or_create_online_video(
                     if missing_overview {
                         let overview = nfo.and_then(|n| n.plot.clone()).or_else(|| {
                             online_record.and_then(|r| {
-                                r.analysis_snapshot
-                                    .as_ref()
+                                analysis(r)
                                     .and_then(|s| s.get("description"))
                                     .and_then(|v| v.as_str())
                                     .filter(|s| !s.is_empty())
@@ -215,15 +248,16 @@ async fn create_record(
     let movie_id = Uuid::new_v4();
     let now = chrono::Utc::now().fixed_offset();
 
-    let original_title = nfo
-        .and_then(|n| n.original_title.clone())
-        .or_else(|| online_record.and_then(|r| r.media_title.clone()));
+    let original_title = nfo.and_then(|n| n.original_title.clone()).or_else(|| {
+        online_record
+            .and_then(|r| metadata_string(r, "mediaTitle"))
+            .or_else(|| online_record.map(|r| r.title.clone()))
+    });
 
-    // Overview: NFO plot → download_records.analysis_snapshot.description
+    // Overview: NFO plot → download_records.app_metadata.analysis.description
     let overview = nfo.and_then(|n| n.plot.clone()).or_else(|| {
         online_record.and_then(|r| {
-            r.analysis_snapshot
-                .as_ref()
+            analysis(r)
                 .and_then(|s| s.get("description"))
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
@@ -233,11 +267,11 @@ async fn create_record(
 
     let runtime = nfo.and_then(|n| n.runtime).or_else(|| {
         online_record
-            .and_then(|r| r.duration_seconds)
+            .and_then(duration_seconds)
             .map(|s| (f64::from(s) / 60.0).round() as i32)
     });
 
-    // Year & release_date: NFO → download_records.analysis_snapshot.releaseDate / upload_date
+    // Year & release_date: NFO → download_records.app_metadata.analysis.releaseDate / upload_date
     let (year, release_date) = {
         let nfo_year = nfo.and_then(|n| n.year);
         let nfo_date = nfo.and_then(|n| {
@@ -248,20 +282,8 @@ async fn create_record(
         if nfo_year.is_some() || nfo_date.is_some() {
             (nfo_year, nfo_date)
         } else {
-            // Fallback: extract from analysis_snapshot.releaseDate or raw upload_date
-            let snapshot_date = online_record.and_then(|r| r.analysis_snapshot.as_ref()).and_then(|s| {
-                s.get("releaseDate")
-                    .or_else(|| s.get("release_date"))
-                    .and_then(|v| v.as_str())
-                    .and_then(normalize_date_to_naive)
-                    .or_else(|| {
-                        // Try rawMetadata.upload_date (yt-dlp YYYYMMDD format)
-                        s.get("rawMetadata")
-                            .and_then(|rm| rm.get("upload_date"))
-                            .and_then(|v| v.as_str())
-                            .and_then(normalize_date_to_naive)
-                    })
-            });
+            // Fallback: extract from app_metadata.analysis.releaseDate or raw upload_date
+            let snapshot_date = online_record.and_then(release_date_from_record);
             let year = snapshot_date.map(|d| d.year());
             (year, snapshot_date)
         }
@@ -354,7 +376,7 @@ fn build_metadata_json(
     }
     if let Some(or) = online_record {
         if !metadata.contains_key("uploader")
-            && let Some(ref u) = or.uploader
+            && let Some(u) = metadata_string(or, "uploader").or_else(|| analysis_string(or, "uploader"))
         {
             metadata.insert("uploader".into(), json!(u));
         }
@@ -363,13 +385,16 @@ fn build_metadata_json(
         {
             metadata.insert("sourceSite".into(), json!(s));
         }
-        if let Some(ref e) = or.external_id {
+        if let Some(e) = metadata_string(or, "externalId")
+            .or_else(|| analysis_string(or, "externalId"))
+            .or_else(|| analysis_string(or, "sourceId"))
+        {
             metadata.insert("externalId".into(), json!(e));
         }
         if let Some(ref url) = or.source_url {
             metadata.insert("sourceUrl".into(), json!(url));
         }
-        if let Some(dur) = or.duration_seconds {
+        if let Some(dur) = duration_seconds(or) {
             metadata.insert("durationSeconds".into(), json!(dur));
         }
     }

@@ -23,6 +23,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
+    bus_clients::downloader::UpdateDownloaderStatusRequest,
     db::repos::{
         download_record_repo::{CreateDownloadRecordInput, DownloadRecordRepo},
         job_repo::JobRepo,
@@ -32,6 +33,17 @@ use crate::{
     error::{AppError, OptionExt},
     handlers::{ApiResponse, ok, user::AuthUser},
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
+    let Some(client) = state.bus_client.get() else { return };
+    if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
+        tracing::warn!(%error, record_id = %request.record_id, "failed to push downloader status to host");
+    }
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // DTOs
@@ -157,6 +169,13 @@ pub struct RetryDownloadInput {
 struct TargetLib {
     id: Uuid,
     r#type: String,
+}
+
+fn metadata_string(metadata: Option<&JsonValue>, key: &str) -> Option<String> {
+    metadata
+        .and_then(|value| value.get(key))
+        .and_then(|value| value.as_str())
+        .map(String::from)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -489,7 +508,7 @@ pub async fn start_online_media_download(
     let duplicate = DownloadRecordRepo::find_online_media_duplicate(&state.db, normalized_url).await?;
     let duplicate_to_delete = if let Some(dup) = &duplicate {
         if !input.confirm_duplicate {
-            let title = dup.media_title.clone().unwrap_or_else(|| dup.torrent_name.clone());
+            let title = metadata_string(dup.app_metadata.as_ref(), "mediaTitle").unwrap_or_else(|| dup.title.clone());
             let message = format!("任务「{title}」已存在，是否重新下载？");
             return Ok(ok(StartDownloadOutput::Duplicate(StartDownloadDuplicateOutput {
                 action: "duplicate".into(),
@@ -516,15 +535,38 @@ pub async fn start_online_media_download(
         .and_then(|v| v.as_str())
         .or_else(|| provider.and_then(|p| p.get("displayName")).and_then(|v| v.as_str()))
         .or_else(|| provider.and_then(|p| p.get("name")).and_then(|v| v.as_str()));
-    let torrent_name = input
+    let title = input
         .media_title
         .as_deref()
         .or_else(|| analysis.get("title").and_then(|v| v.as_str()))
         .unwrap_or(&input.url);
+    let media_title = input
+        .media_title
+        .clone()
+        .or_else(|| analysis.get("title").and_then(|v| v.as_str()).map(String::from));
     let content_type = analysis
         .get("contentType")
         .and_then(|v| v.as_str())
         .unwrap_or(&target_app.r#type);
+    let external_id = analysis
+        .get("sourceId")
+        .and_then(|v| v.as_str())
+        .or_else(|| analysis.get("externalId").and_then(|v| v.as_str()))
+        .map(String::from);
+    let app_metadata = json!({
+        "contentType": content_type,
+        "mediaTitle": media_title,
+        "mediaYear": input.media_year,
+        "analysis": analysis,
+        "autoOrganize": input.auto_organize,
+        "targetAppId": target_app.id.to_string(),
+        "targetAppType": target_app.r#type,
+        "createdBy": user_id.to_string(),
+        "downloadFormat": input.download_format,
+        "durationSeconds": analysis.get("durationSeconds").and_then(JsonValue::as_i64),
+        "uploader": analysis.get("uploader").and_then(|v| v.as_str()),
+        "externalId": external_id,
+    });
 
     let record_id = Uuid::new_v4();
     let txn = state.db.begin().await?;
@@ -535,35 +577,16 @@ pub async fn start_online_media_download(
         &txn,
         CreateDownloadRecordInput {
             id: record_id,
-            torrent_name: torrent_name.to_string(),
-            source_origin: "online_media".into(),
+            title: title.to_string(),
+            app_id: "video".into(),
+            downloader_type: "yt-dlp".into(),
             source_site: source_site.map(String::from),
             source_url: Some(normalized_url.to_string()),
-            content_type: content_type.to_string(),
-            media_title: input
-                .media_title
-                .clone()
-                .or_else(|| analysis.get("title").and_then(|v| v.as_str()).map(String::from)),
-            media_year: input.media_year.clone(),
+            app_metadata: Some(app_metadata),
             thumbnail_url: analysis.get("thumbnailUrl").and_then(|v| v.as_str()).map(String::from),
-            duration_seconds: analysis
-                .get("durationSeconds")
-                .and_then(JsonValue::as_i64)
-                .map(|v| v as i32),
-            uploader: analysis.get("uploader").and_then(|v| v.as_str()).map(String::from),
-            external_id: analysis
-                .get("sourceId")
-                .and_then(|v| v.as_str())
-                .or_else(|| analysis.get("externalId").and_then(|v| v.as_str()))
-                .map(String::from),
             status: "downloading".into(),
-            progress: Some("0".into()),
-            analysis_snapshot: Some(analysis.clone()),
-            auto_organize: input.auto_organize,
-            import_status: Some("pending".into()),
+            progress: 0.0,
             download_path: Some(String::new()),
-            target_video_id: Some(target_app.id),
-            created_by: Some(user_id),
         },
     )
     .await?;
@@ -585,7 +608,20 @@ pub async fn start_online_media_download(
         Ok(job_id) => job_id,
         Err(err) => {
             let message = format!("创建下载任务失败: {err}");
-            DownloadRecordRepo::mark_job_creation_failed(&state.db, record_id, &message).await?;
+            push_downloader_status(
+                &state,
+                UpdateDownloaderStatusRequest {
+                    record_id,
+                    status: Some("failed".into()),
+                    progress: None,
+                    downloaded_bytes: None,
+                    download_speed: Some(0),
+                    eta_seconds: None,
+                    thumbnail_url: None,
+                    error_message: Some(message),
+                },
+            )
+            .await;
             return Err(err);
         }
     };
@@ -609,29 +645,50 @@ pub async fn retry_online_media_download(
         .await?
         .not_found("下载记录不存在")?;
 
-    if record.source_origin != "online_media" {
-        return Err(AppError::BadRequest("只有在线媒体下载任务支持重试".into()));
+    if record.app_id != "video" || record.downloader_type != "yt-dlp" {
+        return Err(AppError::BadRequest("只有在线视频下载任务支持重试".into()));
     }
     if record.status != "failed" {
         return Err(AppError::BadRequest("只有失败的下载任务可以重试".into()));
     }
-    if let Some(created_by) = record.created_by
-        && created_by.to_string() != auth.user_id
+    let metadata = record.app_metadata.as_ref();
+    if let Some(created_by) = metadata_string(metadata, "createdBy")
+        && created_by != auth.user_id
     {
         return Err(AppError::Forbidden("无权操作此下载记录".into()));
     }
 
-    let analysis = record.analysis_snapshot.clone().bad_request("缺少重试所需的下载参数")?;
+    let analysis = metadata
+        .and_then(|value| value.get("analysis"))
+        .cloned()
+        .bad_request("缺少重试所需的下载参数")?;
     let source_url = record.source_url.clone().bad_request("缺少重试所需的下载参数")?;
-    let target_app = if let Some(video_id) = record.target_video_id {
-        resolve_app(&state.db, &video_id.to_string()).await?
-    } else if let Some(target_app_id) = analysis.get("targetAppId").and_then(|v| v.as_str()) {
-        resolve_app(&state.db, target_app_id).await?
+    let target_app = if let Some(target_app_id) = metadata_string(metadata, "targetAppId") {
+        resolve_app(&state.db, &target_app_id).await?
+    } else if let Some(content_type) = metadata_string(metadata, "contentType") {
+        resolve_app_by_content_type(&state.db, &content_type).await?
     } else {
-        resolve_app_by_content_type(&state.db, &record.content_type).await?
+        return Err(AppError::BadRequest("缺少重试所需的视频库信息".into()));
     };
 
-    DownloadRecordRepo::reset_for_retry(&state.db, record_id).await?;
+    // Reset status via bus instead of direct repo write
+    push_downloader_status(
+        &state,
+        UpdateDownloaderStatusRequest {
+            record_id,
+            status: Some("downloading".into()),
+            progress: Some(0.0),
+            downloaded_bytes: None,
+            download_speed: None,
+            eta_seconds: None,
+            thumbnail_url: None,
+            error_message: None,
+        },
+    )
+    .await;
+
+    let retry_media_title = metadata_string(metadata, "mediaTitle");
+    let retry_media_year = metadata_string(metadata, "mediaYear");
     let user_id = Uuid::parse_str(&auth.user_id).map_err(|_| AppError::Unauthorized("无效的用户 ID".into()))?;
     let job_id = match create_online_media_job(
         &state,
@@ -639,8 +696,8 @@ pub async fn retry_online_media_download(
         &source_url,
         &analysis,
         "auto",
-        record.media_title.as_deref(),
-        record.media_year.as_deref(),
+        retry_media_title.as_deref(),
+        retry_media_year.as_deref(),
         &target_app,
         Some(user_id),
     )
@@ -649,7 +706,20 @@ pub async fn retry_online_media_download(
         Ok(job_id) => job_id,
         Err(err) => {
             let message = format!("创建下载任务失败: {err}");
-            DownloadRecordRepo::mark_job_creation_failed(&state.db, record_id, &message).await?;
+            push_downloader_status(
+                &state,
+                UpdateDownloaderStatusRequest {
+                    record_id,
+                    status: Some("failed".into()),
+                    progress: None,
+                    downloaded_bytes: None,
+                    download_speed: Some(0),
+                    eta_seconds: None,
+                    thumbnail_url: None,
+                    error_message: Some(message),
+                },
+            )
+            .await;
             return Err(err);
         }
     };

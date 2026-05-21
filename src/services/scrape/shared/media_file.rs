@@ -78,9 +78,13 @@ pub async fn create_or_update(
     let now = chrono::Utc::now().fixed_offset();
     let mime_type = guess_mime(filename);
 
-    let duration = nfo
-        .and_then(|n| n.duration_in_seconds)
-        .or_else(|| online_record.and_then(|r| r.duration_seconds));
+    let duration = nfo.and_then(|n| n.duration_in_seconds).or_else(|| {
+        online_record
+            .and_then(|r| r.app_metadata.as_ref())
+            .and_then(|m| m.get("durationSeconds"))
+            .and_then(|v| v.as_i64())
+            .and_then(|v| i32::try_from(v).ok())
+    });
     let video_codec = nfo.and_then(|n| n.video_codec.clone());
     let video_width = nfo.and_then(|n| n.video_width);
     let video_height = nfo.and_then(|n| n.video_height);

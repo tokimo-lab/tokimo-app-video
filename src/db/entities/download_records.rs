@@ -5,46 +5,25 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "download_records")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     #[sea_orm(column_type = "Text")]
-    pub torrent_name: String,
+    pub title: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub torrent_hash: Option<String>,
     #[sea_orm(column_type = "Text")]
-    pub source_origin: String,
+    pub app_id: String,
+    #[sea_orm(column_type = "Text")]
+    pub downloader_type: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub source_site: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub source_url: Option<String>,
-    #[sea_orm(column_type = "Text")]
-    pub content_type: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub media_title: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub media_year: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub tmdb_id: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub imdb_id: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub season: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub episode: Option<String>,
     #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub episodes: Option<Json>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub quality: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub source: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub codec: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub release_group: Option<String>,
-    pub pt_site_id: Option<Uuid>,
+    pub app_metadata: Option<Json>,
     pub download_client_id: Option<Uuid>,
     #[sea_orm(column_type = "Text", nullable)]
     pub download_path: Option<String>,
@@ -54,47 +33,17 @@ pub struct Model {
     pub file_size: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub thumbnail_url: Option<String>,
-    pub duration_seconds: Option<i32>,
+    pub download_speed: Option<i64>,
+    pub eta_seconds: Option<i32>,
+    pub downloaded_bytes: Option<i64>,
     #[sea_orm(column_type = "Text", nullable)]
-    pub uploader: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub external_id: Option<String>,
+    pub error_message: Option<String>,
     #[sea_orm(column_type = "Text")]
     pub status: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub progress: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub uploaded_size: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub downloaded_size: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub ratio: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub seeding_time: Option<String>,
-    pub is_recognized: bool,
-    #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub analysis_snapshot: Option<Json>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub manifest_path: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub rust_task_id: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub import_status: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub import_error: Option<String>,
-    pub subscription_id: Option<Uuid>,
-    pub target_video_id: Option<Uuid>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub link_mode: Option<String>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub poster_path: Option<String>,
-    pub auto_organize: bool,
-    pub is_traffic_manage: bool,
-    pub auto_stop_at: Option<DateTimeWithTimeZone>,
-    pub music_album_id: Option<Uuid>,
-    pub created_by: Option<Uuid>,
+    pub progress: f64,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub updated_at: Option<DateTimeWithTimeZone>,
+    pub completed_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -107,67 +56,11 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     DownloadClients,
-    #[sea_orm(
-        belongs_to = "super::pt_sites::Entity",
-        from = "Column::PtSiteId",
-        to = "super::pt_sites::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    PtSites,
-    #[sea_orm(
-        belongs_to = "super::subscriptions::Entity",
-        from = "Column::SubscriptionId",
-        to = "super::subscriptions::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Subscriptions,
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::CreatedBy",
-        to = "super::users::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Users,
-    #[sea_orm(
-        belongs_to = "super::videos::Entity",
-        from = "Column::TargetVideoId",
-        to = "super::videos::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Videos,
 }
 
 impl Related<super::download_clients::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DownloadClients.def()
-    }
-}
-
-impl Related<super::pt_sites::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PtSites.def()
-    }
-}
-
-impl Related<super::subscriptions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Subscriptions.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
-    }
-}
-
-impl Related<super::videos::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Videos.def()
     }
 }
 

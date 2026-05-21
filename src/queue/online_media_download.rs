@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::*;
 use serde_json::{Value as JsonValue, json};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::db::entities::{download_records, vfs, video_files};
+use crate::bus_clients::downloader::{CompleteDownloaderRequest, UpdateDownloaderStatusRequest};
+use crate::db::entities::{vfs, video_files};
+use crate::db::repos::download_record_repo::DownloadRecordRepo;
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::services::storage::UploadOptions;
@@ -72,6 +73,20 @@ type HandlerResult = Result<Option<JsonValue>, Box<dyn std::error::Error + Send 
 const DEFAULT_POLL_INTERVAL_MS: u64 = 1000;
 const DEFAULT_POLL_RETRY_LIMIT: u32 = 3;
 
+async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
+    let Some(client) = state.bus_client.get() else { return };
+    if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
+        warn!(%error, record_id = %request.record_id, "failed to push downloader status to host");
+    }
+}
+
+async fn push_downloader_complete(state: &Arc<AppState>, request: CompleteDownloaderRequest) {
+    let Some(client) = state.bus_client.get() else { return };
+    if let Err(error) = crate::bus_clients::downloader::complete(client, &request).await {
+        warn!(%error, record_id = %request.record_id, "failed to push downloader completion to host");
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 pub async fn handle(
     db: &DatabaseConnection,
@@ -126,7 +141,7 @@ pub async fn handle(
     let parsed_sources = VideoRepo::parse_sources(&lib_info.sources);
     if parsed_sources.is_empty() {
         let err_msg = "该应用未配置文件系统源，请先在应用设置中添加至少一个文件系统路径";
-        update_record_failed(db, record_uuid, err_msg).await;
+        update_record_failed(state, record_uuid, err_msg).await;
         let run_id = record_uuid.to_string();
         append_download_log(state, &record_uuid, &run_id, "error", err_msg, None).await;
         return Err("该应用未配置文件系统源".into());
@@ -252,28 +267,21 @@ pub async fn handle(
     )
     .await;
 
-    // Update download record with task ID.
-    let now: DateTimeWithTimeZone = chrono::Utc::now().into();
-    download_records::Entity::update_many()
-        .col_expr(
-            download_records::Column::RustTaskId,
-            sea_orm::sea_query::Expr::value(&task_id),
-        )
-        .col_expr(
-            download_records::Column::Status,
-            sea_orm::sea_query::Expr::value("downloading"),
-        )
-        .col_expr(
-            download_records::Column::ImportStatus,
-            sea_orm::sea_query::Expr::value("importing"),
-        )
-        .col_expr(
-            download_records::Column::UpdatedAt,
-            sea_orm::sea_query::Expr::value(now),
-        )
-        .filter(download_records::Column::Id.eq(record_uuid))
-        .exec(db)
-        .await?;
+    state.download_tasks.lock().await.insert(record_uuid, task_id.clone());
+    push_downloader_status(
+        state,
+        UpdateDownloaderStatusRequest {
+            record_id: record_uuid,
+            status: Some("downloading".into()),
+            progress: Some(0.0),
+            downloaded_bytes: Some(0),
+            download_speed: None,
+            eta_seconds: None,
+            thumbnail_url: analysis.get("thumbnailUrl").and_then(|v| v.as_str()).map(String::from),
+            error_message: None,
+        },
+    )
+    .await;
 
     // Poll task status until completion or failure.
     let poll_interval = std::env::var("ONLINE_MEDIA_POLL_INTERVAL_MS")
@@ -299,7 +307,7 @@ pub async fn handle(
             if poll_failure_count > poll_retry_limit {
                 let err_msg = format!("在线媒体任务状态已丢失，可能是服务重启导致任务中断 ({task_id})");
                 append_download_log(state, &record_uuid, &task_id, "error", &err_msg, None).await;
-                update_record_failed(db, record_uuid, &err_msg).await;
+                update_record_failed(state, record_uuid, &err_msg).await;
                 return Err(err_msg.into());
             }
             continue;
@@ -318,39 +326,25 @@ pub async fn handle(
             last_logged_stage = resp.stage.clone();
         }
 
-        // Update download record with progress.
-        let progress_str = to_record_progress(resp.progress);
-        let update_now: DateTimeWithTimeZone = chrono::Utc::now().into();
-        let import_status = match resp.status {
-            rust_online_media_ingest::models::TaskState::Completed => "completed",
-            rust_online_media_ingest::models::TaskState::Failed => "failed",
-            _ => "importing",
-        };
-
-        let mut update = download_records::ActiveModel {
-            id: Set(record_uuid),
-            ..Default::default()
-        };
-        update.rust_task_id = Set(Some(task_id.clone()));
-        update.progress = Set(Some(progress_str));
-        if let Some(bytes) = resp.downloaded_bytes {
-            update.downloaded_size = Set(Some(bytes.to_string()));
-        }
-        if let Some(bytes) = resp.total_bytes {
-            update.file_size = Set(Some(bytes.to_string()));
-        }
-        if let Some(ref mp) = resp.manifest_path {
-            update.manifest_path = Set(Some(mp.clone()));
-        }
-        if let Some(ref tp) = resp.target_path {
-            update.target_path = Set(Some(tp.clone()));
-        }
-        update.import_status = Set(Some(import_status.into()));
-        if let Some(ref e) = resp.error {
-            update.import_error = Set(Some(e.clone()));
-        }
-        update.updated_at = Set(Some(update_now));
-        update.update(db).await?;
+        push_downloader_status(
+            state,
+            UpdateDownloaderStatusRequest {
+                record_id: record_uuid,
+                status: Some(match resp.status {
+                    rust_online_media_ingest::models::TaskState::Completed => "completed".into(),
+                    rust_online_media_ingest::models::TaskState::Failed => "failed".into(),
+                    rust_online_media_ingest::models::TaskState::Cancelled => "cancelled".into(),
+                    _ => "downloading".into(),
+                }),
+                progress: Some(to_record_progress(resp.progress)),
+                downloaded_bytes: resp.downloaded_bytes.and_then(|bytes| i64::try_from(bytes).ok()),
+                download_speed: resp.speed_bytes.and_then(|bytes| i64::try_from(bytes).ok()),
+                eta_seconds: resp.eta_seconds.and_then(|eta| i32::try_from(eta).ok()),
+                thumbnail_url: None,
+                error_message: resp.error.clone(),
+            },
+        )
+        .await;
 
         // Progress updates are automatically broadcast via the job worker's
         // mark_completed / mark_failed lifecycle. For intermediate progress,
@@ -369,9 +363,9 @@ pub async fn handle(
         {
             let job_out = crate::db::models::job::JobOutput::from(model);
             state.bus_notify_job(&job_out);
-            let _ = state.event_tx.send(crate::queue::AppEvent::JobUpdate {
-                job: Box::new(job_out),
-            });
+            let _ = state
+                .event_tx
+                .send(crate::queue::AppEvent::JobUpdate { job: Box::new(job_out) });
         }
 
         match resp.status {
@@ -401,7 +395,7 @@ pub async fn handle(
                                 let msg = format!("上传到 VFS 失败: {e}");
                                 error!(record_id, task_id, %e, "Failed to copy to VFS");
                                 append_download_log(state, &record_uuid, &task_id, "error", &msg, None).await;
-                                update_record_failed(db, record_uuid, &msg).await;
+                                update_record_failed(state, record_uuid, &msg).await;
                                 return Err(msg.into());
                             }
                         }
@@ -430,20 +424,32 @@ pub async fn handle(
                     "completed"
                 };
 
-                let done_now: DateTimeWithTimeZone = chrono::Utc::now().into();
-                let mut done_update = download_records::ActiveModel {
-                    id: Set(record_uuid),
-                    ..Default::default()
-                };
-                done_update.status = Set(final_status.into());
-                done_update.progress = Set(Some("1".into()));
-                done_update.import_status = Set(Some("completed".into()));
-                done_update.manifest_path = Set(None);
-                if let Some(ref tp) = vfs_target_path {
-                    done_update.target_path = Set(Some(tp.clone()));
-                }
-                done_update.updated_at = Set(Some(done_now));
-                done_update.update(db).await?;
+                push_downloader_status(
+                    state,
+                    UpdateDownloaderStatusRequest {
+                        record_id: record_uuid,
+                        status: Some(final_status.into()),
+                        progress: Some(1.0),
+                        downloaded_bytes: resp.downloaded_bytes.and_then(|bytes| i64::try_from(bytes).ok()),
+                        download_speed: Some(0),
+                        eta_seconds: Some(0),
+                        thumbnail_url: None,
+                        error_message: None,
+                    },
+                )
+                .await;
+                push_downloader_complete(
+                    state,
+                    CompleteDownloaderRequest {
+                        record_id: record_uuid,
+                        target_path: vfs_target_path.clone(),
+                        file_size: resp
+                            .total_bytes
+                            .or(resp.downloaded_bytes)
+                            .map(|bytes| bytes.to_string()),
+                    },
+                )
+                .await;
 
                 // Dispatch file_scrape jobs so downloaded files get indexed into the
                 // library (creates Movie/Episode records + media_file + ffprobe).
@@ -529,7 +535,7 @@ pub async fn handle(
                 let message = resp.error.unwrap_or_else(|| "在线媒体下载失败".into());
                 error!(record_id, task_id, %message, "Online media task failed");
                 append_download_log(state, &record_uuid, &task_id, "error", &message, None).await;
-                update_record_failed(db, record_uuid, &message).await;
+                update_record_failed(state, record_uuid, &message).await;
                 return Err(message.into());
             }
             _ => {
@@ -539,13 +545,13 @@ pub async fn handle(
     }
 }
 
-fn to_record_progress(progress: Option<f64>) -> String {
+fn to_record_progress(progress: Option<f64>) -> f64 {
     match progress {
         Some(p) if !p.is_nan() => {
             let ratio = if p > 1.0 { p / 100.0 } else { p };
-            format!("{}", ratio.clamp(0.0, 1.0))
+            ratio.clamp(0.0, 1.0)
         }
-        _ => "0".into(),
+        _ => 0.0,
     }
 }
 
@@ -735,39 +741,22 @@ async fn copy_staged_to_vfs(
     })
 }
 
-async fn update_record_failed(db: &DatabaseConnection, record_id: Uuid, message: &str) {
-    let now: DateTimeWithTimeZone = chrono::Utc::now().into();
-    let result = download_records::Entity::update_many()
-        .col_expr(
-            download_records::Column::Status,
-            sea_orm::sea_query::Expr::value("failed"),
-        )
-        .col_expr(
-            download_records::Column::ImportStatus,
-            sea_orm::sea_query::Expr::value("failed"),
-        )
-        .col_expr(
-            download_records::Column::ImportError,
-            sea_orm::sea_query::Expr::value(message),
-        )
-        .col_expr(
-            download_records::Column::ManifestPath,
-            sea_orm::sea_query::Expr::value(Option::<String>::None),
-        )
-        .col_expr(
-            download_records::Column::UpdatedAt,
-            sea_orm::sea_query::Expr::value(now),
-        )
-        .filter(download_records::Column::Id.eq(record_id))
-        .exec(db)
-        .await;
-
-    if let Err(e) = result {
-        error!(
-            %record_id,
-            "Failed to update download record to failed state: {e}"
-        );
-    }
+async fn update_record_failed(state: &Arc<AppState>, record_id: Uuid, message: &str) {
+    // Use bus API to update status via host; no direct local shared-table status mutation
+    push_downloader_status(
+        state,
+        UpdateDownloaderStatusRequest {
+            record_id,
+            status: Some("failed".into()),
+            progress: None,
+            downloaded_bytes: None,
+            download_speed: Some(0),
+            eta_seconds: None,
+            thumbnail_url: None,
+            error_message: Some(message.to_string()),
+        },
+    )
+    .await;
 }
 
 const MEDIA_EXTENSIONS: &[&str] = &[

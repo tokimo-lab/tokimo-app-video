@@ -1,9 +1,9 @@
+use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use sea_orm::DatabaseConnection;
-use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 use tokimo_bus_protocol::CallerCtx;
+use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 use tracing::warn;
 
 use crate::db::models::job::JobOutput;
@@ -28,6 +28,7 @@ pub struct AppCtx {
     pub event_tx: broadcast::Sender<AppEvent>,
     pub download_log_bus: Arc<LogBus>,
     pub online_media: Arc<rust_online_media_ingest::AppState>,
+    pub download_tasks: Arc<TokioMutex<HashMap<uuid::Uuid, String>>>,
     pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
@@ -40,7 +41,10 @@ impl AppCtx {
         ytdlp_root: PathBuf,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
-        let sources = Arc::new(crate::services::source::SourceRegistry::new(db.clone(), Arc::clone(&client_slot)));
+        let sources = Arc::new(crate::services::source::SourceRegistry::new(
+            db.clone(),
+            Arc::clone(&client_slot),
+        ));
         let data_local_path = std::env::var("DATA_LOCAL_PATH")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("./data/local"));
@@ -70,6 +74,7 @@ impl AppCtx {
             event_tx,
             download_log_bus: Arc::new(crate::services::downloads::log_bus::LogBus::new()),
             online_media,
+            download_tasks: Default::default(),
             ytdlp_root,
             screenshot_semaphore,
             bus_client: client_slot,
@@ -104,15 +109,25 @@ impl AppCtx {
             "startedAt": job.started_at,
             "updatedAt": job.updated_at,
             "finishedAt": job.completed_at,
-        })) else { return };
+        })) else {
+            return;
+        };
         let client = Arc::clone(client);
         tokio::spawn(async move {
-            if let Err(e) = client.invoke("task_queue", "upsert_job", payload, CallerCtx {
-                user_id: None,
-                request_id: String::new(),
-                workspace: None,
-                caller_app_id: Some("video".to_string()),
-            }).await {
+            if let Err(e) = client
+                .invoke(
+                    "task_queue",
+                    "upsert_job",
+                    payload,
+                    CallerCtx {
+                        user_id: None,
+                        request_id: String::new(),
+                        workspace: None,
+                        caller_app_id: Some("video".to_string()),
+                    },
+                )
+                .await
+            {
                 warn!(err = %e, "bus_notify_job: failed to upsert job on bus");
             }
         });

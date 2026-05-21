@@ -61,8 +61,6 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     DownloadClients,
-    #[sea_orm(has_many = "super::download_records::Entity")]
-    DownloadRecords,
     #[sea_orm(
         belongs_to = "super::subscription_filters::Entity",
         from = "Column::FilterId",
@@ -92,12 +90,6 @@ pub enum Relation {
 impl Related<super::download_clients::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DownloadClients.def()
-    }
-}
-
-impl Related<super::download_records::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::DownloadRecords.def()
     }
 }
 
