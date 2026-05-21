@@ -3,9 +3,9 @@ export * from "./types";
 export {
   downloadsFetch,
   mediaOrganizeFetch,
-  onlineMediaFetch,
   vfsFetch,
   videoFetch,
+  videoOnlineMediaFetch,
 } from "./video-client";
 
 import {
@@ -22,8 +22,6 @@ import {
   apiMediaOrganizeSelectMatch,
   apiMediaOrganizeSelectMusicMatch,
   apiMediaOrganizeUpdateTarget,
-  apiOnlineMediaAnalyze,
-  apiOnlineMediaStartDownload,
   apiPlaybackDeleteWatchHistory,
   apiPlaybackReportProgress,
   apiPlaybackWatchHistory,
@@ -41,6 +39,8 @@ import {
   apiVideoListGenres,
   apiVideoListTvShows,
   apiVideoListVideoItems,
+  apiVideoOnlineMediaAnalyze,
+  apiVideoOnlineMediaStartDownload,
   apiVideoSync,
   apiVideoToggleFavorite,
   apiVideoUpdate,
@@ -68,9 +68,9 @@ export const api = {
     list: apiVfsList,
     probe: apiVfsProbe,
   },
-  onlineMedia: {
-    analyze: apiOnlineMediaAnalyze,
-    startDownload: apiOnlineMediaStartDownload,
+  videoOnlineMedia: {
+    analyze: apiVideoOnlineMediaAnalyze,
+    startDownload: apiVideoOnlineMediaStartDownload,
   },
   mediaOrganize: {
     getSession: apiMediaOrganizeGetSession,

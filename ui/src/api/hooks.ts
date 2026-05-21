@@ -32,9 +32,9 @@ import type {
 } from "./types";
 import {
   mediaOrganizeFetch,
-  onlineMediaFetch,
   vfsFetch,
   videoFetch,
+  videoOnlineMediaFetch,
 } from "./video-client";
 
 // ── Common input shapes ────────────────────────────────────────────────────
@@ -389,16 +389,16 @@ export const apiVfsProbe = {
     }),
 };
 
-// ─── Online media API ──────────────────────────────────────────────────────
+// ─── Video sidecar online media API ─────────────────────────────────────────
 
-export const apiOnlineMediaAnalyze = {
+export const apiVideoOnlineMediaAnalyze = {
   useMutation: (opts?: {
     onSuccess?: (data: AnalyzeOnlineMediaResponse) => void;
     onError?: (error: Error) => void;
   }) =>
     useMutation({
       mutationFn: (input: AnalyzeOnlineMediaRequest) =>
-        onlineMediaFetch<AnalyzeOnlineMediaResponse>("/analyze", {
+        videoOnlineMediaFetch<AnalyzeOnlineMediaResponse>("/analyze", {
           method: "POST",
           body: JSON.stringify(input),
         }),
@@ -407,17 +407,20 @@ export const apiOnlineMediaAnalyze = {
     }),
 };
 
-export const apiOnlineMediaStartDownload = {
+export const apiVideoOnlineMediaStartDownload = {
   useMutation: (opts?: {
     onSuccess?: (data: StartOnlineMediaDownloadOutput) => void;
     onError?: (error: Error) => void;
   }) =>
     useMutation({
       mutationFn: (input: StartOnlineMediaDownloadInput) =>
-        onlineMediaFetch<StartOnlineMediaDownloadOutput>("/start-download", {
-          method: "POST",
-          body: JSON.stringify(input),
-        }),
+        videoOnlineMediaFetch<StartOnlineMediaDownloadOutput>(
+          "/start-download",
+          {
+            method: "POST",
+            body: JSON.stringify(input),
+          },
+        ),
       onSuccess: opts?.onSuccess,
       onError: opts?.onError,
     }),

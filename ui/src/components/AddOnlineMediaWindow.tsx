@@ -201,7 +201,7 @@ function AddOnlineMediaContent({ win }: { win: WindowState }) {
   const librariesQuery = api.video.list.useQuery();
   const libraries = librariesQuery.data;
 
-  const analyzeMutation = api.onlineMedia.analyze.useMutation({
+  const analyzeMutation = api.videoOnlineMedia.analyze.useMutation({
     onSuccess: (result) => {
       setAnalysis(result);
       if (!result.isSupported) {
@@ -214,7 +214,7 @@ function AddOnlineMediaContent({ win }: { win: WindowState }) {
     },
   });
 
-  const startMutation = api.onlineMedia.startDownload.useMutation();
+  const startMutation = api.videoOnlineMedia.startDownload.useMutation();
 
   // Auto-select library after analysis
   useEffect(() => {

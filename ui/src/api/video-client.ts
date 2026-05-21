@@ -56,12 +56,12 @@ export function vfsFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return apiFetch<T>("/api/vfs", path, init);
 }
 
-/** Routes under /api/apps/online-media/ (host shell online-media API) */
-export function onlineMediaFetch<T>(
+/** Routes under /api/apps/video/online-media/ (proxied to video sidecar) */
+export function videoOnlineMediaFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  return apiFetch<T>("/api/apps/online-media", path, init);
+  return apiFetch<T>("/api/apps/video/online-media", path, init);
 }
 
 /** Routes under /api/apps/media-organize/ (host shell media-organize API) */
