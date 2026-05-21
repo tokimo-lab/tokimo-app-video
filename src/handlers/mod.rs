@@ -11,6 +11,7 @@ pub mod subtitle_events;
 pub mod sync;
 pub mod user;
 pub mod vfs;
+pub mod ytdlp;
 
 use axum::{http::StatusCode, response::Json};
 use serde::{Deserialize, Serialize};

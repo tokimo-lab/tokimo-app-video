@@ -10,6 +10,8 @@ use crate::AppState;
 
 pub fn build_video_app_routes() -> Router<Arc<AppState>> {
     Router::new()
+        .route("/api/v1/ytdlp/status", get(handlers::ytdlp::status))
+        .route("/api/v1/ytdlp/update", post(handlers::ytdlp::update))
         // Category CRUD
         .route(
             "/",
