@@ -77,6 +77,9 @@ const jaJP = {
     },
   },
   media: {
+    menu: {
+      settings: "設定",
+    },
     video: {
       filter: {
         sort: "並べ替え",
@@ -627,6 +630,99 @@ const jaJP = {
           saved: "保存しました",
           saveFailed: "保存失敗：{{error}}",
           lastUpdated: "最終更新：{{time}}",
+        },
+      },
+    },
+    libraryEditor: {
+      settingsTitle: "TokimoVideo · 設定",
+      newTitle: "TokimoVideo · 新しい動画ライブラリ",
+      cancel: "キャンセル",
+      continue: "続ける",
+      confirmSwitch: "切り替え確認",
+      switchTypeTooltip: "クリックしてタイプを切り替え",
+      basicInfo: "基本情報",
+      name: "名前",
+      nameRequired: "動画ライブラリ名を入力してください",
+      namePlaceholder: "例：私の映画",
+      description: "説明",
+      descriptionPlaceholder: "任意の説明、例：ブルーレイ映画コレクション...",
+      bindings: "関連設定",
+      downloadEngine: {
+        title: "ダウンロードエンジン",
+        desc: "yt-dlp バイナリの状態とサイト Cookie を管理",
+        openSettings: "設定を開く",
+      },
+      organizeSettings: "整理設定",
+      delete: "削除",
+      switchType: "タイプ切り替え",
+      save: "保存",
+      create: "作成",
+      saveSuccess: "保存しました",
+      createSuccess: "動画ライブラリが作成されました",
+      deleteSuccess: "動画ライブラリが削除されました",
+      saveFailed: "保存に失敗しました",
+      createFailed: "作成に失敗しました",
+      deleteFailed: "削除に失敗しました",
+      deleteTitle: "⚠️ 動画ライブラリを削除",
+      deleteConfirmPrefix: "この操作により",
+      deleteConfirmMiddle: "とそのすべてのデータが永久に削除され、",
+      deleteConfirmIrreversible: "元に戻せません",
+      deleteConfirmSuffix: "。",
+      confirmDelete: "削除確認",
+      types: {
+        movie: {
+          label: "映画",
+          description: "長編映画、ブルーレイコレクション",
+          detailedDescription:
+            "長編映画、ドキュメンタリー、コンサート録画などの単体動画作品を管理します。TMDB 自動スクレイピングでカバー、キャスト、概要を取得し、年/監督で整理できます。",
+        },
+        tv: {
+          label: "ドラマ",
+          description: "連続ドラマ、ウェブドラマ、ミニシリーズ",
+          detailedDescription:
+            "連続ドラマ、ウェブドラマ、ミニシリーズなどの複数エピソード作品を管理します。TMDB シーズン/エピソードの自動スクレイピングに対応し、番組名/シーズンで整理できます。",
+        },
+        anime: {
+          label: "アニメ",
+          description: "日本のアニメ、国産アニメ、OVA",
+          detailedDescription:
+            "劇場版、TV アニメ、OVA などのアニメ作品を管理します。Bangumi スクレイピングに対応し、年/シリーズで整理できます。",
+        },
+        documentary: {
+          label: "ドキュメンタリー",
+          description: "ドキュメンタリー、人文地理",
+          detailedDescription:
+            "歴史、自然、人文などのテーマのドキュメンタリーを管理します。TMDB スクレイピングに対応し、トピック/シリーズで整理できます。",
+        },
+        variety: {
+          label: "バラエティ",
+          description: "バラエティ番組、リアリティショー",
+          detailedDescription:
+            "バラエティ番組、リアリティショーなどのエンターテイメントコンテンツを管理します。番組名/エピソード番号で整理し、複数エピソード管理に対応しています。",
+        },
+        concert: {
+          label: "コンサート",
+          description: "コンサート、音楽フェスティバル録画",
+          detailedDescription:
+            "コンサート、音楽フェスティバル、ライブパフォーマンスなどの録画コンテンツを管理します。アーティスト/年で整理できます。",
+        },
+        online_video: {
+          label: "オンライン動画",
+          description: "ビリビリ、YouTube などのプラットフォームコンテンツ",
+          detailedDescription:
+            "ビリビリ、YouTube などのプラットフォームからダウンロードした動画コンテンツを管理します。UP 主/チャンネルで整理し、元のメタデータを保持します。",
+        },
+        online_course: {
+          label: "オンラインコース",
+          description: "オンラインコース、教育動画",
+          detailedDescription:
+            "オンラインコース、教育動画、講義録画などの学習コンテンツを管理します。コース名/チャプターで整理し、進捗追跡に対応しています。",
+        },
+        adult: {
+          label: "アダルト",
+          description: "アダルトコンテンツ（アダルトモードが必要）",
+          detailedDescription:
+            "アダルトコンテンツを管理します。システム設定でアダルトモードを有効にする必要があります。カスタム整理ルールに対応しています。",
         },
       },
     },

@@ -91,23 +91,6 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
       });
     }
 
-    // Download Engine Settings (always visible, not gated by isOnlineVideo)
-    extraItems.push({
-      key: "download-engine-settings",
-      label: t("media.downloads.engineSettings.menu"),
-      icon: <Settings size={14} />,
-      onClick: () => {
-        openModalWindow({
-          component: () => import("./DownloadEngineSettingsWindow"),
-          parentWindowId: windowId,
-          title: t("media.downloads.engineSettings.title"),
-          width: 720,
-          height: 640,
-          noMinimize: true,
-        });
-      },
-    });
-
     return {
       menus: [
         {
@@ -131,6 +114,27 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
             ...(syncItems.length > 0
               ? [{ type: "divider" as const }, ...syncItems]
               : []),
+          ],
+        },
+        {
+          key: "settings",
+          label: t("media.menu.settings"),
+          items: [
+            {
+              key: "download-engine-settings",
+              label: t("media.downloads.engineSettings.menu"),
+              icon: <Settings size={14} />,
+              onClick: () => {
+                openModalWindow({
+                  component: () => import("./DownloadEngineSettingsWindow"),
+                  parentWindowId: windowId,
+                  title: t("media.downloads.engineSettings.title"),
+                  width: 720,
+                  height: 640,
+                  noMinimize: true,
+                });
+              },
+            },
           ],
         },
       ],

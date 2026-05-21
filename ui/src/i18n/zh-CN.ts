@@ -77,6 +77,9 @@ const zhCN = {
     },
   },
   media: {
+    menu: {
+      settings: "设置",
+    },
     video: {
       filter: {
         sort: "排序",
@@ -899,6 +902,11 @@ const zhCN = {
       description: "描述",
       descriptionPlaceholder: "可选描述，如：收藏的蓝光电影...",
       bindings: "关联配置",
+      downloadEngine: {
+        title: "下载器",
+        desc: "管理 yt-dlp 二进制状态和站点 Cookie",
+        openSettings: "打开设置",
+      },
       organizeSettings: "整理设置",
       delete: "删除",
       switchType: "切换类型",

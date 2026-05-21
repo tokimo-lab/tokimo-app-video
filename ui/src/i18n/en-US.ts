@@ -77,6 +77,9 @@ const enUS = {
     },
   },
   media: {
+    menu: {
+      settings: "Settings",
+    },
     video: {
       filter: {
         sort: "Sort",
@@ -914,6 +917,11 @@ const enUS = {
       descriptionPlaceholder:
         "Optional description, e.g. Blu-ray movie collection...",
       bindings: "Bindings",
+      downloadEngine: {
+        title: "Download Engine",
+        desc: "Manage yt-dlp binary status and site cookies",
+        openSettings: "Open Settings",
+      },
       organizeSettings: "Organize Settings",
       delete: "Delete",
       switchType: "Switch Type",

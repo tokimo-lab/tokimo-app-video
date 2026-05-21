@@ -9,6 +9,8 @@ import {
   type AvatarData,
   parseAvatar,
   useToast as useMessage,
+  useWindowActions,
+  useWindowId,
 } from "@tokimo/sdk";
 import {
   Button,
@@ -19,7 +21,7 @@ import {
   Modal,
   ScrollArea,
 } from "@tokimo/ui";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Settings, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { OrganizeSettings, VideoOutput } from "./api";
@@ -52,6 +54,8 @@ export default function VideoLibraryEditor({
   const { t } = useTranslation();
   const message = useMessage();
   const qc = useQueryClient();
+  const windowId = useWindowId();
+  const { openModalWindow } = useWindowActions();
   const [form] = Form.useForm();
 
   const { data: categories = [] } = api.video.list.useQuery();
@@ -212,6 +216,17 @@ export default function VideoLibraryEditor({
     t,
   ]);
 
+  const openDownloadEngineSettings = useCallback(() => {
+    openModalWindow({
+      component: () => import("./components/DownloadEngineSettingsWindow"),
+      parentWindowId: windowId,
+      title: t("media.downloads.engineSettings.title"),
+      width: 720,
+      height: 640,
+      noMinimize: true,
+    });
+  }, [openModalWindow, windowId, t]);
+
   const isPending = createMutation.isPending || updateMutation.isPending;
   const typeInfo = selectedType ? getVideoTypeInfo(selectedType) : null;
 
@@ -352,6 +367,25 @@ export default function VideoLibraryEditor({
               initialSources={video?.sources}
             />
           </div>
+
+          {selectedType === "online_video" && (
+            <div className="rounded-lg border border-border-base p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-fg-primary">
+                    {t("media.libraryEditor.downloadEngine.title")}
+                  </h4>
+                  <p className="mt-1 text-xs text-fg-muted">
+                    {t("media.libraryEditor.downloadEngine.desc")}
+                  </p>
+                </div>
+                <Button variant="default" onClick={openDownloadEngineSettings}>
+                  <Settings size={14} className="mr-1" />
+                  {t("media.libraryEditor.downloadEngine.openSettings")}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* 整理设置 */}
           <div className="rounded-lg border border-border-base p-5">
