@@ -18,6 +18,7 @@ pub struct AppCtx {
     pub sources: Arc<SourceRegistry>,
     pub storage: Arc<dyn StorageProvider>,
     pub http_client: reqwest::Client,
+    pub image_proxy_key: String,
     pub hls_manager: Arc<tokimo_package_hls::HlsSessionManager>,
     pub subtitle_cache: tokimo_package_subtitle::cache::SubtitleCache,
     pub tap_registry: tokimo_package_subtitle::cache::TapRegistry,
@@ -45,6 +46,7 @@ impl AppCtx {
             .unwrap_or_else(|_| std::path::PathBuf::from("./data/local"));
         let storage = crate::services::storage::create_storage_from_env(&data_local_path);
         let http_client = reqwest::Client::new();
+        let image_proxy_key = hex::encode(rand::random::<[u8; 32]>());
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
         let subtitle_aggregator = Arc::new(subtitle_aggregator::aggregator::SubtitleAggregator::default());
         let online_media = Arc::new(rust_online_media_ingest::AppState {
@@ -58,6 +60,7 @@ impl AppCtx {
             sources,
             storage,
             http_client,
+            image_proxy_key,
             hls_manager,
             subtitle_cache: Default::default(),
             tap_registry: Default::default(),
@@ -71,6 +74,10 @@ impl AppCtx {
             screenshot_semaphore,
             bus_client: client_slot,
         })
+    }
+
+    pub fn image_proxy_key(&self) -> &str {
+        &self.image_proxy_key
     }
 }
 

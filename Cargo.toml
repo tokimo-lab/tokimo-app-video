@@ -59,6 +59,10 @@ quick-xml          = { version = "0.36", features = ["serialize"] }
 mime               = "0.3"
 ts-rs              = { version = "12", features = ["serde-json-impl", "uuid-impl", "chrono-impl"] }
 base64             = "0.22"
+hex                = { workspace = true }
+hmac               = { workspace = true }
+sha2               = { workspace = true }
+rand               = { workspace = true }
 tokio-util         = { workspace = true, features = ["io"] }
 async-trait        = "0.1"
 rust-client-api    = { path = "../../packages/rust-client-api" }                              # OWNER: client-api-team | DEADLINE: TMDB/OMDb/Douban/Bangumi 客户端 API 稳定 + 独立仓库化

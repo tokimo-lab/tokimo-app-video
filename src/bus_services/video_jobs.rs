@@ -24,6 +24,7 @@
 
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokimo_bus_client::BusClientBuilder;
 use tokimo_bus_protocol::{BusError, HttpMethod, MethodDecl};
@@ -43,6 +44,17 @@ fn decl(name: &str, description: &str) -> MethodDecl {
         http_method: HttpMethod::Post,
         path: None,
     }
+}
+
+#[derive(Deserialize)]
+struct ImageProxySignInput {
+    url: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageProxySignOutput {
+    proxy_path: String,
 }
 
 /// Decode `{ "job": { "id": "...", "payload": {...} } }` from JSON bytes.
@@ -73,6 +85,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
     let ctx_movie = ctx.clone();
     let ctx_person = ctx.clone();
     let ctx_download = ctx.clone();
+    let ctx_proxy = ctx.clone();
 
     builder
         // ── dispatch_file_scrape ──────────────────────────────────────────────
@@ -158,6 +171,24 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     .map_err(|e| BusError::Internal(e.to_string()))
             }
         })
+        // ── image_proxy.sign_url ──────────────────────────────────────────────
+        .method(decl(
+            "image_proxy.sign_url",
+            "Sign an external image URL for the video image proxy",
+        ))
+        .on_invoke("image_proxy.sign_url", move |req| {
+            let ctx = ctx_proxy.clone();
+            async move {
+                let input: ImageProxySignInput = serde_json::from_slice(&req.payload)
+                    .map_err(|e| BusError::BadRequest(format!("json decode: {e}")))?;
+                let proxy_path = crate::handlers::image_proxy::to_proxy_url_force(
+                    ctx.image_proxy_key(),
+                    &input.url,
+                );
+                serde_json::to_vec(&ImageProxySignOutput { proxy_path })
+                    .map_err(|e| BusError::Internal(e.to_string()))
+            }
+        })
         // ── capabilities ──────────────────────────────────────────────────────
         .method(decl("capabilities", "Return video bus service capabilities"))
         .on_invoke("capabilities", |_req| async move {
@@ -169,6 +200,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     "dispatch_movie_scrape",
                     "dispatch_tmdb_person_scrape",
                     "dispatch_online_video_download",
+                    "image_proxy.sign_url",
                     "capabilities",
                 ],
             }))

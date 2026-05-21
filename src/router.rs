@@ -55,6 +55,7 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
             "/online-media/retry-download",
             post(handlers::online_media::retry_online_media_download),
         )
+        .route("/image-proxy", get(handlers::image_proxy::image_proxy))
         // Category CRUD
         .route(
             "/",
