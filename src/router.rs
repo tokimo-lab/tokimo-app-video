@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use std::sync::Arc;
 
@@ -12,6 +12,19 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/v1/ytdlp/status", get(handlers::ytdlp::status))
         .route("/api/v1/ytdlp/update", post(handlers::ytdlp::update))
+        // Online media providers & auth settings
+        .route(
+            "/api/v1/online-media/providers",
+            get(handlers::online_media::list_providers),
+        )
+        .route(
+            "/api/v1/online-media/auth-settings",
+            get(handlers::online_media::get_auth_settings),
+        )
+        .route(
+            "/api/v1/online-media/auth-settings/{provider}",
+            put(handlers::online_media::update_auth_setting),
+        )
         // Category CRUD
         .route(
             "/",

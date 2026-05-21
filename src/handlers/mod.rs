@@ -5,6 +5,7 @@ pub mod hls;
 pub mod jellyfin;
 pub mod image_proxy;
 pub mod media;
+pub mod online_media;
 pub mod playback;
 pub mod subtitle;
 pub mod subtitle_events;
