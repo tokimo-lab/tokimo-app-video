@@ -86,6 +86,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
     let ctx_person = ctx.clone();
     let ctx_download = ctx.clone();
     let ctx_proxy = ctx.clone();
+    let ctx_ffprobe = ctx.clone();
 
     builder
         // ── dispatch_file_scrape ──────────────────────────────────────────────
@@ -171,6 +172,28 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     .map_err(|e| BusError::Internal(e.to_string()))
             }
         })
+        // ── dispatch_media_file_ffprobe ──────────────────────────────────────
+        .method(decl(
+            "dispatch_media_file_ffprobe",
+            "Run ffprobe for a single media file on behalf of the main worker",
+        ))
+        .on_invoke("dispatch_media_file_ffprobe", move |req| {
+            let ctx = ctx_ffprobe.clone();
+            async move {
+                #[derive(serde::Deserialize)]
+                struct Payload {
+                    #[serde(rename = "mediaFileId", alias = "media_file_id")]
+                    media_file_id: uuid::Uuid,
+                }
+                let p: Payload = serde_json::from_slice(&req.payload)
+                    .map_err(|e| BusError::BadRequest(format!("json decode: {e}")))?;
+                let cancel = CancellationToken::new();
+                crate::queue::handlers::media_file_ffprobe::run_for_file(&ctx.db, &ctx, p.media_file_id, &cancel)
+                    .await
+                    .map(|_| b"{}".to_vec())
+                    .map_err(|e| BusError::Internal(e.to_string()))
+            }
+        })
         // ── image_proxy.sign_url ──────────────────────────────────────────────
         .method(decl(
             "image_proxy.sign_url",
@@ -200,6 +223,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     "dispatch_movie_scrape",
                     "dispatch_tmdb_person_scrape",
                     "dispatch_online_video_download",
+                    "dispatch_media_file_ffprobe",
                     "image_proxy.sign_url",
                     "capabilities",
                 ],
