@@ -50,14 +50,14 @@ impl AppCtx {
         ));
         let data_local_path = std::env::var("DATA_LOCAL_PATH")
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| std::path::PathBuf::from("./data/local"));
+            .unwrap_or_else(|_| std::path::PathBuf::from("./.data/local"));
         let storage = crate::services::storage::create_storage_from_env(&data_local_path);
         let http_client = reqwest::Client::new();
         let image_proxy_key = hex::encode(rand::random::<[u8; 32]>());
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
         let subtitle_aggregator = Arc::new(subtitle_aggregator::aggregator::SubtitleAggregator::default());
         let online_media = Arc::new(rust_online_media_ingest::AppState {
-            staging_root: std::path::PathBuf::from("./data/online_media"),
+            staging_root: data_local_path.join("online_media"),
             tasks: Arc::new(rust_online_media_ingest::task_manager::TaskManager::new()),
         });
         let screenshot_semaphore = Arc::new(Semaphore::new(4));

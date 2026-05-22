@@ -36,7 +36,7 @@ use crate::state::AppCtx;
 fn data_local_path() -> PathBuf {
     std::env::var("DATA_LOCAL_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("./data/local"))
+        .unwrap_or_else(|_| PathBuf::from("./.data/local"))
 }
 
 fn video_ytdlp_root() -> PathBuf {
