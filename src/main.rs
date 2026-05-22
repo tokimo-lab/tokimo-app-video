@@ -27,6 +27,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 use clap::{Parser, Subcommand};
+use sea_orm::ConnectionTrait;
 use tokimo_bus_cli::TokimoAuthArgs;
 use tokimo_bus_client::{BusClient, ClientConfig};
 use tracing::{error, info, warn};
@@ -139,6 +140,10 @@ async fn run_server() -> anyhow::Result<()> {
 
     let db = db::init_pool().await?;
     db::init_schema(&db).await?;
+
+    // Reset any sync statuses stuck at "syncing" from a previous crash
+    db.execute_unprepared("UPDATE video.videos SET sync_status = 'idle' WHERE sync_status = 'syncing'")
+        .await?;
     info!("video: db ready");
 
     let ytdlp_root = init_ytdlp_root().await?;

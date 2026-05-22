@@ -2,8 +2,9 @@ use axum::{
     extract::{Path, State},
     response::Json,
 };
+use futures::FutureExt;
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -41,7 +42,7 @@ pub async fn sync_video(
     let clear_data = body.and_then(|b| b.clear_data).unwrap_or(false);
 
     if video.sync_status == "syncing" && !clear_data {
-        return Err(AppError::Conflict("Video is already syncing".into()));
+        warn!("Video {} is already syncing (may be stuck from a previous crash), allowing re-sync", video.name);
     }
 
     // Clear data synchronously so frontend sees empty state immediately
@@ -57,12 +58,26 @@ pub async fn sync_video(
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {
-        match AppSyncService::execute_video_sync(&db, &sources, &storage, state.bus_client.clone(), uid, false, http_client, caller_user_id).await {
-            Ok(result) => {
-                info!("video sync completed, {} jobs dispatched", result.total_jobs);
+        let db2 = db.clone();
+        let result = std::panic::AssertUnwindSafe(
+            AppSyncService::execute_video_sync(
+                &db, &sources, &storage, state.bus_client.clone(), uid, false,
+                http_client, caller_user_id,
+            ),
+        )
+        .catch_unwind()
+        .await;
+
+        match result {
+            Ok(Ok(r)) => {
+                info!("video sync completed, {} jobs dispatched", r.total_jobs);
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 error!("video sync failed: {e}");
+            }
+            Err(_panic) => {
+                error!("video sync panicked — check logs for backtrace");
+                let _ = VideoRepo::update_sync_status(&db2, uid, "failed", None).await;
             }
         }
     });
