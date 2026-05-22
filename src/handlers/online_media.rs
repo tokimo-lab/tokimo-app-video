@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    bus_clients::downloader::UpdateDownloaderStatusRequest,
+    bus_clients::downloader::{CreateRecordRequest, UpdateDownloaderStatusRequest},
     db::repos::{
         download_record_repo::{CreateDownloadRecordInput, DownloadRecordRepo},
         job_repo::JobRepo,
@@ -569,6 +569,7 @@ pub async fn start_online_media_download(
     });
 
     let record_id = Uuid::new_v4();
+    let thumbnail_url = analysis.get("thumbnailUrl").and_then(|v| v.as_str()).map(String::from);
     let txn = state.db.begin().await?;
     if let Some(existing_id) = duplicate_to_delete {
         DownloadRecordRepo::delete(&txn, existing_id).await?;
@@ -582,8 +583,8 @@ pub async fn start_online_media_download(
             downloader_type: "yt-dlp".into(),
             source_site: source_site.map(String::from),
             source_url: Some(normalized_url.to_string()),
-            app_metadata: Some(app_metadata),
-            thumbnail_url: analysis.get("thumbnailUrl").and_then(|v| v.as_str()).map(String::from),
+            app_metadata: Some(app_metadata.clone()),
+            thumbnail_url: thumbnail_url.clone(),
             status: "downloading".into(),
             progress: 0.0,
             download_path: Some(String::new()),
@@ -591,6 +592,24 @@ pub async fn start_online_media_download(
     )
     .await?;
     txn.commit().await?;
+
+    // Mirror record into public.download_records so the host Downloads page can see it.
+    if let Some(bus) = state.bus_client.get() {
+        let req = CreateRecordRequest {
+            record_id,
+            title: title.to_string(),
+            app_id: "video".into(),
+            downloader_type: "yt-dlp".into(),
+            source_site: source_site.map(String::from),
+            source_url: Some(normalized_url.to_string()),
+            app_metadata: Some(app_metadata),
+            thumbnail_url,
+            created_by: Some(user_id.to_string()),
+        };
+        if let Err(error) = crate::bus_clients::downloader::create_record(bus, &req).await {
+            tracing::warn!(%error, %record_id, "failed to mirror download record to host");
+        }
+    }
 
     let job_id = match create_online_media_job(
         &state,

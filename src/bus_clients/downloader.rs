@@ -51,6 +51,25 @@ pub fn video_caller() -> CallerCtx {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRecordRequest {
+    pub record_id: Uuid,
+    pub title: String,
+    pub app_id: String,
+    pub downloader_type: String,
+    pub source_site: Option<String>,
+    pub source_url: Option<String>,
+    pub app_metadata: Option<JsonValue>,
+    pub thumbnail_url: Option<String>,
+    pub created_by: Option<String>,
+}
+
+pub async fn create_record(client: &BusClient, request: &CreateRecordRequest) -> Result<(), AppError> {
+    invoke_json(client, "create_record", video_caller(), request).await?;
+    Ok(())
+}
+
 pub async fn register_downloaders(client: &BusClient) -> Result<(), AppError> {
     let request = RegisterDownloadersRequest {
         app_id: "video".to_string(),
