@@ -1,13 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  type LibrarySyncState,
+  useJobProgress,
   useRuntimeCtx,
-  useSyncProgress,
   useWindowActions,
   useWindowId,
 } from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
-import { Suspense, useCallback, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
@@ -17,9 +18,6 @@ import { useVideoNav } from "../router/useVideoNav";
 import { useSetActiveLibrary } from "./ActiveLibraryContext";
 import VideoContent from "./VideoContent";
 import VideoSidebar from "./VideoSidebar";
-
-/** See PHOTO_SCAN_JOB_TYPES for rationale. Backend: apps/video/handlers/sync.rs */
-const VIDEO_SCAN_JOB_TYPES = ["movie_scrape", "tv_scrape"] as const;
 
 const LoadingFallback = (
   <div className="flex h-full items-center justify-center">
@@ -103,26 +101,137 @@ export default function VideoApp() {
     replace(`/library/${id}`);
   };
 
-  // ── Sync progress tracking (WS-driven + fallback polling) ──
+  // ── Sync progress tracking (WS-driven via useJobProgress + fallback polling) ──
   const queryClient = useQueryClient();
 
-  const syncProgress = useSyncProgress({
-    libraries: categories,
-    progressQueryKey: (id) => api.video.getSyncProgress.queryKey({ id }),
-    fetchProgress: (id) => api.video.getSyncProgress.fetch({ id }),
-    scanJobTypes: VIDEO_SCAN_JOB_TYPES,
-    resolveLibraryId: (p) => (p.videoId ?? p.appId) as string | undefined,
-    onContentRefresh: () => {
-      api.video.listVideoItems.invalidate(queryClient);
-      api.video.listTvShows.invalidate(queryClient);
-      api.video.getRecentlyAdded.invalidate(queryClient);
-      api.video.listGenres.invalidate(queryClient);
-      api.video.listCountries.invalidate(queryClient);
+  const [activeLibIds, setActiveLibIds] = useState<Set<string>>(new Set());
+  const [progressPct, setProgressPct] = useState<Record<string, number>>({});
+
+  // Stable refs for content/library refresh callbacks
+  const qcRef = useRef(queryClient);
+  qcRef.current = queryClient;
+
+  const refreshContent = useCallback(() => {
+    const qc = qcRef.current;
+    api.video.listVideoItems.invalidate(qc);
+    api.video.listTvShows.invalidate(qc);
+    api.video.getRecentlyAdded.invalidate(qc);
+    api.video.listGenres.invalidate(qc);
+    api.video.listCountries.invalidate(qc);
+    api.video.list.invalidate(qc);
+  }, []);
+
+  // Throttle content refresh (max once per 500ms)
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const throttlePendingRef = useRef(false);
+  const throttledRefresh = useCallback(() => {
+    if (throttleTimerRef.current) {
+      throttlePendingRef.current = true;
+      return;
+    }
+    refreshContent();
+    throttleTimerRef.current = setTimeout(() => {
+      throttleTimerRef.current = null;
+      if (throttlePendingRef.current) {
+        throttlePendingRef.current = false;
+        refreshContent();
+      }
+    }, 500);
+  }, [refreshContent]);
+
+  // Shared event handler for both tv_scrape and movie_scrape
+  const handleJobEvent = useCallback(
+    (e: import("@tokimo/sdk").ShellJobEvent) => {
+      const data = e.data as Record<string, unknown> | undefined;
+      if (!data) return;
+      const payload = (data.payload ?? {}) as Record<string, unknown>;
+      const libId = (data.appId ?? payload.videoId ?? payload.appId) as
+        | string
+        | undefined;
+      if (!libId) return;
+
+      const status = data.status as string;
+      if (
+        status === "completed" ||
+        status === "failed" ||
+        status === "cancelled"
+      ) {
+        throttledRefresh();
+        setActiveLibIds((prev) => {
+          const next = new Set(prev);
+          next.delete(libId!);
+          return next;
+        });
+      } else {
+        setActiveLibIds((prev) => {
+          if (prev.has(libId!)) return prev;
+          const next = new Set(prev);
+          next.add(libId!);
+          return next;
+        });
+      }
     },
-    onLibraryRefresh: () => {
-      api.video.list.invalidate(queryClient);
-    },
-  });
+    [throttledRefresh],
+  );
+
+  useJobProgress("tv_scrape", handleJobEvent);
+  useJobProgress("movie_scrape", handleJobEvent);
+
+  // Polling fallback for progress percentages
+  useEffect(() => {
+    if (activeLibIds.size === 0) return;
+    const interval = setInterval(async () => {
+      const ids = Array.from(activeLibIds);
+      const pcts: Record<string, number> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const data = await queryClient.fetchQuery({
+              queryKey: api.video.getSyncProgress.queryKey({ id }),
+              queryFn: () => api.video.getSyncProgress.fetch({ id }),
+              staleTime: 1000,
+            });
+            const total =
+              data.completed + data.running + data.pending + data.failed;
+            pcts[id] =
+              total > 0 ? Math.round((data.completed / total) * 100) : 0;
+          } catch {
+            pcts[id] = 0;
+          }
+        }),
+      );
+      setProgressPct(pcts);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeLibIds, queryClient]);
+
+  // Also seed activeIds from libraries already marked "syncing"
+  useEffect(() => {
+    if (!categories) return;
+    const syncing = categories
+      .filter((l) => l.syncStatus === "syncing")
+      .map((l) => l.id);
+    if (syncing.length > 0) {
+      setActiveLibIds((prev) => {
+        const next = new Set(prev);
+        for (const id of syncing) next.add(id);
+        return next.size !== prev.size ? next : prev;
+      });
+    }
+  }, [categories]);
+
+  // Build syncProgress map
+  const syncProgress: Record<string, LibrarySyncState> = {};
+  for (const id of activeLibIds) {
+    syncProgress[id] = { isActive: true, pct: progressPct[id] ?? 0 };
+  }
+
+  // Cleanup throttle timer
+  useEffect(() => {
+    return () => {
+      if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
+    };
+  }, []);
 
   if (isLoading) {
     return (

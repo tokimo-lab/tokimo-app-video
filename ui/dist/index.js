@@ -1,5 +1,5 @@
 import { QueryClient as e, QueryClientProvider as t, useMutation as n, useQuery as r, useQueryClient as i } from "@tanstack/react-query";
-import { RuntimeProvider as a, buildProxiedImageUrl as o, defineApp as s, getAvatarColor as c, getAvatarIcon as l, parseAvatar as u, parseUserAgent as d, posterThumbUrl as f, useInfiniteScroll as p, useMenuBar as m, useRuntimeCtx as h, useShellApi as g, useSyncProgress as _, useToast as v, useWindowActions as y, useWindowId as b, useWindowNav as x } from "@tokimo/sdk";
+import { RuntimeProvider as a, buildProxiedImageUrl as o, defineApp as s, getAvatarColor as c, getAvatarIcon as l, parseAvatar as u, parseUserAgent as d, posterThumbUrl as f, useInfiniteScroll as p, useJobProgress as m, useMenuBar as h, useRuntimeCtx as g, useShellApi as _, useToast as v, useWindowActions as y, useWindowId as b, useWindowNav as x } from "@tokimo/sdk";
 import { Alert as S, AppSetupGuide as C, AppSidebar as w, ArrowLeftOutlined as T, Avatar as ee, Button as E, Checkbox as te, CircularProgress as ne, ConfigProvider as re, DeleteOutlined as ie, Empty as ae, FolderOpenOutlined as oe, Form as D, Input as se, InputNumber as ce, LinkOutlined as le, Modal as ue, PillTabBar as de, PlusOutlined as eee, Popover as tee, PosterCard as nee, Progress as ree, QuestionCircleOutlined as iee, ScrollArea as fe, Select as pe, SettingGroup as me, SettingRow as he, Spin as ge, StickySaveBar as aee, Tag as O, TemplateInput as oee, ToastProvider as _e, Tooltip as ve, cn as ye, useToast as be, useWatch as xe } from "@tokimo/ui";
 import * as k from "react";
 import { Component as see, Fragment as cee, StrictMode as lee, Suspense as uee, createContext as Se, createElement as Ce, forwardRef as we, lazy as dee, memo as Te, useCallback as A, useContext as Ee, useEffect as j, useId as fee, useInsertionEffect as pee, useLayoutEffect as De, useMemo as M, useRef as Oe, useState as N, useSyncExternalStore as mee } from "react";
@@ -43407,7 +43407,7 @@ function wHe() {
 	return { setBackgroundArt: () => {} };
 }
 function d2() {
-	let e = g(), t = mee(e.player.subscribeItem, e.player.getCurrentItem, e.player.getCurrentItem);
+	let e = _(), t = mee(e.player.subscribeItem, e.player.getCurrentItem, e.player.getCurrentItem);
 	return {
 		play: e.player.play,
 		pause: () => {},
@@ -45624,7 +45624,7 @@ function vGe(e) {
 	return t > 0 ? `${t}:${n.toString().padStart(2, "0")}:${r.toString().padStart(2, "0")}` : `${n}:${r.toString().padStart(2, "0")}`;
 }
 function yGe({ open: e, position: t, onResume: n, onRestart: r, onClose: i }) {
-	let { t: a } = L(), { shell: o, windowId: s } = h(), [c, l] = N(null);
+	let { t: a } = L(), { shell: o, windowId: s } = g(), [c, l] = N(null);
 	return j(() => {
 		l(o.getWindowContainer(s));
 	}, [o, s]), /* @__PURE__ */ P(ue, {
@@ -56090,7 +56090,7 @@ var F9, I9, X0e, Z0e, Q0e, $0e, e2e, t2e, n2e, r2e, L9 = I((() => {
 //#endregion
 //#region src/video-library/StorageBindingForm.tsx
 function i2e({ value: e, onChange: t, placeholder: n, disabled: r, sourceId: i, protocolPrefix: a, browserInitialPath: o, onSelectTransform: s }) {
-	let { t: c } = L(), l = g();
+	let { t: c } = L(), l = _();
 	return /* @__PURE__ */ F("div", {
 		className: "flex flex-1 min-w-0 rounded-md border border-black/[0.08] dark:border-white/[0.1] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors",
 		children: [/* @__PURE__ */ P(se, {
@@ -57983,7 +57983,7 @@ var u4e = I((() => {
 	$9(), u2(), M9(), o4e();
 })), d4e = /* @__PURE__ */ Ne({ default: () => f4e });
 function f4e() {
-	let { t: e } = L(), { LazyViewComponent: t, params: n, replace: r, updateTitle: a } = N4(), { data: o, isLoading: s } = U.video.list.useQuery(), [c, l] = dHe(), { collapsed: u, onToggleCollapse: d } = pHe("video", l > 0 && l < 720), f = b(), { openModalWindow: p } = y(), m = h(), g = n.categoryId ?? null, v = !!(n.videoItemId ?? n.tvShowId);
+	let { t: e } = L(), { LazyViewComponent: t, params: n, replace: r, updateTitle: a } = N4(), { data: o, isLoading: s } = U.video.list.useQuery(), [c, l] = dHe(), { collapsed: u, onToggleCollapse: d } = pHe("video", l > 0 && l < 720), f = b(), { openModalWindow: p } = y(), h = g(), _ = n.categoryId ?? null, v = !!(n.videoItemId ?? n.tvShowId);
 	j(() => {
 		if (o?.length) {
 			if (n.categoryId) {
@@ -58001,7 +58001,7 @@ function f4e() {
 	let x = A((t = {}) => {
 		let n = { bridgeId: hHe({
 			kind: "library-editor",
-			ctx: m,
+			ctx: h,
 			onSaved: () => {},
 			onDeleted: () => {}
 		}) };
@@ -58016,11 +58016,11 @@ function f4e() {
 			metadata: n
 		});
 	}, [
-		m,
+		h,
 		p,
 		f,
 		e
-	]), S = o?.find((e) => e.id === g);
+	]), S = o?.find((e) => e.id === _);
 	NGe(S?.id, S?.type), j(() => {
 		v || S && a(`TokimoVideo · ${S.name}`);
 	}, [
@@ -58030,19 +58030,69 @@ function f4e() {
 	]);
 	let w = (e) => {
 		r(`/library/${e}`);
-	}, T = i(), ee = _({
-		libraries: o,
-		progressQueryKey: (e) => U.video.getSyncProgress.queryKey({ id: e }),
-		fetchProgress: (e) => U.video.getSyncProgress.fetch({ id: e }),
-		scanJobTypes: p4e,
-		onContentRefresh: () => {
-			U.video.listVideoItems.invalidate(T), U.video.listTvShows.invalidate(T), U.video.getRecentlyAdded.invalidate(T), U.video.listGenres.invalidate(T), U.video.listCountries.invalidate(T);
-		},
-		onLibraryRefresh: () => {
-			U.video.list.invalidate(T);
+	}, T = i(), [ee, E] = N(/* @__PURE__ */ new Set()), [te, ne] = N({}), re = Oe(T);
+	re.current = T;
+	let ie = A(() => {
+		let e = re.current;
+		U.video.listVideoItems.invalidate(e), U.video.listTvShows.invalidate(e), U.video.getRecentlyAdded.invalidate(e), U.video.listGenres.invalidate(e), U.video.listCountries.invalidate(e), U.video.list.invalidate(e);
+	}, []), ae = Oe(null), oe = Oe(!1), D = A(() => {
+		if (ae.current) {
+			oe.current = !0;
+			return;
 		}
-	});
-	return s ? /* @__PURE__ */ P("div", {
+		ie(), ae.current = setTimeout(() => {
+			ae.current = null, oe.current && (oe.current = !1, ie());
+		}, 500);
+	}, [ie]), se = A((e) => {
+		let t = e.data;
+		if (!t) return;
+		let n = t.payload ?? {}, r = t.appId ?? n.videoId ?? n.appId;
+		if (!r) return;
+		let i = t.status;
+		i === "completed" || i === "failed" || i === "cancelled" ? (D(), E((e) => {
+			let t = new Set(e);
+			return t.delete(r), t;
+		})) : E((e) => {
+			if (e.has(r)) return e;
+			let t = new Set(e);
+			return t.add(r), t;
+		});
+	}, [D]);
+	m("tv_scrape", se), m("movie_scrape", se), j(() => {
+		if (ee.size === 0) return;
+		let e = setInterval(async () => {
+			let e = Array.from(ee), t = {};
+			await Promise.all(e.map(async (e) => {
+				try {
+					let n = await T.fetchQuery({
+						queryKey: U.video.getSyncProgress.queryKey({ id: e }),
+						queryFn: () => U.video.getSyncProgress.fetch({ id: e }),
+						staleTime: 1e3
+					}), r = n.completed + n.running + n.pending + n.failed;
+					t[e] = r > 0 ? Math.round(n.completed / r * 100) : 0;
+				} catch {
+					t[e] = 0;
+				}
+			})), ne(t);
+		}, 5e3);
+		return () => clearInterval(e);
+	}, [ee, T]), j(() => {
+		if (!o) return;
+		let e = o.filter((e) => e.syncStatus === "syncing").map((e) => e.id);
+		e.length > 0 && E((t) => {
+			let n = new Set(t);
+			for (let t of e) n.add(t);
+			return n.size === t.size ? t : n;
+		});
+	}, [o]);
+	let ce = {};
+	for (let e of ee) ce[e] = {
+		isActive: !0,
+		pct: te[e] ?? 0
+	};
+	return j(() => () => {
+		ae.current && clearTimeout(ae.current);
+	}, []), s ? /* @__PURE__ */ P("div", {
 		className: "flex h-full items-center justify-center",
 		children: /* @__PURE__ */ P(ge, {})
 	}) : o?.length ? /* @__PURE__ */ F("div", {
@@ -58050,22 +58100,22 @@ function f4e() {
 		className: "relative flex h-full",
 		children: [/* @__PURE__ */ P(g0e, {
 			categories: o,
-			activeId: g,
+			activeId: _,
 			onSelect: w,
 			collapsed: u,
 			onCreateClick: () => x(),
-			onSettingsClick: () => g && x({ videoId: g }),
-			syncProgress: ee,
+			onSettingsClick: () => _ && x({ videoId: _ }),
+			syncProgress: ce,
 			onToggleCollapse: d
 		}), /* @__PURE__ */ P("div", {
 			className: `relative min-w-0 flex-1 overflow-auto${v ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`,
 			children: v && t ? /* @__PURE__ */ P(uee, {
-				fallback: m4e,
+				fallback: p4e,
 				children: /* @__PURE__ */ P(t, {})
-			}) : g && S && /* @__PURE__ */ P(a0e, {
+			}) : _ && S && /* @__PURE__ */ P(a0e, {
 				category: S,
-				syncing: !!ee[g]?.isActive
-			}, g)
+				syncing: !!ce[_]?.isActive
+			}, _)
 		})]
 	}) : /* @__PURE__ */ P(C, {
 		imageSrc: "/page-icons/video.png",
@@ -58085,13 +58135,13 @@ function f4e() {
 		onAction: () => x()
 	});
 }
-var p4e, m4e, q9 = I((() => {
-	N0(), R(), s2(), fHe(), mHe(), u2(), F4(), PGe(), c0e(), _0e(), p4e = ["movie_scrape", "tv_scrape"], m4e = /* @__PURE__ */ P("div", {
+var p4e, q9 = I((() => {
+	N0(), R(), s2(), fHe(), mHe(), u2(), F4(), PGe(), c0e(), _0e(), p4e = /* @__PURE__ */ P("div", {
 		className: "flex h-full items-center justify-center",
 		children: /* @__PURE__ */ P(ge, {})
 	});
-})), h4e = /* @__PURE__ */ Ne({ default: () => b4e });
-function g4e(e, t) {
+})), m4e = /* @__PURE__ */ Ne({ default: () => y4e });
+function h4e(e, t) {
 	if (!e) return [];
 	let n = t?.contentType;
 	return [...e].sort((e, t) => {
@@ -58102,13 +58152,13 @@ function g4e(e, t) {
 		label: e.name
 	}));
 }
-function _4e(e, t) {
+function g4e(e, t) {
 	if (!(!e?.length || !t?.isSupported) && t.contentType) {
 		let n = e.filter((e) => e.type === t.contentType);
 		if (n.length === 1) return n[0]?.id;
 	}
 }
-function v4e({ analysis: e, selectedLibrary: t }) {
+function _4e({ analysis: e, selectedLibrary: t }) {
 	let { t: n } = L(), r = e.contentType === "music" || t?.type === "music";
 	return /* @__PURE__ */ P("div", {
 		className: "rounded-xl border border-[var(--glass-border)] bg-surface-glass p-4 shadow-sm",
@@ -58205,7 +58255,7 @@ function v4e({ analysis: e, selectedLibrary: t }) {
 		})
 	});
 }
-function y4e({ win: e }) {
+function v4e({ win: e }) {
 	let t = typeof e.metadata?.defaultLibraryId == "string" ? e.metadata.defaultLibraryId : void 0, { t: n } = L(), [r] = D.useForm(), a = v(), o = i(), { closeWindow: s } = y(), [c, l] = N(null), u = D.useWatch("targetLibraryId", r), d = U.video.list.useQuery(), f = d.data, p = U.videoOnlineMedia.analyze.useMutation({
 		onSuccess: (e) => {
 			l(e), e.isSupported || a.warning(n(`${$}.onlineMedia.unsupported`));
@@ -58215,7 +58265,7 @@ function y4e({ win: e }) {
 		}
 	}), m = U.videoOnlineMedia.startDownload.useMutation();
 	j(() => {
-		let e = t ?? _4e(f, c);
+		let e = t ?? g4e(f, c);
 		e && r.setFieldValue("targetLibraryId", e);
 	}, [
 		c,
@@ -58223,7 +58273,7 @@ function y4e({ win: e }) {
 		r,
 		t
 	]);
-	let h = M(() => g4e(f, c), [f, c]), g = M(() => f?.find((e) => e.id === u) ?? null, [f, u]), _ = M(() => _4e(f, c), [f, c]), b = !!c?.isSupported && !_ && h.length > 0, x = async () => {
+	let h = M(() => h4e(f, c), [f, c]), g = M(() => f?.find((e) => e.id === u) ?? null, [f, u]), _ = M(() => g4e(f, c), [f, c]), b = !!c?.isSupported && !_ && h.length > 0, x = async () => {
 		let e = await r.validateFields();
 		p.mutate({ url: e.url });
 	}, C = async () => {
@@ -58320,7 +58370,7 @@ function y4e({ win: e }) {
 							children: n(`${$}.onlineMedia.analyzing`)
 						})]
 					}),
-					c && !p.isPending && (c.isSupported ? /* @__PURE__ */ P(v4e, {
+					c && !p.isPending && (c.isSupported ? /* @__PURE__ */ P(_4e, {
 						analysis: c,
 						selectedLibrary: g
 					}) : /* @__PURE__ */ P(S, {
@@ -58383,14 +58433,14 @@ function y4e({ win: e }) {
 		})]
 	});
 }
-function b4e({ win: e }) {
+function y4e({ win: e }) {
 	let t = typeof e.metadata?.bridgeId == "string" ? e.metadata.bridgeId : void 0, [n] = N(() => t ? gHe(t) : void 0);
-	return n?.kind === "add-online-media" ? j9(n.ctx, Q9, /* @__PURE__ */ P(y4e, { win: e })) : null;
+	return n?.kind === "add-online-media" ? j9(n.ctx, Q9, /* @__PURE__ */ P(v4e, { win: e })) : null;
 }
-var $, x4e = I((() => {
+var $, b4e = I((() => {
 	R(), s2(), $9(), u2(), M9(), $ = "media.downloads";
-})), S4e = /* @__PURE__ */ Ne({ default: () => T4e });
-function C4e({ configured: e, loading: t, quota: n, onTest: r, testing: i, testResult: a }) {
+})), x4e = /* @__PURE__ */ Ne({ default: () => w4e });
+function S4e({ configured: e, loading: t, quota: n, onTest: r, testing: i, testResult: a }) {
 	let { t: o } = L();
 	return /* @__PURE__ */ P("div", {
 		className: "rounded-xl border border-border-base bg-surface-base/60 p-4",
@@ -58433,7 +58483,7 @@ function C4e({ configured: e, loading: t, quota: n, onTest: r, testing: i, testR
 		})
 	});
 }
-function w4e() {
+function C4e() {
 	let { t: e } = L(), t = i(), [n, r] = N(!1), [a, o] = N(""), [s, c] = N(null), [l, u] = N(!1), d = be(), f = U.externalDb.getTmdb.useQuery(), p = U.externalDb.updateTmdb.useMutation(), m = U.externalDb.testTmdb.useMutation(), h = U.externalDb.status.useQuery(), g = h.data?.tmdb;
 	j(() => {
 		f.data && (o(f.data.apiKey ?? ""), c(f.data.dailyLimit ?? null), u(!1));
@@ -58472,7 +58522,7 @@ function w4e() {
 		children: [/* @__PURE__ */ F("div", {
 			className: "flex-1 overflow-y-auto px-6 py-4 space-y-6",
 			children: [
-				/* @__PURE__ */ P(C4e, {
+				/* @__PURE__ */ P(S4e, {
 					configured: !h.isLoading && !!g?.isConfigured,
 					loading: h.isLoading,
 					quota: !h.isLoading && /* @__PURE__ */ F("div", {
@@ -58667,34 +58717,34 @@ function w4e() {
 		})]
 	});
 }
-function T4e({ win: e }) {
+function w4e({ win: e }) {
 	return /* @__PURE__ */ P(Xe, {
 		i18n: k9,
 		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
 			client: Q9,
-			children: /* @__PURE__ */ P(w4e, {})
+			children: /* @__PURE__ */ P(C4e, {})
 		}) }) })
 	});
 }
-var E4e = I((() => {
+var T4e = I((() => {
 	N0(), R(), s2(), A9(), $9();
 }));
 //#endregion
 //#region src/components/VideoMenuBar.tsx
-function D4e({ children: e }) {
-	let { t } = L(), n = v(), r = i(), a = b(), { openModalWindow: o } = y(), s = MGe(), c = h(), [l, u] = N(!1), [d, f] = N(!1), [p, g] = N(null), [_, x] = N(""), S = U.video.list.useQuery().data ?? [], C = U.video.sync.useMutation({
+function E4e({ children: e }) {
+	let { t } = L(), n = v(), r = i(), a = b(), { openModalWindow: o } = y(), s = MGe(), c = g(), [l, u] = N(!1), [d, f] = N(!1), [p, m] = N(null), [_, x] = N(""), S = U.video.list.useQuery().data ?? [], C = U.video.sync.useMutation({
 		onSuccess: () => {
 			n.success(t("media.sidebar.syncStarted")), U.video.list.invalidate(r), U.video.listVideoItems.invalidate(r), U.video.listTvShows.invalidate(r), U.video.getRecentlyAdded.invalidate(r), U.video.listGenres.invalidate(r);
 		},
 		onError: (e) => n.error(e.message || t("media.sidebar.syncFailed"))
 	}), w = s.type === "online_video";
-	return m(M(() => {
+	return h(M(() => {
 		let e = S.map((e) => ({
 			key: `sync-${e.id}`,
 			label: t("media.sidebar.syncLibrary", { name: e.name }),
 			icon: /* @__PURE__ */ P(vx, { size: 14 }),
 			onClick: () => {
-				g(e.id), x(e.name), f(!1), u(!0);
+				m(e.id), x(e.name), f(!1), u(!0);
 			}
 		})), n = [];
 		return w && n.push({
@@ -58707,7 +58757,7 @@ function D4e({ children: e }) {
 					ctx: c
 				}) };
 				s.id && (e.defaultLibraryId = s.id), o({
-					component: () => Promise.resolve().then(() => (x4e(), h4e)),
+					component: () => Promise.resolve().then(() => (b4e(), m4e)),
 					parentWindowId: a,
 					title: t("media.downloads.onlineMedia.title"),
 					width: 680,
@@ -58755,7 +58805,7 @@ function D4e({ children: e }) {
 				icon: /* @__PURE__ */ P(rJ, { size: 14 }),
 				onClick: () => {
 					o({
-						component: () => Promise.resolve().then(() => (E4e(), S4e)),
+						component: () => Promise.resolve().then(() => (T4e(), x4e)),
 						parentWindowId: a,
 						title: t("media.tmdbSettings.title"),
 						width: 760,
@@ -58801,7 +58851,7 @@ function D4e({ children: e }) {
 		})]
 	})] });
 }
-var O4e = I((() => {
+var D4e = I((() => {
 	N0(), R(), s2(), u2(), PGe();
 }));
 //#endregion
@@ -58815,7 +58865,7 @@ function J9({ title: e, children: t }) {
 		children: t
 	});
 }
-function k4e(e, t, n = [], r = []) {
+function O4e(e, t, n = [], r = []) {
 	let i = Oe(null);
 	return j(() => {
 		if (!e) return;
@@ -58833,7 +58883,7 @@ function k4e(e, t, n = [], r = []) {
 		e
 	]), i;
 }
-function A4e(e, t) {
+function k4e(e, t) {
 	let [n, r] = N(null);
 	return j(() => {
 		if (!t) {
@@ -58854,10 +58904,10 @@ function A4e(e, t) {
 		return i(), () => cancelAnimationFrame(n);
 	}, [e, t]), n;
 }
-var j4e = I((() => {}));
+var A4e = I((() => {}));
 //#endregion
 //#region src/components/EpisodeListMenu.tsx
-function M4e(e) {
+function j4e(e) {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e) {
 		let e = t.get(n.seasonNumber);
@@ -58865,9 +58915,9 @@ function M4e(e) {
 	}
 	return [...t.entries()].sort(([e], [t]) => e - t);
 }
-var Y9, X9, Z9, N4e = I((() => {
-	R(), s2(), f2(), _2(), j4e(), Y9 = Te(function() {
-		let { t: e } = L(), { item: t, play: n } = d2(), [r, i] = N(!1), a = Oe(null), o = k4e(r, () => i(!1), [], [a]), s = A4e(o, r), c = h2(t?.sourceMetadata), l = c?.tvShowId, u = c?.episodeId, { data: d } = U.video.getTvShowDetail.useQuery({ id: l }, { enabled: !!l }), f = M(() => d?.seasons?.flatMap((e) => (e.episodes ?? []).map((t) => ({
+var Y9, X9, Z9, M4e = I((() => {
+	R(), s2(), f2(), _2(), A4e(), Y9 = Te(function() {
+		let { t: e } = L(), { item: t, play: n } = d2(), [r, i] = N(!1), a = Oe(null), o = O4e(r, () => i(!1), [], [a]), s = k4e(o, r), c = h2(t?.sourceMetadata), l = c?.tvShowId, u = c?.episodeId, { data: d } = U.video.getTvShowDetail.useQuery({ id: l }, { enabled: !!l }), f = M(() => d?.seasons?.flatMap((e) => (e.episodes ?? []).map((t) => ({
 			...t,
 			seasonNumber: e.seasonNumber
 		}))) ?? [], [d]), p = f.findIndex((e) => e.id === u), m = f.length, h = A((t) => {
@@ -59026,7 +59076,7 @@ var Y9, X9, Z9, N4e = I((() => {
 			};
 			return window.addEventListener("keydown", e), () => window.removeEventListener("keydown", e);
 		}, [o]);
-		let u = l ? M4e(t) : [[0, t]];
+		let u = l ? j4e(t) : [[0, t]];
 		return /* @__PURE__ */ F("div", {
 			ref: e,
 			className: "player-popup-in fixed z-[99999] flex w-[22rem] flex-col overflow-hidden rounded-lg bg-black/65 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl",
@@ -59134,22 +59184,22 @@ var Y9, X9, Z9, N4e = I((() => {
 }));
 //#endregion
 //#region src/player-extension.tsx
-function P4e(e) {
+function N4e(e) {
 	return e.seasons?.flatMap((e) => (e.episodes ?? []).map((t) => ({
 		...t,
 		seasonNumber: e.seasonNumber
 	}))) ?? [];
 }
-function F4e(e) {
+function P4e(e) {
 	return e.files?.[0] ?? null;
 }
-function I4e(e) {
+function F4e(e) {
 	if (typeof e != "object" || !e || !("duration" in e)) return null;
 	let t = e.duration;
 	return typeof t == "number" && Number.isFinite(t) ? t : null;
 }
-function L4e({ sourceMetadata: e }) {
-	let { shell: t } = h(), n = h2(e);
+function I4e({ sourceMetadata: e }) {
+	let { shell: t } = g(), n = h2(e);
 	if (!n?.videoItemId && !n?.tvShowId) return null;
 	let r = n.videoItemId ? `/movies/${n.videoItemId}` : `/tv/${n.tvShowId}`;
 	return /* @__PURE__ */ P("button", {
@@ -59159,7 +59209,7 @@ function L4e({ sourceMetadata: e }) {
 		children: "详情"
 	});
 }
-function R4e(e, t) {
+function L4e(e, t) {
 	return {
 		async getResumePosition(e, t) {
 			let n = h2(t);
@@ -59174,11 +59224,11 @@ function R4e(e, t) {
 		async getNextItem(e, n) {
 			let r = h2(n);
 			if (!r?.tvShowId || !r.episodeId) return null;
-			let i = { id: r.tvShowId }, a = t.getQueryData(U.video.getTvShowDetail.queryKey(i)) ?? await U.video.getTvShowDetail.fetch(i), o = P4e(a), s = o.findIndex((e) => e.id === r.episodeId);
+			let i = { id: r.tvShowId }, a = t.getQueryData(U.video.getTvShowDetail.queryKey(i)) ?? await U.video.getTvShowDetail.fetch(i), o = N4e(a), s = o.findIndex((e) => e.id === r.episodeId);
 			if (s < 0) return null;
-			let c = o.slice(s + 1).find((e) => F4e(e) !== null);
+			let c = o.slice(s + 1).find((e) => P4e(e) !== null);
 			if (!c) return null;
-			let l = F4e(c);
+			let l = P4e(c);
 			return l ? {
 				file: l,
 				meta: {
@@ -59196,7 +59246,7 @@ function R4e(e, t) {
 		onProgress(e, t, n) {
 			let r = h2(n)?.watchHistoryId;
 			if (!r) return;
-			let i = I4e(e);
+			let i = F4e(e);
 			i !== null && U.playback.reportProgress.mutate({
 				watchHistoryId: r,
 				position: t,
@@ -59206,7 +59256,7 @@ function R4e(e, t) {
 			});
 		},
 		renderTaskbarActions(n, r) {
-			return j9(e, t, /* @__PURE__ */ P(L4e, { sourceMetadata: r }));
+			return j9(e, t, /* @__PURE__ */ P(I4e, { sourceMetadata: r }));
 		},
 		renderEpisodePicker(n, r) {
 			let i = h2(r);
@@ -59214,13 +59264,13 @@ function R4e(e, t) {
 		}
 	};
 }
-var z4e = I((() => {
-	s2(), N4e(), _2(), M9();
-})), B4e = I((() => {})), Q9, V4e, $9 = I((() => {
-	R(), q9(), O4e(), A9(), z4e(), B4e(), Q9 = new e({ defaultOptions: { queries: {
+var R4e = I((() => {
+	s2(), M4e(), _2(), M9();
+})), z4e = I((() => {})), Q9, B4e, $9 = I((() => {
+	R(), q9(), D4e(), A9(), R4e(), z4e(), Q9 = new e({ defaultOptions: { queries: {
 		retry: !1,
 		refetchOnWindowFocus: !1
-	} } }), V4e = s({
+	} } }), B4e = s({
 		id: "video",
 		manifest: {
 			id: "video",
@@ -59240,14 +59290,14 @@ var z4e = I((() => {
 				k9.language !== t && k9.changeLanguage(t);
 			};
 			r(n.locale);
-			let i = n.shell.subscribeLocale(r), o = n.shell.player.registerExtension(n.appId, R4e(n, Q9)), s = hee(e);
+			let i = n.shell.subscribeLocale(r), o = n.shell.player.registerExtension(n.appId, L4e(n, Q9)), s = hee(e);
 			return s.render(/* @__PURE__ */ P(lee, { children: /* @__PURE__ */ P(Xe, {
 				i18n: k9,
 				children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
 					client: Q9,
 					children: /* @__PURE__ */ P(a, {
 						value: n,
-						children: /* @__PURE__ */ P(D4e, { children: /* @__PURE__ */ P(f4e, {}) })
+						children: /* @__PURE__ */ P(E4e, { children: /* @__PURE__ */ P(f4e, {}) })
 					})
 				}) }) })
 			}) })), () => {
@@ -59258,4 +59308,4 @@ var z4e = I((() => {
 }));
 //#endregion
 $9();
-export { V4e as default, Q9 as queryClient };
+export { B4e as default, Q9 as queryClient };
