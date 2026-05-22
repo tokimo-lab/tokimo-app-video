@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -247,6 +249,151 @@ pub async fn update_status(
     serde_json::from_slice::<JobView>(&response)
         .map(Job::from)
         .map_err(|error| AppError::Internal(format!("jobs.update_status decode: {error}")))
+}
+
+// ── Filter-based types + methods ───────────────────────────────────────────────
+
+/// OS-layer generic job filter — matches host-side `JobFilter`.
+/// Business semantics (e.g. `{"videoId": "..."}`) are encoded in `payload_match`;
+/// the bus layer only does JSONB equality matching.
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct JobFilter {
+    pub status: Option<String>,
+    pub job_type: Option<String>,
+    pub payload_match: Option<HashMap<String, String>>,
+    pub parents_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CancelByFilterRequest {
+    filter: JobFilter,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelByFilterResponse {
+    pub cancelled: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProgressSummaryRequest {
+    filter: JobFilter,
+    job_types: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressSummaryResponse {
+    pub total: i64,
+    pub completed: i64,
+    pub running: i64,
+    pub pending: i64,
+    pub failed: i64,
+    pub tasks: Vec<TaskProgressRowView>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskProgressRowView {
+    #[serde(rename = "type")]
+    pub job_type: String,
+    pub completed: i64,
+    pub running: i64,
+    pub pending: i64,
+    pub failed: i64,
+    pub running_meta: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CleanupRequest {
+    filter: JobFilter,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupResponse {
+    pub deleted: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PreemptRequest {
+    filter: JobFilter,
+    reason: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreemptResponse {
+    pub cancelled_ids: Vec<Uuid>,
+}
+
+/// Bulk-cancel jobs matching the given filter (app_id scoped via caller).
+pub async fn cancel_by_filter(
+    client: &BusClient,
+    caller: CallerCtx,
+    filter: JobFilter,
+) -> Result<u64, AppError> {
+    let response = invoke_json(client, "cancel_by_filter", caller, &CancelByFilterRequest { filter }).await?;
+    let resp: CancelByFilterResponse =
+        serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.cancel_by_filter decode: {e}")))?;
+    Ok(resp.cancelled)
+}
+
+/// Aggregated progress summary for jobs matching the filter.
+pub async fn progress_summary(
+    client: &BusClient,
+    caller: CallerCtx,
+    filter: JobFilter,
+    job_types: Vec<String>,
+) -> Result<ProgressSummaryResponse, AppError> {
+    let response = invoke_json(
+        client,
+        "progress_summary",
+        caller,
+        &ProgressSummaryRequest { filter, job_types },
+    )
+    .await?;
+    serde_json::from_slice(&response)
+        .map_err(|e| AppError::Internal(format!("jobs.progress_summary decode: {e}")))
+}
+
+/// Delete finished (completed/cancelled/failed) jobs matching the filter.
+pub async fn cleanup(
+    client: &BusClient,
+    caller: CallerCtx,
+    filter: JobFilter,
+) -> Result<u64, AppError> {
+    let response = invoke_json(client, "cleanup", caller, &CleanupRequest { filter }).await?;
+    let resp: CleanupResponse =
+        serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.cleanup decode: {e}")))?;
+    Ok(resp.deleted)
+}
+
+/// Preempt parent scan jobs matching the filter.
+pub async fn preempt(
+    client: &BusClient,
+    caller: CallerCtx,
+    filter: JobFilter,
+    reason: &str,
+) -> Result<Vec<Uuid>, AppError> {
+    let response = invoke_json(
+        client,
+        "preempt",
+        caller,
+        &PreemptRequest {
+            filter,
+            reason: reason.to_string(),
+        },
+    )
+    .await?;
+    let resp: PreemptResponse =
+        serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.preempt decode: {e}")))?;
+    Ok(resp.cancelled_ids)
 }
 
 async fn invoke_json<T: Serialize>(
