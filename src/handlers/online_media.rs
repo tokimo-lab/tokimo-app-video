@@ -41,7 +41,7 @@ use crate::{
 async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
     let Some(client) = state.bus_client.get() else { return };
     if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
-        tracing::warn!(%error, record_id = %request.record_id, "failed to push downloader status to host");
+        tracing::error!(%error, record_id = %request.record_id, "failed to push downloader status to host");
     }
 }
 
@@ -607,7 +607,7 @@ pub async fn start_online_media_download(
             created_by: Some(user_id.to_string()),
         };
         if let Err(error) = crate::bus_clients::downloader::create_record(bus, &req).await {
-            tracing::warn!(%error, %record_id, "failed to mirror download record to host");
+            tracing::error!(%error, %record_id, "failed to mirror download record to host — record will not appear in Downloads page");
         }
     }
 

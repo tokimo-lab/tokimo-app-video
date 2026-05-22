@@ -76,7 +76,7 @@ const DEFAULT_POLL_RETRY_LIMIT: u32 = 3;
 async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
     let Some(client) = state.bus_client.get() else { return };
     if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
-        warn!(%error, record_id = %request.record_id, "failed to push downloader status to host");
+        error!(%error, record_id = %request.record_id, "failed to push downloader status to host");
     }
 }
 
