@@ -5,7 +5,7 @@ use serde::Serialize;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::entities::{subscription_filters, subscriptions, users};
+use crate::db::entities::{subscription_filters, subscriptions};
 use crate::error::AppError;
 
 // ── DTO ─────────────────────────────────────────────────────────────────────
@@ -193,7 +193,6 @@ impl SubscriptionRepo {
             .map_err(|_| AppError::BadRequest("invalid user id".into()))?;
 
         let rows = subscriptions::Entity::find()
-            .find_also_related(users::Entity)
             .filter(subscriptions::Column::CreatedBy.eq(uid))
             .order_by_desc(subscriptions::Column::CreatedAt)
             .all(db)
@@ -201,7 +200,7 @@ impl SubscriptionRepo {
 
         // Batch resolve filter names
         let mut all_filter_ids = std::collections::HashSet::new();
-        for (sub, _) in &rows {
+        for sub in &rows {
             for id in collect_filter_ids(sub) {
                 all_filter_ids.insert(id);
             }
@@ -226,7 +225,7 @@ impl SubscriptionRepo {
 
         Ok(rows
             .iter()
-            .map(|(sub, creator)| {
+            .map(|sub| {
                 let fids = collect_filter_ids(sub);
                 let fnames: Vec<String> = fids
                     .iter()
@@ -235,7 +234,7 @@ impl SubscriptionRepo {
                 to_dto(
                     sub,
                     if fnames.is_empty() { None } else { Some(fnames) },
-                    creator.as_ref().map(|u| u.username.clone()),
+                    None,
                 )
             })
             .collect())
@@ -250,18 +249,17 @@ impl SubscriptionRepo {
             .map_err(|_| AppError::BadRequest("invalid subscription id".into()))?;
 
         let row = subscriptions::Entity::find_by_id(uid)
-            .find_also_related(users::Entity)
             .one(db)
             .await?;
 
         match row {
-            Some((sub, creator)) => {
+            Some(sub) => {
                 let fids = collect_filter_ids(&sub);
                 let fnames = Self::resolve_filter_names(db, &fids).await;
                 let dto = to_dto(
                     &sub,
                     if fnames.is_empty() { None } else { Some(fnames) },
-                    creator.map(|u| u.username),
+                    None,
                 );
                 Ok(Some(dto))
             }

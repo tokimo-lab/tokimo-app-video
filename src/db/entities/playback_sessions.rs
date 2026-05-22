@@ -48,22 +48,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::sessions::Entity",
-        from = "Column::SessionId",
-        to = "super::sessions::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Sessions,
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::UserId",
-        to = "super::users::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Users,
-    #[sea_orm(
         belongs_to = "super::video_files::Entity",
         from = "Column::FileId",
         to = "super::video_files::Column::Id",
@@ -71,18 +55,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     VideoFiles,
-}
-
-impl Related<super::sessions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Sessions.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
-    }
 }
 
 impl Related<super::video_files::Entity> for Entity {

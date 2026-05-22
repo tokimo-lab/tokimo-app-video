@@ -20,26 +20,12 @@ pub struct Model {
     pub position: i32,
     pub duration: Option<i32>,
     pub completed: bool,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub user_display_name_snapshot: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::sessions::Entity",
-        from = "Column::SessionId",
-        to = "super::sessions::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Sessions,
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::UserId",
-        to = "super::users::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Users,
     #[sea_orm(
         belongs_to = "super::video_files::Entity",
         from = "Column::FileId",
@@ -48,18 +34,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     VideoFiles,
-}
-
-impl Related<super::sessions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Sessions.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
-    }
 }
 
 impl Related<super::video_files::Entity> for Entity {

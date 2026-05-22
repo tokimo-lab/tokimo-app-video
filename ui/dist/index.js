@@ -58472,7 +58472,7 @@ function w4e() {
 						className: "flex flex-col gap-1 text-sm text-fg-muted",
 						children: [/* @__PURE__ */ P("span", { children: [
 							e("systemSettings.apiUsage.todayUsed"),
-							": ",
+							":",
 							" ",
 							/* @__PURE__ */ N("strong", {
 								className: "text-fg-primary",
@@ -58493,7 +58493,7 @@ function w4e() {
 									children: [
 										"(",
 										e("systemSettings.apiUsage.remaining"),
-										": ",
+										":",
 										" ",
 										Math.max(0, g.dailyLimit - (g.dailyUsage ?? 0)),
 										")"
@@ -58568,7 +58568,6 @@ function w4e() {
 									/* @__PURE__ */ P("li", { children: [
 										e("media.tmdbSettings.step1Visit"),
 										" ",
-										" ",
 										/* @__PURE__ */ N("a", {
 											className: "text-[var(--accent-text)] hover:text-[var(--accent)]",
 											href: "https://www.themoviedb.org/signup",
@@ -58581,7 +58580,6 @@ function w4e() {
 									] }),
 									/* @__PURE__ */ P("li", { children: [
 										e("media.tmdbSettings.step2Login"),
-										" ",
 										" ",
 										/* @__PURE__ */ N("a", {
 											className: "text-[var(--accent-text)] hover:text-[var(--accent)]",

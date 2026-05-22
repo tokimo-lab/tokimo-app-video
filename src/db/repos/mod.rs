@@ -1,4 +1,3 @@
-pub mod auth_repo;
 pub mod download_record_repo;
 pub mod job_repo;
 pub mod media;

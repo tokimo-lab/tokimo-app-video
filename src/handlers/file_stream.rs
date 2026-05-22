@@ -1,15 +1,15 @@
 use axum::{
-    extract::{ConnectInfo, Path, Query, Request, State},
+    extract::{Path, Query, Request, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use sea_orm::DatabaseConnection;
 use serde::Deserialize;
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     AppState,
-    db::repos::{auth_repo::AuthRepo, media::file_repo::VideoFileRepo, subtitle_repo::SubtitleRepo},
+    db::repos::media::file_repo::VideoFileRepo,
+    db::repos::subtitle_repo::SubtitleRepo,
     handlers::media::stream::stream_driver_file,
     handlers::{err_resp, err404, err500},
 };
@@ -20,6 +20,7 @@ use tokimo_package_subtitle::{
 };
 
 const INTERNAL_STREAM_ACCESS_HEADER: &str = "x-internal-stream-access-token";
+const TOKIMO_USER_ID_HEADER: &str = "x-tokimo-user-id";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,25 +31,24 @@ pub struct StreamAccessQuery {
 
 /// Stream a media file to the HTTP client.
 ///
-/// All source types (local, SMB, SFTP, S3, cloud drives…) are served through the
-/// unified VFS layer. There is no special case for `source_type == "local"` —
-/// the local VFS driver handles range requests identically to remote drivers,
-/// and this path must pass through `stream_driver_file` anyway to support the
-/// subtitle tap and the session `CancellationToken`.
+/// Auth priority:
+/// 1. `x-tokimo-user-id` header — injected by the main server's data-plane proxy
+///    for every already-authenticated request.  Presence means the main server has
+///    already validated the session; we trust it unconditionally.
+/// 2. `SESSION_ID` cookie — validated via the auth bus service (cached 30 s).
+/// 3. `access_token` query param or `x-internal-stream-access-token` header —
+///    validated against the system config internal stream token (cached 30 s).
 pub async fn stream_media_file(
     State(state): State<Arc<AppState>>,
     Path(file_id): Path<String>,
     Query(query): Query<StreamAccessQuery>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
 ) -> Response {
     let db = state.db.clone();
     let _user_id = match validate_stream_access(
-        &db,
-        request.headers().get(header::COOKIE),
+        &state,
+        request.headers(),
         query.access_token.as_deref(),
-        request.headers().get(INTERNAL_STREAM_ACCESS_HEADER),
-        addr.ip(),
     )
     .await
     {
@@ -93,8 +93,6 @@ pub async fn stream_media_file(
     };
 
     // Register (or reuse) a cancellation token for this file's stream session.
-    // All spawned stream tasks select on this token and abort immediately when
-    // the session is cancelled (browser close, explicit stop-session, etc.).
     let cancel = state.stream_sessions.create_or_get(&file_id);
     tracing::debug!(
         "[StreamSession] DirectPlay session attached file_id={} path={}",
@@ -123,42 +121,37 @@ fn session_id_from_cookie(cookie_header: Option<&axum::http::HeaderValue>) -> Op
 }
 
 /// Validate stream access and return the authenticated `user_id` (if available).
-/// For loopback connections, also attempts to extract `user_id` from cookie.
 async fn validate_stream_access(
-    db: &DatabaseConnection,
-    cookie_header: Option<&axum::http::HeaderValue>,
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
     access_token: Option<&str>,
-    access_token_header: Option<&axum::http::HeaderValue>,
-    client_ip: std::net::IpAddr,
 ) -> Result<Option<String>, String> {
-    let user_id = if let Some(sid) = session_id_from_cookie(cookie_header) {
-        AuthRepo::get_user_id_by_session(db, &sid).await.ok().flatten()
-    } else {
-        None
-    };
-
-    if client_ip.is_loopback() {
-        return Ok(user_id);
+    // 1. Trust x-tokimo-user-id injected by the main server proxy.
+    if let Some(user_id) = headers.get(TOKIMO_USER_ID_HEADER).and_then(|v| v.to_str().ok()) {
+        return Ok(Some(user_id.to_string()));
     }
 
-    if let Some(token) = access_token
-        && AuthRepo::validate_internal_stream_token(db, token)
-            .await
-            .unwrap_or(false)
+    // 2. Validate SESSION_ID cookie via bus auth service.
+    if let Some(sid) = session_id_from_cookie(headers.get(header::COOKIE)) {
+        if let Some(user_id) = state.auth_client.validate_session(&sid).await {
+            return Ok(Some(user_id.to_string()));
+        }
+    }
+
+    // 3. Validate internal stream token (query param or header).
+    if let Some(token) = access_token {
+        if state.auth_client.validate_internal_stream_token(token).await {
+            return Ok(None);
+        }
+    }
+
+    if let Some(token) = headers
+        .get(INTERNAL_STREAM_ACCESS_HEADER)
+        .and_then(|v| v.to_str().ok())
     {
-        return Ok(user_id);
-    }
-
-    if let Some(token) = access_token_header.and_then(|value| value.to_str().ok())
-        && AuthRepo::validate_internal_stream_token(db, token)
-            .await
-            .unwrap_or(false)
-    {
-        return Ok(user_id);
-    }
-
-    if user_id.is_some() {
-        return Ok(user_id);
+        if state.auth_client.validate_internal_stream_token(token).await {
+            return Ok(None);
+        }
     }
 
     Err("Unauthorized".into())

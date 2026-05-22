@@ -22,6 +22,7 @@ pub struct InsertHistoryInput {
     pub user_agent: Option<String>,
     pub position: i32,
     pub duration: Option<i32>,
+    pub user_display_name_snapshot: Option<String>,
 }
 
 pub struct PlaybackRepo;
@@ -132,19 +133,19 @@ impl PlaybackRepo {
 
         let sql = if filter_val.is_some() {
             format!(
-                "SELECT wh.id, wh.file_id, u.name AS user_name, wh.client_name, wh.user_agent, wh.started_at, wh.stopped_at, \
+                "SELECT wh.id, wh.file_id, COALESCE(wh.user_display_name_snapshot, wh.user_id::TEXT) AS user_name, \
+                        wh.client_name, wh.user_agent, wh.started_at, wh.stopped_at, \
                         wh.position, wh.duration, wh.completed{episode_cols} \
                  FROM watch_histories wh \
-                 JOIN users u ON wh.user_id = u.id \
                  {filter_sql} \
                  ORDER BY wh.started_at DESC LIMIT $3"
             )
         } else {
             format!(
-                "SELECT wh.id, wh.file_id, u.name AS user_name, wh.client_name, wh.user_agent, wh.started_at, wh.stopped_at, \
+                "SELECT wh.id, wh.file_id, COALESCE(wh.user_display_name_snapshot, wh.user_id::TEXT) AS user_name, \
+                        wh.client_name, wh.user_agent, wh.started_at, wh.stopped_at, \
                         wh.position, wh.duration, wh.completed{episode_cols} \
                  FROM watch_histories wh \
-                 JOIN users u ON wh.user_id = u.id \
                  {filter_sql} \
                  ORDER BY wh.started_at DESC LIMIT $2"
             )
@@ -438,6 +439,7 @@ impl PlaybackRepo {
             completed: Set(true),
             started_at: Set(now),
             stopped_at: Set(Some(now)),
+            user_display_name_snapshot: Set(input.user_display_name_snapshot),
         };
         watch_histories::Entity::insert(active).exec(db).await?;
         Ok(())
@@ -460,6 +462,7 @@ impl PlaybackRepo {
             completed: Set(false),
             started_at: Set(now),
             stopped_at: Set(None),
+            user_display_name_snapshot: Set(input.user_display_name_snapshot),
         };
         watch_histories::Entity::insert(active).exec(db).await?;
         Ok(())
@@ -530,6 +533,7 @@ impl PlaybackRepo {
         file_id: Uuid,
         user_agent: Option<String>,
         duration: Option<i32>,
+        user_display_name: Option<String>,
     ) -> Result<Uuid, AppError> {
         let id = Uuid::new_v4();
         let now = chrono::Utc::now().into();
@@ -545,6 +549,7 @@ impl PlaybackRepo {
             completed: Set(false),
             started_at: Set(now),
             stopped_at: Set(None),
+            user_display_name_snapshot: Set(user_display_name),
         };
         watch_histories::Entity::insert(active).exec(db).await?;
         Ok(id)

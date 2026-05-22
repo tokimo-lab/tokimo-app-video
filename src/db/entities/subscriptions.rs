@@ -70,14 +70,6 @@ pub enum Relation {
     )]
     SubscriptionFilters,
     #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::CreatedBy",
-        to = "super::users::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Users,
-    #[sea_orm(
         belongs_to = "super::videos::Entity",
         from = "Column::TargetVideoId",
         to = "super::videos::Column::Id",
@@ -96,12 +88,6 @@ impl Related<super::download_clients::Entity> for Entity {
 impl Related<super::subscription_filters::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::SubscriptionFilters.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
     }
 }
 

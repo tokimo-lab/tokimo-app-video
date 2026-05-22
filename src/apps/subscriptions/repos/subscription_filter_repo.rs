@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::entities::{subscription_filters, users};
+use crate::db::entities::subscription_filters;
 use crate::error::{AppError, OptionExt};
 
 // ── DTO ─────────────────────────────────────────────────────────────────────
@@ -140,7 +140,6 @@ impl SubscriptionFilterRepo {
             .map_err(|_| AppError::BadRequest("invalid user id".into()))?;
 
         let rows = subscription_filters::Entity::find()
-            .find_also_related(users::Entity)
             .filter(subscription_filters::Column::CreatedBy.eq(uid))
             .order_by_asc(subscription_filters::Column::SortOrder)
             .order_by_asc(subscription_filters::Column::CreatedAt)
@@ -153,7 +152,7 @@ impl SubscriptionFilterRepo {
 
         Ok(rows
             .into_iter()
-            .map(|(filter, user)| to_dto(filter, user.map(|u| u.username)))
+            .map(|filter| to_dto(filter, None))
             .collect())
     }
 
@@ -164,7 +163,6 @@ impl SubscriptionFilterRepo {
         let uid: Uuid = id.parse().map_err(|_| AppError::BadRequest("invalid id".into()))?;
 
         let row = subscription_filters::Entity::find_by_id(uid)
-            .find_also_related(users::Entity)
             .one(db)
             .await
             .map_err(|e| {
@@ -172,7 +170,7 @@ impl SubscriptionFilterRepo {
                 AppError::Database(e)
             })?;
 
-        Ok(row.map(|(filter, user)| to_dto(filter, user.map(|u| u.username))))
+        Ok(row.map(|filter| to_dto(filter, None)))
     }
 
     pub async fn get_raw_by_id<C: ConnectionTrait>(

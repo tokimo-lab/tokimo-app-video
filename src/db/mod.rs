@@ -28,31 +28,6 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
         // schema
         format!(r#"CREATE SCHEMA IF NOT EXISTS "{SCHEMA}""#),
 
-        // users
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username TEXT NOT NULL,
-    email TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ,
-    otp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    otp_secret TEXT
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS users_username_idx ON "{SCHEMA}".users (username)"#),
-
-        // sessions
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    created_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ NOT NULL,
-    user_agent TEXT,
-    browser TEXT,
-    browser_version TEXT,
-    os TEXT
-)"#),
-        format!(r#"CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON "{SCHEMA}".sessions (user_id)"#),
-
         // user_preferences
         format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_preferences (
     user_id UUID NOT NULL,
@@ -679,6 +654,8 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
 )"#),
         format!(r#"CREATE INDEX IF NOT EXISTS watch_histories_user_id_idx ON "{SCHEMA}".watch_histories (user_id)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS watch_histories_file_id_idx ON "{SCHEMA}".watch_histories (file_id)"#),
+        // Add snapshot column for users that no longer cross-join public.users
+        format!(r#"ALTER TABLE "{SCHEMA}".watch_histories ADD COLUMN IF NOT EXISTS user_display_name_snapshot TEXT"#),
 
         // playback_sessions
         format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".playback_sessions (

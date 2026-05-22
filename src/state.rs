@@ -35,6 +35,7 @@ pub struct AppCtx {
     pub organize_session: Arc<tokio::sync::RwLock<Option<OrganizeSession>>>,
     pub active_subscription_runs: Arc<RwLock<HashMap<String, String>>>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
+    pub auth_client: Arc<crate::bus_clients::auth::AuthClient>,
 }
 
 impl AppCtx {
@@ -82,6 +83,7 @@ impl AppCtx {
             screenshot_semaphore,
             organize_session: Arc::new(tokio::sync::RwLock::new(None)),
             active_subscription_runs: Arc::new(RwLock::new(HashMap::new())),
+            auth_client: Arc::new(crate::bus_clients::auth::AuthClient::new(Arc::clone(&client_slot))),
             bus_client: client_slot,
         })
     }
