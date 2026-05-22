@@ -13,7 +13,11 @@ const SCHEMA: &str = "video";
 pub async fn init_pool() -> anyhow::Result<DatabaseConnection> {
     let base_url = std::env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL not set"))?;
     let sep = if base_url.contains('?') { '&' } else { '?' };
-    let url = format!("{base_url}{sep}application_name=tokimo-app-video");
+    // Set search_path so raw SQL queries (heavy use in media_content_repo etc.)
+    // resolve unqualified table names against the video schema first.
+    let url = format!(
+        "{base_url}{sep}application_name=tokimo-app-video&options=-c%20search_path%3Dvideo,public"
+    );
     let mut opt = ConnectOptions::new(url);
     opt.max_connections(20).min_connections(2).sqlx_logging(false);
     Ok(Database::connect(opt).await?)

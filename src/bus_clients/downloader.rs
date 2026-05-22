@@ -7,15 +7,13 @@ use uuid::Uuid;
 use crate::error::AppError;
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DownloaderRegistration {
-    pub r#type: String,
+    pub downloader_type: String,
     pub display_name: String,
     pub capabilities: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RegisterDownloadersRequest {
     pub app_id: String,
     pub downloaders: Vec<DownloaderRegistration>,
@@ -75,12 +73,12 @@ pub async fn register_downloaders(client: &BusClient) -> Result<(), AppError> {
         app_id: "video".to_string(),
         downloaders: vec![
             DownloaderRegistration {
-                r#type: "yt-dlp".to_string(),
+                downloader_type: "yt-dlp".to_string(),
                 display_name: "在线视频".to_string(),
                 capabilities: vec!["cancel".to_string()],
             },
             DownloaderRegistration {
-                r#type: "pt-qbittorrent".to_string(),
+                downloader_type: "pt-qbittorrent".to_string(),
                 display_name: "PT-qBittorrent".to_string(),
                 capabilities: vec!["pause".to_string(), "resume".to_string(), "cancel".to_string()],
             },
