@@ -49,6 +49,20 @@ async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloader
 // DTOs
 // ──────────────────────────────────────────────────────────────────────────────
 
+/// Returns `***<last4>` for cookies longer than 4 chars, `****` for short ones,
+/// and `None` for absent / empty values. Never leaks the full cookie string.
+fn mask_cookie(cookie: Option<&str>) -> Option<String> {
+    let s = cookie?.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if s.len() <= 4 {
+        Some("****".to_string())
+    } else {
+        Some(format!("***{}", &s[s.len() - 4..]))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -89,7 +103,7 @@ pub struct AuthSettingResponse {
     pub provider_id: String,
     pub display_name: String,
     pub requires_auth: bool,
-    pub cookie: Option<String>,
+    pub cookie_masked: Option<String>,
     pub is_enabled: bool,
     pub updated_at: Option<String>,
 }
@@ -314,7 +328,7 @@ pub async fn get_auth_settings(
                 provider_id: provider.id.clone(),
                 display_name: auth_data.display_name,
                 requires_auth: provider.requires_auth,
-                cookie: auth_data.cookie,
+                cookie_masked: mask_cookie(auth_data.cookie.as_deref()),
                 is_enabled: auth_data.is_enabled,
                 updated_at: Some(stored.updated_at.to_rfc3339()),
             }
@@ -323,7 +337,7 @@ pub async fn get_auth_settings(
                 provider_id: provider.id.clone(),
                 display_name: provider.display_name.clone(),
                 requires_auth: provider.requires_auth,
-                cookie: None,
+                cookie_masked: None,
                 is_enabled: true,
                 updated_at: None,
             }
@@ -396,7 +410,7 @@ pub async fn update_auth_setting(
         provider_id,
         display_name,
         requires_auth: provider.requires_auth,
-        cookie,
+        cookie_masked: mask_cookie(cookie.as_deref()),
         is_enabled,
         updated_at: Some(updated.updated_at.to_rfc3339()),
     }))
