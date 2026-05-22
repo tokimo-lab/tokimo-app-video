@@ -8,9 +8,9 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs::{self as jobs_client, service_caller, video_library_filter};
 use crate::db::ApiDateTimeExt;
 use crate::db::models::video::{VideoSyncProgressOutput, VideoSyncStatusOutput, VideoTaskProgress};
-use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
@@ -47,7 +47,8 @@ pub async fn sync_video(
 
     // Clear data synchronously so frontend sees empty state immediately
     if clear_data {
-        AppSyncService::clear_library_data(&state.db, uid, &video.r#type).await?;
+        let client = state.bus_client.get().expect("bus_client not initialized");
+        AppSyncService::clear_library_data(&state.db, client, uid, &video.r#type).await?;
     }
 
     VideoRepo::update_sync_status(&state.db, uid, "syncing", None).await?;
@@ -127,11 +128,13 @@ pub async fn get_video_sync_progress(
         .await?
         .not_found(format!("video {id} not found"))?;
 
-    let job_types = &["movie_scrape", "tv_scrape"];
-    let (total, completed, running, pending, failed) = JobRepo::count_jobs_by_app(&state.db, uid, job_types).await?;
+    let job_types: Vec<String> = vec!["movie_scrape".into(), "tv_scrape".into()];
+    let client = state.bus_client.get().expect("bus_client not initialized");
+    let filter = video_library_filter(uid, None);
+    let summary = jobs_client::progress_summary(client, service_caller(), filter, job_types).await?;
 
-    let rows = JobRepo::get_task_progress_by_app(&state.db, uid, job_types).await?;
-    let tasks: Vec<VideoTaskProgress> = rows
+    let tasks: Vec<VideoTaskProgress> = summary
+        .tasks
         .into_iter()
         .map(|row| {
             let status = if row.running > 0 {
@@ -161,11 +164,11 @@ pub async fn get_video_sync_progress(
     Ok(ok(VideoSyncProgressOutput {
         video_id: uid.to_string(),
         status: video.sync_status,
-        total,
-        completed,
-        running,
-        pending,
-        failed,
+        total: summary.total,
+        completed: summary.completed,
+        running: summary.running,
+        pending: summary.pending,
+        failed: summary.failed,
         tasks,
     }))
 }

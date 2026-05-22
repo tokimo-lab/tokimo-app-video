@@ -6,8 +6,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs::{self as jobs_client, service_caller, video_library_filter};
 use crate::db::models::video::VideoOutput;
-use crate::db::repos::job_repo::JobRepo;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::video_repo::UpdateVideoFields;
 use crate::error::AppError;
@@ -145,7 +145,9 @@ pub async fn delete_video(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
     let uid = parse_uuid(&id)?;
-    let cancelled = JobRepo::cancel_jobs_by_app_id(&state.db, uid).await?;
+    let client = state.bus_client.get().expect("bus_client not initialized");
+    let filter = video_library_filter(uid, None);
+    let cancelled = jobs_client::cancel_by_filter(client, service_caller(), filter).await?;
     if cancelled > 0 {
         tracing::info!("Cancelled {cancelled} jobs for deleted video category {uid}");
     }

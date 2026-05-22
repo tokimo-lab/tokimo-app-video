@@ -191,6 +191,24 @@ pub fn video_caller(user_id: Option<Uuid>) -> CallerCtx {
     }
 }
 
+/// CallerCtx for service-level operations (no user context).
+pub fn service_caller() -> CallerCtx {
+    video_caller(None)
+}
+
+/// Build a `JobFilter` that matches jobs belonging to a specific video library.
+/// Uses both `videoId` and `appId` payload keys for compatibility.
+pub fn video_library_filter(library_id: Uuid, status: Option<&str>) -> JobFilter {
+    let mut pm = HashMap::new();
+    pm.insert("videoId".to_string(), library_id.to_string());
+    pm.insert("appId".to_string(), library_id.to_string());
+    JobFilter {
+        status: status.map(String::from),
+        payload_match: Some(pm),
+        ..Default::default()
+    }
+}
+
 pub async fn create(client: &BusClient, caller: CallerCtx, request: CreateJobRequest) -> Result<Job, AppError> {
     let response = invoke_json(client, "create", caller, &request).await?;
     serde_json::from_slice::<JobView>(&response)
