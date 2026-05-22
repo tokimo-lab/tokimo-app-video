@@ -569,7 +569,7 @@ impl AppSyncService {
         for (show_dir, files) in tv_groups {
             jobs_batch.push((
                 "tv_scrape",
-                json!({ "showDir": show_dir, "appId": app_id.to_string(), "videoId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
+                json!({ "showDir": show_dir, "videoId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
                 None,
                 user_id,
             ));
@@ -581,7 +581,7 @@ impl AppSyncService {
         for (movie_dir, files) in movie_groups {
             jobs_batch.push((
                 "movie_scrape",
-                json!({ "movieDir": movie_dir, "appId": app_id.to_string(), "videoId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
+                json!({ "movieDir": movie_dir, "videoId": app_id.to_string(), "sourceId": source_id.to_string(), "libType": lib_type, "files": files }),
                 None,
                 user_id,
             ));
@@ -709,7 +709,6 @@ impl AppSyncService {
                     "dirPath": video.dir_path,
                     "fileSize": video.file_size,
                     "checksum": checksum,
-                    "appId": app_id.to_string(),
                     "videoId": app_id.to_string(),
                     "sourceId": source_id.to_string(),
                     "libType": lib_type,

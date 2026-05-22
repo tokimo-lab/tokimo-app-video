@@ -111,6 +111,7 @@ export default function VideoApp() {
     progressQueryKey: (id) => api.video.getSyncProgress.queryKey({ id }),
     fetchProgress: (id) => api.video.getSyncProgress.fetch({ id }),
     scanJobTypes: VIDEO_SCAN_JOB_TYPES,
+    resolveLibraryId: (p) => (p.videoId ?? p.appId) as string | undefined,
     onContentRefresh: () => {
       api.video.listVideoItems.invalidate(queryClient);
       api.video.listTvShows.invalidate(queryClient);
