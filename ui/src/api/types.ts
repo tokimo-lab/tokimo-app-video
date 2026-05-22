@@ -658,12 +658,19 @@ export interface OnlineMediaAuthSetting {
   providerId: string;
   displayName: string;
   requiresAuth: boolean;
-  cookie?: string | null;
+  cookieMasked?: string | null;
   isEnabled: boolean;
   updatedAt?: string | null;
 }
 
 export interface UpdateAuthSettingInput {
+  displayName?: string;
+  cookie?: string | null;
+  isEnabled?: boolean;
+}
+
+// null/省略 = 保持原值，"" = 清空，"xxx" = 覆盖
+export interface UpdateAuthSettingRequest {
   displayName?: string;
   cookie?: string | null;
   isEnabled?: boolean;

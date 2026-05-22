@@ -26,11 +26,6 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-interface LocalCookie {
-  providerId: string;
-  cookie: string;
-}
-
 function DownloadEngineSettingsContent() {
   const { t } = useTranslation();
   const message = useMessage();
@@ -107,7 +102,7 @@ function DownloadEngineSettingsContent() {
   const initialCookies = useMemo(() => {
     const map = new Map<string, string>();
     for (const setting of authSettings) {
-      map.set(setting.providerId, setting.cookie ?? "");
+      map.set(setting.providerId, "");
     }
     return map;
   }, [authSettings]);
@@ -115,43 +110,40 @@ function DownloadEngineSettingsContent() {
   const [localCookies, setLocalCookies] = useState<Map<string, string>>(
     new Map(),
   );
+  const [cookieDirty, setCookieDirty] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
 
   // Initialize local state when auth settings load
   useEffect(() => {
     setLocalCookies(new Map(initialCookies));
+    setCookieDirty(new Set());
   }, [initialCookies]);
 
-  const isDirty = useMemo(() => {
-    if (localCookies.size !== initialCookies.size) return true;
-    for (const [key, val] of localCookies) {
-      if ((initialCookies.get(key) ?? "") !== val) return true;
-    }
-    return false;
-  }, [localCookies, initialCookies]);
+  const isDirty = cookieDirty.size > 0;
 
   const handleCookieChange = useCallback(
     (providerId: string, value: string) => {
       setLocalCookies((prev) => new Map(prev).set(providerId, value));
+      setCookieDirty((prev) => new Set(prev).add(providerId));
     },
     [],
   );
 
   const handleReset = useCallback(() => {
     setLocalCookies(new Map(initialCookies));
+    setCookieDirty(new Set());
   }, [initialCookies]);
+
+  const handleClearCookie = useCallback((providerId: string) => {
+    setLocalCookies((prev) => new Map(prev).set(providerId, ""));
+    setCookieDirty((prev) => new Set(prev).add(providerId));
+  }, []);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      const dirty: LocalCookie[] = [];
-      for (const [providerId, cookie] of localCookies) {
-        if ((initialCookies.get(providerId) ?? "") !== cookie) {
-          dirty.push({ providerId, cookie });
-        }
-      }
-
-      for (const { providerId, cookie } of dirty) {
+      for (const providerId of cookieDirty) {
+        const cookie = localCookies.get(providerId) ?? "";
         const setting = authSettings.find((s) => s.providerId === providerId);
         await updateAuthSettingMutation.mutateAsync({
           provider: providerId,
@@ -166,9 +158,10 @@ function DownloadEngineSettingsContent() {
       if (refetched.data) {
         const freshMap = new Map<string, string>();
         for (const setting of refetched.data) {
-          freshMap.set(setting.providerId, setting.cookie ?? "");
+          freshMap.set(setting.providerId, "");
         }
         setLocalCookies(freshMap);
+        setCookieDirty(new Set());
       }
     } catch (error) {
       message.error(
@@ -178,8 +171,8 @@ function DownloadEngineSettingsContent() {
       setIsSaving(false);
     }
   }, [
+    cookieDirty,
     localCookies,
-    initialCookies,
     authSettings,
     updateAuthSettingMutation,
     authSettingsQuery,
@@ -362,15 +355,32 @@ function DownloadEngineSettingsContent() {
                     desc={descParts.join(" · ")}
                     orientation="vertical"
                   >
-                    <Input.TextArea
-                      value={localCookie}
-                      onChange={(e) =>
-                        handleCookieChange(setting.providerId, e.target.value)
-                      }
-                      rows={3}
-                      placeholder={t(`${ns}.cookies.placeholder`)}
-                      className="font-mono text-xs"
-                    />
+                    <div className="flex gap-2">
+                      <Input.TextArea
+                        value={localCookie}
+                        onChange={(e) =>
+                          handleCookieChange(setting.providerId, e.target.value)
+                        }
+                        rows={3}
+                        placeholder={
+                          setting.cookieMasked
+                            ? t(`${ns}.cookies.placeholderConfigured`, {
+                                masked: setting.cookieMasked,
+                              })
+                            : t(`${ns}.cookies.placeholder`)
+                        }
+                        className="font-mono text-xs flex-1"
+                      />
+                      {setting.cookieMasked && (
+                        <Button
+                          onClick={() => handleClearCookie(setting.providerId)}
+                          size="small"
+                          className="mt-1 shrink-0"
+                        >
+                          {t(`${ns}.cookies.clearCookie`)}
+                        </Button>
+                      )}
+                    </div>
                     {setting.updatedAt && (
                       <div className="text-xs text-fg-muted mt-1">
                         {t(`${ns}.cookies.lastUpdated`, {

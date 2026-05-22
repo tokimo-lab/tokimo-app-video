@@ -705,6 +705,9 @@ const zhCN = {
           saved: "已保存",
           saveFailed: "保存失败：{{error}}",
           lastUpdated: "上次更新：{{time}}",
+          placeholderConfigured:
+            "已配置（{{masked}}）—— 留空保持原值，输入新值覆盖",
+          clearCookie: "清空 Cookie",
         },
       },
     },

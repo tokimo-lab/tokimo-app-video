@@ -30,7 +30,7 @@ import type {
   StartOnlineMediaDownloadOutput,
   TvShowDetailOutput,
   TvShowOutput,
-  UpdateAuthSettingInput,
+  UpdateAuthSettingRequest,
   VfsDto,
   VideoItemDetailOutput,
   VideoItemOutput,
@@ -505,7 +505,7 @@ export const apiVideoOnlineMediaUpdateAuthSetting = {
       mutationFn: ({
         provider,
         ...body
-      }: { provider: string } & UpdateAuthSettingInput) =>
+      }: { provider: string } & UpdateAuthSettingRequest) =>
         videoOnlineMediaFetch<OnlineMediaAuthSetting>(
           `/auth-settings/${encodeURIComponent(provider)}`,
           {

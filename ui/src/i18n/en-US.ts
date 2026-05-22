@@ -722,6 +722,9 @@ const enUS = {
           saved: "Saved",
           saveFailed: "Save failed: {{error}}",
           lastUpdated: "Last updated: {{time}}",
+          placeholderConfigured:
+            "Configured ({{masked}}) — leave blank to keep, type new value to override",
+          clearCookie: "Clear cookie",
         },
       },
     },

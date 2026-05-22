@@ -692,6 +692,9 @@ const jaJP = {
           saved: "保存しました",
           saveFailed: "保存失敗：{{error}}",
           lastUpdated: "最終更新：{{time}}",
+          placeholderConfigured:
+            "設定済み（{{masked}}）— 空欄で維持、新しい値を入力で上書き",
+          clearCookie: "Cookie を削除",
         },
       },
     },
