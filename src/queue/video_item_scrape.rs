@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use crate::AppState;
 
-use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
 
@@ -29,6 +28,7 @@ pub async fn handle(
     job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
+    user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
     check_cancel(cancel)?;
     let movie_dir = payload
@@ -51,8 +51,6 @@ pub async fn handle(
 
     let total = files.len();
     info!("[movie_scrape] dir=\"{movie_dir}\" files={total}");
-
-    let user_id = JobRepo::get_job_owner_user_id(db, job_id).await?;
 
     let mut processed = 0u32;
     let mut errors = 0u32;

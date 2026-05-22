@@ -57,6 +57,14 @@ struct ImageProxySignOutput {
     proxy_path: String,
 }
 
+/// Extract user_id from CallerCtx (set by host's dispatch).
+fn caller_user_id(caller: &tokimo_bus_protocol::CallerCtx) -> Option<Uuid> {
+    caller
+        .user_id
+        .as_deref()
+        .and_then(|s| Uuid::parse_str(s).ok())
+}
+
 /// Decode `{ "job": { "id": "...", "payload": {...} } }` from JSON bytes.
 fn decode_request(raw: &[u8]) -> Result<(Uuid, JsonValue), BusError> {
     let v: JsonValue =
@@ -98,10 +106,8 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_file.clone();
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                let user_id = crate::db::repos::job_repo::JobRepo::get_job_owner_user_id(&ctx.db, job_id)
-                    .await
-                    .unwrap_or(None);
                 crate::queue::handlers::file_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
@@ -117,8 +123,9 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_tv.clone();
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::tv_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel)
+                crate::queue::tv_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -133,8 +140,9 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_movie.clone();
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::video_item_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel)
+                crate::queue::video_item_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -149,8 +157,9 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_person.clone();
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::tmdb_person_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel)
+                crate::queue::tmdb_person_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -165,8 +174,9 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_download.clone();
             async move {
                 let (job_id, payload) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::online_media_download::handle(&ctx.db, &ctx, job_id, &payload, &cancel)
+                crate::queue::online_media_download::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))

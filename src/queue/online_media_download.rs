@@ -94,6 +94,7 @@ pub async fn handle(
     job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
+    user_id: Option<Uuid>,
 ) -> HandlerResult {
     check_cancel(cancel)?;
     let record_id = payload
@@ -107,7 +108,7 @@ pub async fn handle(
         .ok_or("Missing targetAppId")?;
 
     let record_uuid = Uuid::parse_str(record_id)?;
-    let job_owner_user_id = JobRepo::get_job_owner_user_id(db, job_id).await?;
+    let job_owner_user_id = user_id;
 
     // Resolve target library from videos table only (music/book entities removed in B4)
     use crate::db::entities::videos;
@@ -358,6 +359,7 @@ pub async fn handle(
                 "taskId": task_id,
                 "stage": resp.stage,
             })),
+            user_id,
         )
         .await
         {

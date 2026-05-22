@@ -17,6 +17,7 @@ pub async fn handle(
     job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
+    user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
     check_cancel(cancel)?;
     let person_id = payload
@@ -81,8 +82,6 @@ pub async fn handle(
 
     // ── Dispatch image_upload job for the profile image ──
     if let Some(profile_path) = &detail.profile_path {
-        let job_owner_user_id =
-            crate::db::repos::job_repo::JobRepo::get_job_owner_user_id(db, job_id).await?;
         let storage_key = format!("tmdb-images/persons/{person_id}/profile.jpg");
         let tmdb_image_url = format!("https://image.tmdb.org/t/p/w500{profile_path}");
         crate::db::repos::job_repo::JobRepo::create_job_via_bus(
@@ -97,7 +96,7 @@ pub async fn handle(
                 "field": "profilePath",
             }),
             None,
-            job_owner_user_id,
+            user_id,
         )
         .await?;
     }

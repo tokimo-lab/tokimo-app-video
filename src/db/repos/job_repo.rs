@@ -546,7 +546,7 @@ impl JobRepo {
         Ok(result.rows_affected)
     }
 
-    /// Cancel all pending/running jobs whose payload contains a given appId.
+    /// Cancel all pending/running jobs for a given library within the video app.
     pub async fn cancel_jobs_by_app_id(db: &DatabaseConnection, app_id: Uuid) -> Result<u64, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -555,7 +555,8 @@ impl JobRepo {
                    completed_at = NOW(),
                    updated_at = NOW()
              WHERE status IN ('pending', 'running')
-               AND payload->>'appId' = $1",
+               AND app_id = 'video'
+               AND (payload->>'videoId' = $1 OR payload->>'appId' = $1)",
             [app_id.to_string().into()],
         );
         let result = db.execute_raw(stmt).await?;
@@ -594,7 +595,8 @@ impl JobRepo {
                WHERE status IN ('pending', 'running', 'waiting', 'suspended')
                  AND type = $2
                  AND parent_job_id IS NULL
-                 AND payload->>'appId' = $1
+                 AND app_id = 'video'
+                 AND (payload->>'videoId' = $1 OR payload->>'appId' = $1)
              RETURNING id",
             [app_id.to_string().into(), task_type.into(), reason.into()],
         );
@@ -768,7 +770,7 @@ impl JobRepo {
         Ok(result.rows_affected + orphans)
     }
 
-    /// Delete all finished (completed / cancelled / failed) jobs for a given appId.
+    /// Delete all finished (completed / cancelled / failed) jobs for a given library within the video app.
     /// Called before starting a new sync to ensure progress counts are accurate.
     pub async fn delete_finished_jobs_by_app_id(db: &DatabaseConnection, app_id: Uuid) -> Result<u64, AppError> {
         // Only delete top-level parents (parent_job_id IS NULL). Child
@@ -780,7 +782,8 @@ impl JobRepo {
             DatabaseBackend::Postgres,
             r"DELETE FROM jobs
                WHERE status IN ('completed', 'cancelled', 'failed')
-                 AND payload->>'appId' = $1
+                 AND app_id = 'video'
+                 AND (payload->>'videoId' = $1 OR payload->>'appId' = $1)
                  AND parent_job_id IS NULL",
             [app_id.to_string().into()],
         );
@@ -868,7 +871,7 @@ impl JobRepo {
     pub async fn find_pending_jobs(db: &DatabaseConnection, limit: u64) -> Result<Vec<jobs::Model>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            r"SELECT j.id, j.type, j.status, j.payload, j.meta,
+            r"SELECT j.id, j.type, j.status, j.app_id, j.user_id, j.payload, j.meta,
                       j.progress, j.retry_count, j.max_retries, j.error,
                       j.started_at, j.completed_at, j.created_at, j.updated_at,
                       j.dedupe_key, j.alias_job_id, j.priority
@@ -1129,7 +1132,7 @@ RETURNING
         }))
     }
 
-    /// Count jobs by status for a given appId (from payload JSONB).
+    /// Count jobs by status for a given library within the video app.
     /// Returns (total, completed, running, pending, failed).
     pub async fn count_jobs_by_app(
         db: &DatabaseConnection,
@@ -1145,7 +1148,8 @@ RETURNING
                  COUNT(*) FILTER (WHERE status = 'pending') AS pending,
                  COUNT(*) FILTER (WHERE status = 'failed') AS failed
                FROM jobs
-               WHERE payload->>'appId' = $1
+               WHERE app_id = 'video'
+                 AND (payload->>'videoId' = $1 OR payload->>'appId' = $1)
                  AND type IN ({types_csv})"
         );
         let stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, [app_id.to_string().into()]);
@@ -1182,12 +1186,14 @@ RETURNING
                  COUNT(*) FILTER (WHERE j1.status = 'failed')    AS failed,
                  (SELECT j2.meta FROM jobs j2
                    WHERE j2.type = j1.type
-                     AND j2.payload->>'appId' = $1
+                     AND j2.app_id = 'video'
+                     AND (j2.payload->>'videoId' = $1 OR j2.payload->>'appId' = $1)
                      AND j2.status = 'running'
                    ORDER BY j2.created_at DESC LIMIT 1
                  ) AS running_meta
                FROM jobs j1
-               WHERE j1.payload->>'appId' = $1
+               WHERE j1.app_id = 'video'
+                 AND (j1.payload->>'videoId' = $1 OR j1.payload->>'appId' = $1)
                  AND j1.type IN ({types_csv})
                GROUP BY j1.type"
         );
@@ -1582,14 +1588,10 @@ impl JobRepo {
         job_id: Uuid,
         progress: i32,
         meta: Option<JsonValue>,
+        user_id: Option<Uuid>,
     ) -> Result<Option<jobs::Model>, AppError> {
         let Some(client) = state.bus_client.get() else {
             return Self::update_progress(&state.db, job_id, progress, meta).await;
-        };
-        let Some(caller_user_id) = Self::get_job_owner_user_id(&state.db, job_id).await? else {
-            return Err(AppError::Unauthorized(
-                "jobs.update via bus requires caller user_id".into(),
-            ));
         };
         let request = UpdateStatusRequest {
             job_id,
@@ -1598,7 +1600,7 @@ impl JobRepo {
             result: meta,
             progress: Some(progress),
         };
-        jobs_client::update_status(client, jobs_client::video_caller(Some(caller_user_id)), request)
+        jobs_client::update_status(client, jobs_client::video_caller(user_id), request)
             .await
             .map(Some)
     }
