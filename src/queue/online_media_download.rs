@@ -196,8 +196,8 @@ pub async fn handle(
     let organize_lang = settings.get("organizeLang").and_then(|v| v.as_str());
 
     // Build CreateTaskRequest and call TaskManager directly.
-    use rust_online_media_ingest::models::CreateTaskRequest;
-    use rust_online_media_ingest::runtime::spawn_task;
+    use tokimo_media_ingest::models::CreateTaskRequest;
+    use tokimo_media_ingest::runtime::spawn_task;
 
     let task_request = CreateTaskRequest {
         record_id: record_id.into(),
@@ -208,13 +208,13 @@ pub async fn handle(
             .and_then(|p| p.get("id"))
             .and_then(|v| v.as_str())
             .map(String::from),
-        auth: Some(rust_online_media_ingest::models::TaskAuthInput {
+        auth: Some(tokimo_media_ingest::models::TaskAuthInput {
             cookie_header: auth.get("cookieHeader").and_then(|v| v.as_str()).map(String::from),
         }),
         audio_only: if is_audio_only { Some(true) } else { None },
         audio_container: None,
         target_library_id: target_app_id.into(),
-        target_folder_config_snapshot: rust_online_media_ingest::models::TargetFolderConfigSnapshot {
+        target_folder_config_snapshot: tokimo_media_ingest::models::TargetFolderConfigSnapshot {
             id: target_app_id.into(),
             content_type: app_type.clone(),
             download_path: effective_target_path.clone(),
@@ -222,7 +222,7 @@ pub async fn handle(
             link_mode: link_mode.into(),
             organize_lang: organize_lang.map(String::from),
         },
-        metadata: rust_online_media_ingest::models::TaskMetadataInput {
+        metadata: tokimo_media_ingest::models::TaskMetadataInput {
             title: analysis.get("title").and_then(|v| v.as_str()).map(String::from),
             media_title: media_title.map(String::from),
             media_year: media_year.map(String::from),
@@ -332,9 +332,9 @@ pub async fn handle(
             UpdateDownloaderStatusRequest {
                 record_id: record_uuid,
                 status: Some(match resp.status {
-                    rust_online_media_ingest::models::TaskState::Completed => "completed".into(),
-                    rust_online_media_ingest::models::TaskState::Failed => "failed".into(),
-                    rust_online_media_ingest::models::TaskState::Cancelled => "cancelled".into(),
+                    tokimo_media_ingest::models::TaskState::Completed => "completed".into(),
+                    tokimo_media_ingest::models::TaskState::Failed => "failed".into(),
+                    tokimo_media_ingest::models::TaskState::Cancelled => "cancelled".into(),
                     _ => "downloading".into(),
                 }),
                 progress: Some(to_record_progress(resp.progress)),
@@ -371,7 +371,7 @@ pub async fn handle(
         }
 
         match resp.status {
-            rust_online_media_ingest::models::TaskState::Completed => {
+            tokimo_media_ingest::models::TaskState::Completed => {
                 info!(record_id, task_id, "Online media task completed");
 
                 // For non-local sources, copy organised files from local staging to VFS.
@@ -532,8 +532,8 @@ pub async fn handle(
                     "manifestPath": null,
                 })));
             }
-            rust_online_media_ingest::models::TaskState::Failed
-            | rust_online_media_ingest::models::TaskState::Cancelled => {
+            tokimo_media_ingest::models::TaskState::Failed
+            | tokimo_media_ingest::models::TaskState::Cancelled => {
                 let message = resp.error.unwrap_or_else(|| "在线媒体下载失败".into());
                 error!(record_id, task_id, %message, "Online media task failed");
                 append_download_log(state, &record_uuid, &task_id, "error", &message, None).await;
@@ -818,7 +818,7 @@ fn to_relative_path(abs_path: &str, driver_root: Option<&str>) -> String {
 /// the insert fails.
 async fn create_media_file_for_output(
     db: &DatabaseConnection,
-    output: &rust_online_media_ingest::models::OutputFile,
+    output: &tokimo_media_ingest::models::OutputFile,
     source_id: Uuid,
     driver_root: Option<&str>,
 ) -> Option<Uuid> {

@@ -64,6 +64,7 @@ rand               = "0.9"
 tokio-util         = { version = "0.7", features = ["io"] }
 async-trait        = "0.1"
 tokimo-media-scraper = { git = "https://github.com/tokimo-lab/tokimo-package-media-scraper.git", rev = "b124c1c" }
+tokimo-media-ingest   = { git = "https://github.com/tokimo-lab/tokimo-package-media-ingest.git", rev = "60b6521" }
 tokimo-downloader-bridge    = { git = "https://github.com/tokimo-lab/tokimo-package-downloader-bridge.git", rev = "1212cc7" }
 tokimo-media-server-bridge  = { git = "https://github.com/tokimo-lab/tokimo-package-media-server-bridge.git", rev = "c3e771b" }
 tower              = { version = "0.5" }

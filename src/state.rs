@@ -28,7 +28,7 @@ pub struct AppCtx {
     pub tv_show_creation_locks: Arc<TokioMutex<HashMap<String, Arc<TokioMutex<()>>>>>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub download_log_bus: Arc<LogBus>,
-    pub online_media: Arc<rust_online_media_ingest::AppState>,
+    pub online_media: Arc<tokimo_media_ingest::AppState>,
     pub download_tasks: Arc<TokioMutex<HashMap<uuid::Uuid, String>>>,
     pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
@@ -57,9 +57,9 @@ impl AppCtx {
         let image_proxy_key = hex::encode(rand::random::<[u8; 32]>());
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
         let subtitle_aggregator = Arc::new(subtitle_aggregator::aggregator::SubtitleAggregator::default());
-        let online_media = Arc::new(rust_online_media_ingest::AppState {
+        let online_media = Arc::new(tokimo_media_ingest::AppState {
             staging_root: data_local_path.join("online_media"),
-            tasks: Arc::new(rust_online_media_ingest::task_manager::TaskManager::new()),
+            tasks: Arc::new(tokimo_media_ingest::task_manager::TaskManager::new()),
         });
         let screenshot_semaphore = Arc::new(Semaphore::new(4));
 

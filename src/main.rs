@@ -46,13 +46,13 @@ fn video_ytdlp_root() -> PathBuf {
 
 async fn init_ytdlp_root() -> anyhow::Result<PathBuf> {
     let root = video_ytdlp_root();
-    rust_online_media_ingest::tooling::set_ytdlp_root_override(root.clone()).map_err(|root| {
+    tokimo_media_ingest::tooling::set_ytdlp_root_override(root.clone()).map_err(|root| {
         anyhow::anyhow!(
             "yt-dlp root override already initialized before video startup: {}",
             root.display()
         )
     })?;
-    rust_online_media_ingest::tooling::ensure_ytdlp_available_at(&root).await;
+    tokimo_media_ingest::tooling::ensure_ytdlp_available_at(&root).await;
     Ok(root)
 }
 

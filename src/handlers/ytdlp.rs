@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{Json, extract::State};
-use rust_online_media_ingest::tooling::{
+use tokimo_media_ingest::tooling::{
     resolve_ytdlp_binary_at, ytdlp_download_at, ytdlp_latest_version, ytdlp_version_at,
 };
 use serde::Serialize;

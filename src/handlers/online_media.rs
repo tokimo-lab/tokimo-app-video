@@ -4,7 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use rust_online_media_ingest::{
+use tokimo_media_ingest::{
     models::{
         AnalyzeOnlineMediaRequest, AnalyzeOnlineMediaResponse, BatchCreateTasksRequest, BatchCreateTasksResponse,
         CancelTaskResponse, CreateTaskRequest, CreateTaskResponse, HealthResponse, ResolveCollectionRequest,
