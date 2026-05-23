@@ -14,21 +14,15 @@ tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", re
 tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e", features = ["axum", "cli-db"] }
 tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e" }
 
-# Workspace path deps — packages 暂时 path 引用主仓 (dashcam 范式). 等独立仓库化后切 git rev pin.
-# 格式：每行末尾标 OWNER (谁负责) + DEADLINE (满足什么条件后切 git pin).
-# 通用 DEADLINE：包提取为独立 GitHub repo 并发布 v0.1.0 后，本仓切 git rev pin 锁版本.
-tokimo-vfs            = { path = "../../packages/tokimo-package-vfs/packages/fs" }            # OWNER: vfs-team        | DEADLINE: tokimo-package-vfs 独立仓库化 + 锁 v0.1.0
-tokimo-vfs-core       = { path = "../../packages/tokimo-package-vfs/packages/core" }          # OWNER: vfs-team        | DEADLINE: 同 tokimo-vfs
-tokimo-vfs-op         = { path = "../../packages/tokimo-package-vfs/packages/op" }            # OWNER: vfs-team        | DEADLINE: 同 tokimo-vfs
-tokimo-package-hls    = { path = "../../packages/tokimo-package-hls" }                        # OWNER: media-team      | DEADLINE: HLS session API 稳定 + 独立仓库化
-tokimo-package-subtitle = { path = "../../packages/tokimo-package-subtitle" }                 # OWNER: media-team      | DEADLINE: 字幕解析格式覆盖完整后独立仓库化
-tokimo-package-image  = { path = "../../packages/tokimo-package-image" }                      # OWNER: media-team      | DEADLINE: 缩略图/EXIF API 稳定 + 独立仓库化
-tokimo-package-iso    = { path = "../../packages/tokimo-package-iso" }                        # OWNER: media-team      | DEADLINE: ISO/BDMV 解析稳定 + 独立仓库化
-tokimo-package-ffmpeg = { path = "../../packages/tokimo-package-ffmpeg" }                     # OWNER: media-team      | DEADLINE: rsmpeg 适配层稳定 + 独立仓库化
-rust-online-media-ingest = { path = "../../packages/rust-online-media-ingest" }               # OWNER: ingest-team     | DEADLINE: 抓取源接入完成（YouTube/Bili/...）+ 独立仓库化
-rust-subtitle-download = { path = "../../packages/rust-subtitle-download" }                   # OWNER: media-team      | DEADLINE: 字幕源聚合 API 冻结 + 独立仓库化
-rust-pt-search         = { path = "../../packages/rust-pt-search" }
-tokimo-package-utils   = { path = "../../packages/tokimo-package-utils" }
+# Public packages — git pinned (独立仓库已开源)
+tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
+tokimo-vfs-core       = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
+tokimo-vfs-op         = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
+tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "59d43142" }
+tokimo-package-subtitle = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle.git", rev = "399e77ea" }
+tokimo-package-image  = { git = "https://github.com/tokimo-lab/tokimo-package-image.git", rev = "0a651eb7" }
+tokimo-package-ffmpeg = { git = "https://github.com/tokimo-lab/tokimo-package-ffmpeg.git", rev = "9ea65ce9" }
+tokimo-package-utils  = { git = "https://github.com/tokimo-lab/tokimo-package-utils.git", rev = "30d2fe36" }
 
 # Standard deps
 clap              = { version = "4", features = ["derive", "env"] }
@@ -39,7 +33,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde              = { version = "1", features = ["derive"] }
 serde_json         = "1"
 serde_with         = "3"
-dashmap             = { workspace = true }
+dashmap             = "6"
 moka               = { version = "0.12", features = ["future"] }
 uuid               = { version = "1", features = ["v4", "v7", "serde"] }
 chrono             = { version = "0.4", features = ["serde"] }
@@ -49,7 +43,7 @@ rust-embed         = { version = "8", features = ["debug-embed"] }
 mime_guess         = "2"
 anyhow             = "1"
 axum               = { version = "0.8", features = ["json", "ws"] }
-reqwest            = { workspace = true, features = ["stream", "multipart", "gzip", "brotli"] }
+reqwest            = { version = "0.13", default-features = false, features = ["json", "rustls", "stream", "multipart", "gzip", "brotli"] }
 futures            = "0.3"
 futures-util       = "0.3"
 async-stream       = "0.3"
