@@ -41,6 +41,14 @@ jobs:
           pnpm install --no-frozen-lockfile
           pnpm build
 
+      - name: Install libudfread (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudfread-dev
+
+      - name: Install libudfread (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libudfread
+
       - name: Download tokimo-lib (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -108,6 +116,9 @@ jobs:
           else
             echo 'No ui lint script configured; build completed.'
           fi
+
+      - name: Install libudfread
+        run: sudo apt-get update && sudo apt-get install -y libudfread-dev
 
       - name: Download tokimo-lib
         shell: bash
