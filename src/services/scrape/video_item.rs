@@ -1,6 +1,6 @@
 //! Movie creation and lookup logic aligned with TS file-scrape.ts.
 
-use rust_client_api::metadata_providers::tmdb::TmdbMediaDetail;
+use tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbMediaDetail;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;

@@ -1,4 +1,4 @@
-use rust_client_api::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
+use tokimo_media_scraper_bridge::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
 use sea_orm::DatabaseConnection;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
@@ -164,7 +164,7 @@ async fn apply_person_detail(
     db: &DatabaseConnection,
     person_uuid: Uuid,
     person_type: &str,
-    detail: &rust_client_api::metadata_providers::tmdb::TmdbPersonDetail,
+    detail: &tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbPersonDetail,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let now = chrono::Utc::now().fixed_offset();
 

@@ -20,9 +20,9 @@ use crate::{
     handlers::media::{stream::stream_driver_file, utils::resolve_local_path},
 };
 use sea_orm::EntityTrait;
-use tokimo_jellyfin_api::JellyfinPlaybackSession;
+use tokimo_media_server_bridge::JellyfinPlaybackSession;
 
-impl tokimo_jellyfin_api::JellyfinAppState for AppState {
+impl tokimo_media_server_bridge::JellyfinAppState for AppState {
     fn db(&self) -> &DatabaseConnection {
         &self.db
     }

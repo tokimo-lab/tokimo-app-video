@@ -837,8 +837,8 @@ pub async fn manual_search(
         }
     };
 
-    let tmdb = rust_client_api::metadata_providers::tmdb::TmdbClient::new(
-        rust_client_api::metadata_providers::tmdb::TmdbConfig {
+    let tmdb = tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbClient::new(
+        tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbConfig {
             api_key,
             language: Some(lang),
             base_url: None,
@@ -943,7 +943,7 @@ pub async fn manual_search_music(
     State(state): State<Arc<AppState>>,
     Json(input): Json<ManualSearchMusicInput>,
 ) -> Result<Json<crate::handlers::ApiResponse<Vec<serde_json::Value>>>, AppError> {
-    use rust_client_api::metadata_providers::musicbrainz::MusicBrainzClient;
+    use tokimo_media_scraper_bridge::metadata_providers::musicbrainz::MusicBrainzClient;
 
     // Validate session exists (read lock dropped immediately after check)
     state.organize_session.read().await.as_ref().not_found("无活跃会话")?;

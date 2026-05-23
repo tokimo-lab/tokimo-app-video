@@ -57,16 +57,17 @@ quick-xml          = { version = "0.36", features = ["serialize"] }
 mime               = "0.3"
 ts-rs              = { version = "12", features = ["serde-json-impl", "uuid-impl", "chrono-impl"] }
 base64             = "0.22"
-hex                = { workspace = true }
-hmac               = { workspace = true }
-sha2               = { workspace = true }
-rand               = { workspace = true }
-tokio-util         = { workspace = true, features = ["io"] }
+hex                = "0.4"
+hmac               = "0.13"
+sha2               = "0.11"
+rand               = "0.9"
+tokio-util         = { version = "0.7", features = ["io"] }
 async-trait        = "0.1"
-rust-client-api    = { path = "../../packages/rust-client-api" }                              # OWNER: client-api-team | DEADLINE: TMDB/OMDb/Douban/Bangumi 客户端 API 稳定 + 独立仓库化
+tokimo-media-scraper-bridge = { git = "https://github.com/tokimo-lab/tokimo-package-media-scraper-bridge.git", rev = "2aaa0c0" }
+tokimo-downloader-bridge    = { git = "https://github.com/tokimo-lab/tokimo-package-downloader-bridge.git", rev = "1212cc7" }
+tokimo-media-server-bridge  = { git = "https://github.com/tokimo-lab/tokimo-package-media-server-bridge.git", rev = "c3e771b" }
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
-tokimo-jellyfin-api = { path = "../../packages/tokimo-jellyfin-api" }                         # OWNER: media-team      | DEADLINE: Jellyfin adapter API 稳定 + 独立仓库化
 libc               = "0.2"
 opendal            = { version = "0.55", features = ["services-fs"] }
 

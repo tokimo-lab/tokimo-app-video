@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use rust_client_api::downloaders::{
+use tokimo_downloader_bridge::{
     qbittorrent::{QBittorrentClient, QBittorrentConfig},
     traits::{DownloadClient, TorrentInfo, TorrentState},
 };

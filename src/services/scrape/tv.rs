@@ -1,6 +1,6 @@
 //! TV show, season, and episode creation logic aligned with TS file-scrape.ts.
 
-use rust_client_api::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
+use tokimo_media_scraper_bridge::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
 use sea_orm::prelude::Expr;
 use sea_orm::sea_query::Condition;
 use sea_orm::*;
@@ -552,7 +552,7 @@ async fn upsert_season(
     db: &DatabaseConnection,
     show_id: Uuid,
     season_number: i32,
-    tmdb_detail: Option<&rust_client_api::metadata_providers::tmdb::TmdbSeasonDetail>,
+    tmdb_detail: Option<&tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbSeasonDetail>,
 ) -> Result<Uuid, Box<dyn std::error::Error + Send + Sync>> {
     let existing = seasons::Entity::find()
         .filter(seasons::Column::TvShowId.eq(show_id))
@@ -631,7 +631,7 @@ async fn upsert_episode(
     show_id: Uuid,
     season_id: Uuid,
     episode_number: i32,
-    tmdb_ep: Option<&rust_client_api::metadata_providers::tmdb::TmdbEpisode>,
+    tmdb_ep: Option<&tokimo_media_scraper_bridge::metadata_providers::tmdb::TmdbEpisode>,
     nfo: Option<&NfoInfo>,
 ) -> Result<Uuid, Box<dyn std::error::Error + Send + Sync>> {
     let existing = episodes::Entity::find()
