@@ -74,8 +74,3 @@ tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
 opendal            = { version = "0.55", features = ["services-fs"] }
-
-[profile.release]
-lto       = "thin"
-opt-level = 3
-strip     = "symbols"
