@@ -1,6 +1,6 @@
 //! TMDB scraping utilities: API key, candidate scoring, movie/TV detail fetch.
 
-use tokimo_media_scraper_bridge::metadata_providers::tmdb::{TmdbClient, TmdbConfig, TmdbMedia, TmdbMediaDetail};
+use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbConfig, TmdbMedia, TmdbMediaDetail};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tracing::warn;

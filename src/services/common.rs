@@ -1,7 +1,7 @@
 //! Shared helpers for queue handlers (genre sync, people/cast sync).
 //! Aligned 1:1 with TS media-sync-utils.ts + tmdb-genre-catalog.ts.
 
-use tokimo_media_scraper_bridge::metadata_providers::tmdb::{TmdbCastInfo, TmdbGenre};
+use tokimo_media_scraper::metadata_providers::tmdb::{TmdbCastInfo, TmdbGenre};
 use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;
