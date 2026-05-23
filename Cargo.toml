@@ -69,7 +69,7 @@ tokimo-downloader-bridge    = { git = "https://github.com/tokimo-lab/tokimo-pack
 tokimo-media-server-bridge  = { git = "https://github.com/tokimo-lab/tokimo-package-media-server-bridge.git", rev = "c3e771b" }
 tokimo-pt-search            = { git = "https://github.com/tokimo-lab/tokimo-package-pt-search.git", rev = "8adfaf4b7a5ff322835e46960052d5087c16c12b" }
 tokimo-subtitle-search      = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle-search.git", rev = "4a9008d9f2d44889505f6f736fea71a39b6aaf1c" }
-tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-package-iso.git", rev = "252b981519f12f4f1883bd37196d16a85ea6a144" }
+tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-package-iso.git", rev = "fbd6e16" }
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
