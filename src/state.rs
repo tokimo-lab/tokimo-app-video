@@ -24,7 +24,7 @@ pub struct AppCtx {
     pub subtitle_cache: tokimo_package_subtitle::cache::SubtitleCache,
     pub tap_registry: tokimo_package_subtitle::cache::TapRegistry,
     pub stream_sessions: StreamSessionManager,
-    pub subtitle_aggregator: Arc<subtitle_aggregator::aggregator::SubtitleAggregator>,
+    pub tokimo_subtitle_search: Arc<tokimo_subtitle_search::aggregator::SubtitleAggregator>,
     pub tv_show_creation_locks: Arc<TokioMutex<HashMap<String, Arc<TokioMutex<()>>>>>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub download_log_bus: Arc<LogBus>,
@@ -56,7 +56,7 @@ impl AppCtx {
         let http_client = reqwest::Client::new();
         let image_proxy_key = hex::encode(rand::random::<[u8; 32]>());
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
-        let subtitle_aggregator = Arc::new(subtitle_aggregator::aggregator::SubtitleAggregator::default());
+        let tokimo_subtitle_search = Arc::new(tokimo_subtitle_search::aggregator::SubtitleAggregator::default());
         let online_media = Arc::new(tokimo_media_ingest::AppState {
             staging_root: data_local_path.join("online_media"),
             tasks: Arc::new(tokimo_media_ingest::task_manager::TaskManager::new()),
@@ -73,7 +73,7 @@ impl AppCtx {
             subtitle_cache: Default::default(),
             tap_registry: Default::default(),
             stream_sessions: crate::services::stream_session::StreamSessionManager::new(),
-            subtitle_aggregator,
+            tokimo_subtitle_search,
             tv_show_creation_locks: Default::default(),
             event_tx,
             download_log_bus: Arc::new(crate::services::downloads::log_bus::LogBus::new()),

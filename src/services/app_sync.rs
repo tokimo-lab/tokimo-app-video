@@ -633,7 +633,7 @@ impl AppSyncService {
     async fn sync_fs_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn crate::services::storage::StorageProvider>,
+        _storage: &Arc<dyn crate::services::storage::StorageProvider>,
         bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         app_id: Uuid,
         lib_type: &str,

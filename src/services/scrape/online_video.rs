@@ -73,7 +73,7 @@ fn release_date_from_record(record: &download_records::Model) -> Option<chrono::
 /// OR `target_path LIKE %dir_basename%` as fallback.
 pub async fn fetch_online_record(
     db: &DatabaseConnection,
-    app_id: Uuid,
+    _app_id: Uuid,
     dir_path: &str,
 ) -> Result<Option<download_records::Model>, Box<dyn std::error::Error + Send + Sync>> {
     let dir_basename = dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");

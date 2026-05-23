@@ -1,4 +1,4 @@
-use rust_pt_search::pt_user_info::{PtSiteInput, PtUserInfo, fetch_user_info as pt_fetch};
+use tokimo_pt_search::pt_user_info::{PtSiteInput, PtUserInfo, fetch_user_info as pt_fetch};
 
 use crate::apps::subscriptions::models::pt_site::{PtSiteDto, PtUserInfoDto};
 

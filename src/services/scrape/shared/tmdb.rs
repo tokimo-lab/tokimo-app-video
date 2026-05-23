@@ -9,6 +9,7 @@ use super::artwork::DiscoveredArtwork;
 use crate::AppState;
 use crate::services::nfo_parser::NfoInfo;
 
+#[allow(deprecated)]
 pub async fn get_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     use crate::config::TmdbSettings;
     use crate::db::repos::system_config_repo::SystemConfigRepo;

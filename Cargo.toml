@@ -18,7 +18,7 @@ tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", re
 tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
 tokimo-vfs-core       = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
 tokimo-vfs-op         = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
-tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "59d43142" }
+tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "910aa05ed3e22576dd7bdb2252683f49dd369ca6" }
 tokimo-package-subtitle = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle.git", rev = "399e77ea" }
 tokimo-package-image  = { git = "https://github.com/tokimo-lab/tokimo-package-image.git", rev = "0a651eb7" }
 tokimo-package-ffmpeg = { git = "https://github.com/tokimo-lab/tokimo-package-ffmpeg.git", rev = "9ea65ce9" }
@@ -67,6 +67,9 @@ tokimo-media-scraper = { git = "https://github.com/tokimo-lab/tokimo-package-med
 tokimo-media-ingest   = { git = "https://github.com/tokimo-lab/tokimo-package-media-ingest.git", rev = "a45c054" }
 tokimo-downloader-bridge    = { git = "https://github.com/tokimo-lab/tokimo-package-downloader-bridge.git", rev = "1212cc7" }
 tokimo-media-server-bridge  = { git = "https://github.com/tokimo-lab/tokimo-package-media-server-bridge.git", rev = "c3e771b" }
+tokimo-pt-search            = { git = "https://github.com/tokimo-lab/tokimo-package-pt-search.git", rev = "8adfaf4b7a5ff322835e46960052d5087c16c12b" }
+tokimo-subtitle-search      = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle-search.git", rev = "4a9008d9f2d44889505f6f736fea71a39b6aaf1c" }
+tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-package-iso.git", rev = "252b981519f12f4f1883bd37196d16a85ea6a144" }
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"

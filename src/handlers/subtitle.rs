@@ -11,7 +11,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use bytes::Bytes;
 use futures_util::stream::Stream;
 use serde::Deserialize;
-use subtitle_aggregator::models::{SubtitleDownloadRequest as AggDownloadRequest, SubtitleSearchRequest};
+use tokimo_subtitle_search::models::{SubtitleDownloadRequest as AggDownloadRequest, SubtitleSearchRequest};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -70,8 +70,8 @@ pub async fn search(
     State(state): State<Arc<AppState>>,
     Json(input): Json<SubtitleSearchRequest>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let (tx, mut rx) = mpsc::channel::<Vec<subtitle_aggregator::models::SubtitleSearchResult>>(50);
-    let aggregator = Arc::clone(&state.subtitle_aggregator);
+    let (tx, mut rx) = mpsc::channel::<Vec<tokimo_subtitle_search::models::SubtitleSearchResult>>(50);
+    let aggregator = Arc::clone(&state.tokimo_subtitle_search);
 
     tokio::spawn(async move {
         aggregator.search_streaming(input, tx).await;
@@ -104,7 +104,7 @@ pub async fn download(
     };
 
     // 1. Download subtitle content via aggregator (returns base64-encoded bytes)
-    let downloaded = match state.subtitle_aggregator.download(&agg_request).await {
+    let downloaded = match state.tokimo_subtitle_search.download(&agg_request).await {
         Ok(d) => d,
         Err(e) => return Err(err500(format!("字幕下载失败: {e}"))),
     };

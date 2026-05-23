@@ -14,7 +14,7 @@ use crate::services::common::is_unique_violation;
 pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
-    job_id: Uuid,
+    _job_id: Uuid,
     payload: &JsonValue,
     cancel: &JobCancel,
     user_id: Option<Uuid>,
@@ -258,6 +258,7 @@ async fn apply_person_detail(
     Ok(())
 }
 
+#[allow(deprecated)]
 async fn get_tmdb_api_key(db: &DatabaseConnection) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
     use crate::config::TmdbSettings;
     use crate::db::repos::system_config_repo::SystemConfigRepo;
