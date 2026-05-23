@@ -532,8 +532,7 @@ pub async fn handle(
                     "manifestPath": null,
                 })));
             }
-            tokimo_media_ingest::models::TaskState::Failed
-            | tokimo_media_ingest::models::TaskState::Cancelled => {
+            tokimo_media_ingest::models::TaskState::Failed | tokimo_media_ingest::models::TaskState::Cancelled => {
                 let message = resp.error.unwrap_or_else(|| "在线媒体下载失败".into());
                 error!(record_id, task_id, %message, "Online media task failed");
                 append_download_log(state, &record_uuid, &task_id, "error", &message, None).await;

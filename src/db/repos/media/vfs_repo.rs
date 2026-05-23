@@ -47,5 +47,4 @@ impl VfsRepo {
     pub async fn get_by_id(db: &DatabaseConnection, id: Uuid) -> Result<Option<vfs::Model>, AppError> {
         Ok(vfs::Entity::find_by_id(id).one(db).await?)
     }
-
 }

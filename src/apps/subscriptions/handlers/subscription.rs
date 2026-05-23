@@ -9,11 +9,11 @@ use std::sync::Arc;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::ApiDateTimeExt;
 use crate::AppState;
 use crate::apps::subscriptions::repos::subscription_repo::{
     CreateSubscriptionInput, SubscriptionRepo, UpdateSubscriptionInput,
 };
+use crate::db::ApiDateTimeExt;
 use crate::error::AppError;
 use crate::handlers::{ok, user::AuthUser};
 use crate::services::storage::{StorageProvider, UploadOptions};
@@ -212,11 +212,7 @@ pub async fn list(State(state): State<Arc<AppState>>, auth: AuthUser) -> Respons
     }
 }
 
-pub async fn get_by_id(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn get_by_id(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     match SubscriptionRepo::get_by_id(&state.db, &id).await {
         Ok(Some(sub)) => {
             if let Err(e) = check_ownership(sub.created_by.as_deref(), &auth.user_id) {
@@ -269,9 +265,7 @@ pub async fn update(
 ) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -290,9 +284,7 @@ pub async fn update(
 pub async fn delete(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -325,9 +317,7 @@ struct ExecuteResponse {
 pub async fn execute(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     let sub = match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
             raw
@@ -371,16 +361,10 @@ struct ActiveRunResponse {
     run_id: Option<String>,
 }
 
-pub async fn get_active_run_id(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn get_active_run_id(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -397,16 +381,10 @@ pub async fn get_active_run_id(
     ok(ActiveRunResponse { run_id }).into_response()
 }
 
-pub async fn get_debug_info(
-    State(state): State<Arc<AppState>>,
-    auth: AuthUser,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn get_debug_info(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -463,9 +441,7 @@ pub async fn get_recent_logs(
 ) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -485,9 +461,7 @@ pub async fn get_run_logs(
 ) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -507,9 +481,7 @@ pub async fn get_episode_progress(
 ) -> Response {
     match SubscriptionRepo::get_raw(&state.db, &id).await {
         Ok(Some(raw)) => {
-            if let Err(e) =
-                check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id)
-            {
+            if let Err(e) = check_ownership(raw.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }

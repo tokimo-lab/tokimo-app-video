@@ -37,7 +37,10 @@ pub async fn handle(
         .get("showDir")
         .and_then(|v| v.as_str())
         .ok_or("Missing showDir")?;
-    let video_id = payload.get("videoId").and_then(|v| v.as_str()).ok_or("Missing videoId")?;
+    let video_id = payload
+        .get("videoId")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing videoId")?;
     let source_id = payload
         .get("sourceId")
         .and_then(|v| v.as_str())

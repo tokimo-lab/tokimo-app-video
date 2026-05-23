@@ -1,9 +1,9 @@
-use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
 use sea_orm::DatabaseConnection;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
+use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbConfig};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -133,9 +133,7 @@ async fn persist_tmdb_id(
         {
             Ok(_) => {}
             Err(e) if is_unique_violation(&e) => {
-                warn!(
-                    "[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for tv_person {person_uuid}, skipping"
-                );
+                warn!("[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for tv_person {person_uuid}, skipping");
             }
             Err(e) => return Err(e.into()),
         }
@@ -150,9 +148,7 @@ async fn persist_tmdb_id(
         {
             Ok(_) => {}
             Err(e) if is_unique_violation(&e) => {
-                warn!(
-                    "[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for video_person {person_uuid}, skipping"
-                );
+                warn!("[tmdb_person_scrape] Duplicate tmdb_id {tmdb_str} for video_person {person_uuid}, skipping");
             }
             Err(e) => return Err(e.into()),
         }

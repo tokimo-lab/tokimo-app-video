@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokimo_downloader_bridge::{
-    qbittorrent::{QBittorrentClient, QBittorrentConfig},
-    traits::{DownloadClient, TorrentInfo, TorrentState},
-};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
 use tokimo_bus_client::BusClientBuilder;
 use tokimo_bus_protocol::{BusError, HttpMethod, MethodDecl};
+use tokimo_downloader_bridge::{
+    qbittorrent::{QBittorrentClient, QBittorrentConfig},
+    traits::{DownloadClient, TorrentInfo, TorrentState},
+};
 use uuid::Uuid;
 
 use crate::AppState;

@@ -11,10 +11,7 @@ pub fn build_media_organize_app_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/media-organize/session", get(handlers::get_session))
         .route("/media-organize/scan", post(handlers::scan))
-        .route(
-            "/media-organize/identify/{itemId}",
-            post(handlers::identify_item),
-        )
+        .route("/media-organize/identify/{itemId}", post(handlers::identify_item))
         .route("/media-organize/identify-all", post(handlers::identify_all))
         .route("/media-organize/select-match", post(handlers::select_match))
         .route("/media-organize/manual-search", post(handlers::manual_search))
@@ -22,14 +19,8 @@ pub fn build_media_organize_app_routes() -> Router<Arc<AppState>> {
             "/media-organize/manual-search-adult",
             post(handlers::manual_search_adult),
         )
-        .route(
-            "/media-organize/select-adult-match",
-            post(handlers::select_adult_match),
-        )
-        .route(
-            "/media-organize/select-music-match",
-            post(handlers::select_music_match),
-        )
+        .route("/media-organize/select-adult-match", post(handlers::select_adult_match))
+        .route("/media-organize/select-music-match", post(handlers::select_music_match))
         .route(
             "/media-organize/manual-search-music",
             post(handlers::manual_search_music),

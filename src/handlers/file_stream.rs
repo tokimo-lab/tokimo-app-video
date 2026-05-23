@@ -45,13 +45,7 @@ pub async fn stream_media_file(
     request: Request,
 ) -> Response {
     let db = state.db.clone();
-    let _user_id = match validate_stream_access(
-        &state,
-        request.headers(),
-        query.access_token.as_deref(),
-    )
-    .await
-    {
+    let _user_id = match validate_stream_access(&state, request.headers(), query.access_token.as_deref()).await {
         Ok(uid) => uid,
         Err(err) => {
             return err_resp::<()>(StatusCode::UNAUTHORIZED, err).into_response();
@@ -145,10 +139,7 @@ async fn validate_stream_access(
         }
     }
 
-    if let Some(token) = headers
-        .get(INTERNAL_STREAM_ACCESS_HEADER)
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(token) = headers.get(INTERNAL_STREAM_ACCESS_HEADER).and_then(|v| v.to_str().ok()) {
         if state.auth_client.validate_internal_stream_token(token).await {
             return Ok(None);
         }

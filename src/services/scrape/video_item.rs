@@ -1,10 +1,10 @@
 //! Movie creation and lookup logic aligned with TS file-scrape.ts.
 
-use tokimo_media_scraper::metadata_providers::tmdb::TmdbMediaDetail;
 use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
+use tokimo_media_scraper::metadata_providers::tmdb::TmdbMediaDetail;
 use tracing::info;
 use uuid::Uuid;
 
@@ -15,9 +15,7 @@ use crate::services::common::{
     CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
 };
 use crate::services::nfo_parser::NfoInfo;
-use crate::services::scrape::shared::artwork::{
-    DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
-};
+use crate::services::scrape::shared::artwork::{DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop};
 use crate::services::scrape::shared::lib_type::LibType;
 use crate::services::scrape::shared::tmdb;
 

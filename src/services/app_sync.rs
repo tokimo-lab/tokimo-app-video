@@ -11,15 +11,13 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest, service_caller, video_library_filter};
-use crate::db::entities::{
-    episodes, seasons, tv_shows, vfs, video_files, video_items, videos,
-};
+use crate::db::entities::{episodes, seasons, tv_shows, vfs, video_files, video_items, videos};
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::vfs::ops::walk_video_files_streaming;
-use tokimo_bus_client::BusClient;
 use crate::services::media::source::SourceRegistry;
+use tokimo_bus_client::BusClient;
 
 /// Types of media libraries (matches TS `AppType`).
 fn is_movie_type(lib_type: &str) -> bool {
@@ -180,7 +178,19 @@ impl AppSyncService {
             video.name, video_id, lib_type
         );
 
-        let result = Self::do_video_sync(db, sources, storage, &bus_client, &video, lib_type, is_movie, is_tv, clear_data, user_id).await;
+        let result = Self::do_video_sync(
+            db,
+            sources,
+            storage,
+            &bus_client,
+            &video,
+            lib_type,
+            is_movie,
+            is_tv,
+            clear_data,
+            user_id,
+        )
+        .await;
 
         match &result {
             Ok(sync_result) => {
@@ -210,7 +220,9 @@ impl AppSyncService {
         _music_id: Uuid,
         _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        Err(AppError::BadRequest("music sync is not supported by tokimo-app-video".into()))
+        Err(AppError::BadRequest(
+            "music sync is not supported by tokimo-app-video".into(),
+        ))
     }
 
     /// Execute sync for a book container.
@@ -223,7 +235,9 @@ impl AppSyncService {
         _book_id: Uuid,
         _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
-        Err(AppError::BadRequest("book sync is not supported by tokimo-app-video".into()))
+        Err(AppError::BadRequest(
+            "book sync is not supported by tokimo-app-video".into(),
+        ))
     }
 
     /// Core book sync logic: parses sources from JSON and walks each.
@@ -280,7 +294,9 @@ impl AppSyncService {
         _clear_data: bool,
         _user_id: Option<Uuid>,
     ) -> Result<SyncResult, AppError> {
-        Err(AppError::BadRequest("photo sync is not supported by tokimo-app-video".into()))
+        Err(AppError::BadRequest(
+            "photo sync is not supported by tokimo-app-video".into(),
+        ))
     }
 
     /// Core photo sync logic: parses sources from JSON and walks each.
@@ -413,8 +429,17 @@ impl AppSyncService {
                 .ok_or_else(|| AppError::NotFound(format!("source {source_id} not found")))?;
 
             let jobs = Self::sync_fs_source(
-                db, sources, storage, bus_client, video_id, lib_type, is_movie, is_tv,
-                &source, root_path, Some(user_id),
+                db,
+                sources,
+                storage,
+                bus_client,
+                video_id,
+                lib_type,
+                is_movie,
+                is_tv,
+                &source,
+                root_path,
+                Some(user_id),
             )
             .await?;
             total_jobs += jobs;
@@ -527,7 +552,6 @@ impl AppSyncService {
             }
         }
 
-
         Ok(())
     }
 
@@ -544,12 +568,16 @@ impl AppSyncService {
             return Ok(0);
         }
         let Some(client) = bus_client.get() else {
-            return Err(AppError::Internal("bus client is not initialized; refusing to write public.jobs directly".into()));
+            return Err(AppError::Internal(
+                "bus client is not initialized; refusing to write public.jobs directly".into(),
+            ));
         };
         let mut inserted = 0u64;
         for (job_type, payload, meta, user_id) in jobs_data {
             let Some(user_id) = user_id else {
-                return Err(AppError::Unauthorized("jobs.create via bus requires caller user_id".into()));
+                return Err(AppError::Unauthorized(
+                    "jobs.create via bus requires caller user_id".into(),
+                ));
             };
             let request = CreateJobRequest::new(job_type, payload).with_meta(meta);
             jobs_client::create(client, jobs_client::video_caller(Some(user_id)), request).await?;
@@ -617,7 +645,6 @@ impl AppSyncService {
     ) -> Result<u64, AppError> {
         let source_type = &source.r#type;
 
-
         let is_local = source_type == "local";
         let is_remote = is_remote_fs_type(source_type);
 
@@ -645,9 +672,8 @@ impl AppSyncService {
         let (tx, mut rx) = mpsc::channel::<crate::handlers::vfs::ops::VideoFileInfo>(256);
         let walk_root = vfs_root.clone();
         let walk_source_id = source_id_str.clone();
-        let walk_handle = tokio::spawn(async move {
-            walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await
-        });
+        let walk_handle =
+            tokio::spawn(async move { walk_video_files_streaming(vfs, &walk_root, &walk_source_id, tx).await });
 
         // Consume files as they arrive — check DB + accumulate jobs incrementally
         let source_id = source.id;
@@ -663,11 +689,9 @@ impl AppSyncService {
         let mut tv_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
         let mut movie_groups: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
 
-
         while let Some(video) = rx.recv().await {
             seen_paths.insert(video.file_path.clone());
             let checksum = format!("{}:{}", video.file_size, video.mtime);
-
 
             // Video/TV/Movie libraries: check video_files table with checksum.
             let existing = Self::find_existing_video_file(db, source_id, &video.file_path, is_movie, is_tv).await?;
@@ -684,7 +708,6 @@ impl AppSyncService {
                     Self::reset_video_file_link(db, existing.id, &checksum).await?;
                 }
             }
-
 
             // TV/Anime: buffer by show-level dir (collapse season subdirs to show dir).
             if is_tv {
@@ -1593,7 +1616,8 @@ impl AppSyncService {
                             None,
                         ));
                         if scrape_jobs.len() >= Self::JOB_BATCH_FLUSH_SIZE {
-                            total_jobs += Self::create_jobs_via_bus(bus_client, std::mem::take(&mut scrape_jobs)).await?;
+                            total_jobs +=
+                                Self::create_jobs_via_bus(bus_client, std::mem::take(&mut scrape_jobs)).await?;
                         }
                     }
                 }

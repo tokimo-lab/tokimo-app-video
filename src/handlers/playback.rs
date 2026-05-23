@@ -167,7 +167,16 @@ pub async fn stream_url(
                 Some(hid.to_string())
             } else {
                 warn!("[Playback] watch_history_id {existing_id} not owned by user, creating new");
-                match PlaybackRepo::create_history(db, user_uuid, file_uuid, user_agent.clone(), file.duration, user_display_name.clone()).await {
+                match PlaybackRepo::create_history(
+                    db,
+                    user_uuid,
+                    file_uuid,
+                    user_agent.clone(),
+                    file.duration,
+                    user_display_name.clone(),
+                )
+                .await
+                {
                     Ok(id) => Some(id.to_string()),
                     Err(e) => {
                         warn!("[Playback] failed to create watch history: {e}");
@@ -180,7 +189,16 @@ pub async fn stream_url(
         }
     } else {
         // No existing ID — create new record
-        match PlaybackRepo::create_history(db, user_uuid, file_uuid, user_agent.clone(), file.duration, user_display_name).await {
+        match PlaybackRepo::create_history(
+            db,
+            user_uuid,
+            file_uuid,
+            user_agent.clone(),
+            file.duration,
+            user_display_name,
+        )
+        .await
+        {
             Ok(id) => Some(id.to_string()),
             Err(e) => {
                 warn!("[Playback] failed to create watch history: {e}");

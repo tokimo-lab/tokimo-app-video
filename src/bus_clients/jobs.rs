@@ -351,14 +351,10 @@ pub struct PreemptResponse {
 }
 
 /// Bulk-cancel jobs matching the given filter (app_id scoped via caller).
-pub async fn cancel_by_filter(
-    client: &BusClient,
-    caller: CallerCtx,
-    filter: JobFilter,
-) -> Result<u64, AppError> {
+pub async fn cancel_by_filter(client: &BusClient, caller: CallerCtx, filter: JobFilter) -> Result<u64, AppError> {
     let response = invoke_json(client, "cancel_by_filter", caller, &CancelByFilterRequest { filter }).await?;
-    let resp: CancelByFilterResponse =
-        serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.cancel_by_filter decode: {e}")))?;
+    let resp: CancelByFilterResponse = serde_json::from_slice(&response)
+        .map_err(|e| AppError::Internal(format!("jobs.cancel_by_filter decode: {e}")))?;
     Ok(resp.cancelled)
 }
 
@@ -376,16 +372,11 @@ pub async fn progress_summary(
         &ProgressSummaryRequest { filter, job_types },
     )
     .await?;
-    serde_json::from_slice(&response)
-        .map_err(|e| AppError::Internal(format!("jobs.progress_summary decode: {e}")))
+    serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.progress_summary decode: {e}")))
 }
 
 /// Delete finished (completed/cancelled/failed) jobs matching the filter.
-pub async fn cleanup(
-    client: &BusClient,
-    caller: CallerCtx,
-    filter: JobFilter,
-) -> Result<u64, AppError> {
+pub async fn cleanup(client: &BusClient, caller: CallerCtx, filter: JobFilter) -> Result<u64, AppError> {
     let response = invoke_json(client, "cleanup", caller, &CleanupRequest { filter }).await?;
     let resp: CleanupResponse =
         serde_json::from_slice(&response).map_err(|e| AppError::Internal(format!("jobs.cleanup decode: {e}")))?;

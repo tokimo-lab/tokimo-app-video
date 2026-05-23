@@ -1,5 +1,5 @@
-use tokio_util::sync::CancellationToken;
 use crate::error::AppError;
+use tokio_util::sync::CancellationToken;
 
 pub type JobCancel = CancellationToken;
 

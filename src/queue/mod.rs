@@ -15,9 +15,7 @@ use crate::db::models::job::JobOutput;
 #[serde(tag = "type")]
 pub enum AppEvent {
     #[serde(rename = "job_update")]
-    JobUpdate {
-        job: Box<JobOutput>,
-    },
+    JobUpdate { job: Box<JobOutput> },
     #[serde(rename = "person_scraped")]
     PersonScraped {
         #[serde(rename = "personId")]
@@ -28,7 +26,5 @@ pub enum AppEvent {
         tv_show_id: Option<String>,
     },
     #[serde(rename = "download_progress")]
-    DownloadProgress {
-        records: Vec<serde_json::Value>,
-    },
+    DownloadProgress { records: Vec<serde_json::Value> },
 }

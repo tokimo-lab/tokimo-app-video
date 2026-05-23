@@ -79,7 +79,9 @@ pub async fn handle(
     // ── 1. Photo early-return ──
     if lib_type == LibType::Photo {
         // blocker: photo::handle not available in video submodule — see video-blockers.md
-        unimplemented!("blocker: file_scrape photo branch requires photo::handle which is not in video submodule scope");
+        unimplemented!(
+            "blocker: file_scrape photo branch requires photo::handle which is not in video submodule scope"
+        );
     }
 
     // ── 2. Idempotency check ──
@@ -178,10 +180,7 @@ pub async fn handle(
     match lib_type {
         LibType::OnlineVideo => {
             online_record = fetch_online_record(db, app_uuid, dir_path).await?;
-            scraped = nfo
-                .as_ref()
-                .is_some_and(NfoInfo::is_sufficient)
-                || online_record.is_some();
+            scraped = nfo.as_ref().is_some_and(NfoInfo::is_sufficient) || online_record.is_some();
 
             let result = find_or_create_online_video(
                 db,

@@ -25,12 +25,15 @@ impl std::ops::Deref for AuthUser {
 }
 
 impl<S> FromRequestParts<S> for AuthUser
-where S: Send + Sync {
+where
+    S: Send + Sync,
+{
     type Rejection = (StatusCode, Json<Value>);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let TokimoUser { user_id } = TokimoUser::from_request_parts(parts, state).await?;
-        let session_id = parts.headers
+        let session_id = parts
+            .headers
             .get("x-tokimo-session-id")
             .and_then(|v| v.to_str().ok())
             .filter(|v| !v.is_empty())

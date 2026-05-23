@@ -20,11 +20,7 @@ const PROXY_PREFIX: &str = "/api/apps/video/image-proxy";
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b'-')
-    .remove(b'_')
-    .remove(b'.')
-    .remove(b'~');
+const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'_').remove(b'.').remove(b'~');
 
 #[derive(Deserialize)]
 pub struct ImageProxyParams {
@@ -33,8 +29,7 @@ pub struct ImageProxyParams {
 }
 
 pub fn sign_proxy_url(key: &str, url: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(key.as_bytes())
-        .expect("HMAC accepts keys of any size");
+    let mut mac = HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC accepts keys of any size");
     mac.update(url.as_bytes());
     hex::encode(mac.finalize().into_bytes())
 }
@@ -43,8 +38,7 @@ pub fn verify_signature(key: &str, url: &str, sig: &str) -> bool {
     let Ok(sig_bytes) = hex::decode(sig) else {
         return false;
     };
-    let mut mac = HmacSha256::new_from_slice(key.as_bytes())
-        .expect("HMAC accepts keys of any size");
+    let mut mac = HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC accepts keys of any size");
     mac.update(url.as_bytes());
     mac.verify_slice(&sig_bytes).is_ok()
 }
@@ -105,10 +99,7 @@ async fn fetch_image(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes
     response.bytes().await.map_err(|e| format!("read body failed: {e}"))
 }
 
-pub async fn image_proxy(
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<ImageProxyParams>,
-) -> Response {
+pub async fn image_proxy(State(state): State<Arc<AppState>>, Query(params): Query<ImageProxyParams>) -> Response {
     let (url, sig) = match (params.url.as_deref(), params.sig.as_deref()) {
         (Some(url), Some(sig)) if !url.is_empty() && !sig.is_empty() => (url, sig),
         _ => return (StatusCode::BAD_REQUEST, "Bad Request").into_response(),

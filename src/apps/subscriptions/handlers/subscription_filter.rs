@@ -65,10 +65,7 @@ pub async fn update(
 ) -> Response {
     match SubscriptionFilterRepo::get_raw_by_id(&state.db, &id).await {
         Ok(Some(existing)) => {
-            if let Err(e) = check_ownership(
-                existing.created_by.map(|u| u.to_string()).as_deref(),
-                &auth.user_id,
-            ) {
+            if let Err(e) = check_ownership(existing.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }
@@ -86,10 +83,7 @@ pub async fn update(
 pub async fn delete(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id): Path<String>) -> Response {
     match SubscriptionFilterRepo::get_raw_by_id(&state.db, &id).await {
         Ok(Some(existing)) => {
-            if let Err(e) = check_ownership(
-                existing.created_by.map(|u| u.to_string()).as_deref(),
-                &auth.user_id,
-            ) {
+            if let Err(e) = check_ownership(existing.created_by.map(|u| u.to_string()).as_deref(), &auth.user_id) {
                 return e;
             }
         }

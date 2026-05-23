@@ -59,16 +59,12 @@ struct ImageProxySignOutput {
 
 /// Extract user_id from CallerCtx (set by host's dispatch).
 fn caller_user_id(caller: &tokimo_bus_protocol::CallerCtx) -> Option<Uuid> {
-    caller
-        .user_id
-        .as_deref()
-        .and_then(|s| Uuid::parse_str(s).ok())
+    caller.user_id.as_deref().and_then(|s| Uuid::parse_str(s).ok())
 }
 
 /// Decode `{ "job": { "id": "...", "payload": {...} } }` from JSON bytes.
 fn decode_request(raw: &[u8]) -> Result<(Uuid, JsonValue), BusError> {
-    let v: JsonValue =
-        serde_json::from_slice(raw).map_err(|e| BusError::BadRequest(format!("json decode: {e}")))?;
+    let v: JsonValue = serde_json::from_slice(raw).map_err(|e| BusError::BadRequest(format!("json decode: {e}")))?;
     let job = v
         .get("job")
         .ok_or_else(|| BusError::BadRequest("missing 'job' field".into()))?;

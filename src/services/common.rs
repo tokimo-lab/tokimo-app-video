@@ -1,11 +1,11 @@
 //! Shared helpers for queue handlers (genre sync, people/cast sync).
 //! Aligned 1:1 with TS media-sync-utils.ts + tmdb-genre-catalog.ts.
 
-use tokimo_media_scraper::metadata_providers::tmdb::{TmdbCastInfo, TmdbGenre};
 use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;
 use std::collections::HashMap;
+use tokimo_media_scraper::metadata_providers::tmdb::{TmdbCastInfo, TmdbGenre};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -1131,7 +1131,8 @@ pub async fn sync_people_for_media(
         // Dispatch person scrape when person needs detailed data
         if needs_scrape {
             let person_type = if movie_id.is_some() { "movie" } else { "tv" };
-            if let Err(e) = dispatch_person_tmdb_scrape(db, person_id, person_type, movie_id, tv_show_id, user_id).await {
+            if let Err(e) = dispatch_person_tmdb_scrape(db, person_id, person_type, movie_id, tv_show_id, user_id).await
+            {
                 warn!("person tmdb scrape dispatch failed for person {person_id}: {e}");
             }
         }

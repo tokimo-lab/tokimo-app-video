@@ -1,4 +1,8 @@
-use axum::{Json, http::StatusCode, response::{IntoResponse, Response}};
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -31,11 +35,15 @@ impl std::fmt::Display for AppError {
 impl std::error::Error for AppError {}
 
 impl From<sea_orm::DbErr> for AppError {
-    fn from(err: sea_orm::DbErr) -> Self { Self::Database(err) }
+    fn from(err: sea_orm::DbErr) -> Self {
+        Self::Database(err)
+    }
 }
 
 impl From<serde_json::Error> for AppError {
-    fn from(err: serde_json::Error) -> Self { Self::Internal(format!("JSON error: {err}")) }
+    fn from(err: serde_json::Error) -> Self {
+        Self::Internal(format!("JSON error: {err}"))
+    }
 }
 
 pub trait OptionExt<T> {
@@ -61,7 +69,10 @@ impl<T> OptionExt<T> for Option<T> {
 }
 
 #[derive(Serialize)]
-struct ErrorBody { success: bool, error: String }
+struct ErrorBody {
+    success: bool,
+    error: String,
+}
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
@@ -78,6 +89,13 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal database error".to_string())
             }
         };
-        (status, Json(ErrorBody { success: false, error: message })).into_response()
+        (
+            status,
+            Json(ErrorBody {
+                success: false,
+                error: message,
+            }),
+        )
+            .into_response()
     }
 }

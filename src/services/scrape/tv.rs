@@ -1,11 +1,11 @@
 //! TV show, season, and episode creation logic aligned with TS file-scrape.ts.
 
-use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
 use sea_orm::prelude::Expr;
 use sea_orm::sea_query::Condition;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
+use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -17,9 +17,7 @@ use crate::services::common::{
     CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
 };
 use crate::services::nfo_parser::NfoInfo;
-use crate::services::scrape::shared::artwork::{
-    DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop,
-};
+use crate::services::scrape::shared::artwork::{DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop};
 use crate::services::scrape::shared::lib_type::LibType;
 use crate::services::scrape::shared::tmdb;
 
@@ -337,8 +335,16 @@ pub async fn find_or_create_tv(
 
     // Cast sync: only for new shows and only when we have a season_id to link to
     if is_new
-        && let Err(e) =
-            sync_people_for_media(db, &pending_cast, &pending_directors, None, Some(tv_show_id), season_id, user_id).await
+        && let Err(e) = sync_people_for_media(
+            db,
+            &pending_cast,
+            &pending_directors,
+            None,
+            Some(tv_show_id),
+            season_id,
+            user_id,
+        )
+        .await
     {
         warn!("[tv_scrape] TV cast sync failed: {e}");
     }
@@ -432,12 +438,11 @@ async fn create_tv_show_record(
     let countries = tmdb_detail
         .and_then(|d| d.origin_country.clone())
         .filter(|c| !c.is_empty());
-    let scraped_at =
-        if tmdb_detail.is_some() || nfo.is_some_and(crate::services::nfo_parser::NfoInfo::is_sufficient) {
-            Some(now)
-        } else {
-            None
-        };
+    let scraped_at = if tmdb_detail.is_some() || nfo.is_some_and(crate::services::nfo_parser::NfoInfo::is_sufficient) {
+        Some(now)
+    } else {
+        None
+    };
 
     let mut metadata_map = serde_json::Map::new();
     if let Some(nfo) = nfo {

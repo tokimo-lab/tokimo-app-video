@@ -4,8 +4,8 @@ use sea_orm::*;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::db::entities::pt_sites;
 use crate::apps::subscriptions::models::pt_site::PtSiteDto;
+use crate::db::entities::pt_sites;
 use crate::error::{AppError, OptionExt};
 
 // ── Conversion ────────────────────────────────────────────────────────────────
@@ -95,10 +95,7 @@ impl PtSiteRepo {
         Ok(site.map(to_dto))
     }
 
-    pub async fn get_by_site_id<C: ConnectionTrait>(
-        db: &C,
-        site_id: &str,
-    ) -> Result<Option<PtSiteDto>, AppError> {
+    pub async fn get_by_site_id<C: ConnectionTrait>(db: &C, site_id: &str) -> Result<Option<PtSiteDto>, AppError> {
         let site = pt_sites::Entity::find()
             .filter(pt_sites::Column::SiteId.eq(site_id))
             .one(db)
@@ -136,11 +133,7 @@ impl PtSiteRepo {
         Ok(to_dto(inserted))
     }
 
-    pub async fn update<C: ConnectionTrait>(
-        db: &C,
-        id: &str,
-        input: UpdatePtSiteInput,
-    ) -> Result<PtSiteDto, AppError> {
+    pub async fn update<C: ConnectionTrait>(db: &C, id: &str, input: UpdatePtSiteInput) -> Result<PtSiteDto, AppError> {
         let uid = Uuid::parse_str(id).map_err(|_| AppError::BadRequest("无效的 ID".into()))?;
         let model = pt_sites::Entity::find_by_id(uid)
             .one(db)

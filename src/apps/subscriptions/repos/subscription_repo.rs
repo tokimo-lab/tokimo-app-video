@@ -231,46 +231,30 @@ impl SubscriptionRepo {
                     .iter()
                     .map(|id| filter_name_map.get(id).cloned().unwrap_or_else(|| id.clone()))
                     .collect();
-                to_dto(
-                    sub,
-                    if fnames.is_empty() { None } else { Some(fnames) },
-                    None,
-                )
+                to_dto(sub, if fnames.is_empty() { None } else { Some(fnames) }, None)
             })
             .collect())
     }
 
-    pub async fn get_by_id<C: ConnectionTrait>(
-        db: &C,
-        id: &str,
-    ) -> Result<Option<SubscriptionDto>, AppError> {
+    pub async fn get_by_id<C: ConnectionTrait>(db: &C, id: &str) -> Result<Option<SubscriptionDto>, AppError> {
         let uid: Uuid = id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid subscription id".into()))?;
 
-        let row = subscriptions::Entity::find_by_id(uid)
-            .one(db)
-            .await?;
+        let row = subscriptions::Entity::find_by_id(uid).one(db).await?;
 
         match row {
             Some(sub) => {
                 let fids = collect_filter_ids(&sub);
                 let fnames = Self::resolve_filter_names(db, &fids).await;
-                let dto = to_dto(
-                    &sub,
-                    if fnames.is_empty() { None } else { Some(fnames) },
-                    None,
-                );
+                let dto = to_dto(&sub, if fnames.is_empty() { None } else { Some(fnames) }, None);
                 Ok(Some(dto))
             }
             None => Ok(None),
         }
     }
 
-    pub async fn get_raw<C: ConnectionTrait>(
-        db: &C,
-        id: &str,
-    ) -> Result<Option<subscriptions::Model>, AppError> {
+    pub async fn get_raw<C: ConnectionTrait>(db: &C, id: &str) -> Result<Option<subscriptions::Model>, AppError> {
         let uid: Uuid = id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid subscription id".into()))?;
@@ -462,7 +446,10 @@ impl SubscriptionRepo {
                 .and_then(serde_json::Value::as_str)
                 .map(ToOwned::to_owned);
 
-            if let Some(eps) = episodes.as_ref().and_then(|v| serde_json::from_value::<Vec<i32>>(v.clone()).ok()) {
+            if let Some(eps) = episodes
+                .as_ref()
+                .and_then(|v| serde_json::from_value::<Vec<i32>>(v.clone()).ok())
+            {
                 for ep in eps {
                     downloaded.insert(ep);
                 }

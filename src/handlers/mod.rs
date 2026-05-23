@@ -2,8 +2,8 @@ pub mod browse;
 pub mod crud;
 pub mod file_stream;
 pub mod hls;
-pub mod jellyfin;
 pub mod image_proxy;
+pub mod jellyfin;
 pub mod media;
 pub mod online_media;
 pub mod playback;
@@ -28,15 +28,30 @@ pub struct ApiResponse<T: Serialize> {
 }
 
 pub fn ok<T: Serialize>(data: T) -> Json<ApiResponse<T>> {
-    Json(ApiResponse { success: true, data: Some(data), error: None })
+    Json(ApiResponse {
+        success: true,
+        data: Some(data),
+        error: None,
+    })
 }
 
 pub fn ok_empty() -> Json<ApiResponse<()>> {
-    Json(ApiResponse { success: true, data: None, error: None })
+    Json(ApiResponse {
+        success: true,
+        data: None,
+        error: None,
+    })
 }
 
 pub fn err_resp<T: Serialize>(status: StatusCode, msg: String) -> (StatusCode, Json<ApiResponse<T>>) {
-    (status, Json(ApiResponse { success: false, data: None, error: Some(msg) }))
+    (
+        status,
+        Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some(msg),
+        }),
+    )
 }
 
 pub fn err500<T: Serialize>(msg: String) -> (StatusCode, Json<ApiResponse<T>>) {

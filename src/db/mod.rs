@@ -15,9 +15,7 @@ pub async fn init_pool() -> anyhow::Result<DatabaseConnection> {
     let sep = if base_url.contains('?') { '&' } else { '?' };
     // Set search_path so raw SQL queries (heavy use in media_content_repo etc.)
     // resolve unqualified table names against the video schema first.
-    let url = format!(
-        "{base_url}{sep}application_name=tokimo-app-video&options=-c%20search_path%3Dvideo,public"
-    );
+    let url = format!("{base_url}{sep}application_name=tokimo-app-video&options=-c%20search_path%3Dvideo,public");
     let mut opt = ConnectOptions::new(url);
     opt.max_connections(20).min_connections(2).sqlx_logging(false);
     Ok(Database::connect(opt).await?)
@@ -27,28 +25,30 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     let ddl = vec![
         // schema
         format!(r#"CREATE SCHEMA IF NOT EXISTS "{SCHEMA}""#),
-
         // user_preferences
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_preferences (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_preferences (
     user_id UUID NOT NULL,
     scope TEXT NOT NULL,
     scope_id TEXT NOT NULL,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (user_id, scope, scope_id)
-)"#),
-
+)"#
+        ),
         // system_config
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".system_config (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".system_config (
     scope TEXT NOT NULL,
     scope_id TEXT NOT NULL,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (scope, scope_id)
-)"#),
-
+)"#
+        ),
         // vfs
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".vfs (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".vfs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -57,10 +57,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     last_scan_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // file_favorites
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".file_favorites (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".file_favorites (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     vfs_id UUID NOT NULL,
@@ -68,11 +69,14 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     name TEXT NOT NULL,
     is_directory BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS file_favorites_user_id_vfs_id_path_key ON "{SCHEMA}".file_favorites (user_id, vfs_id, path)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS file_favorites_user_id_vfs_id_path_key ON "{SCHEMA}".file_favorites (user_id, vfs_id, path)"#
+        ),
         // jobs
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".jobs (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -92,13 +96,14 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     dedupe_key TEXT,
     alias_job_id UUID,
     priority INTEGER NOT NULL DEFAULT 0
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS jobs_status_idx ON "{SCHEMA}".jobs (status)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS jobs_type_idx ON "{SCHEMA}".jobs (type)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS jobs_parent_job_id_idx ON "{SCHEMA}".jobs (parent_job_id)"#),
-
         // collections
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".collections (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".collections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     sort_title TEXT,
@@ -108,18 +113,22 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     tmdb_collection_id TEXT,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS collections_tmdb_collection_id_key ON "{SCHEMA}".collections (tmdb_collection_id) WHERE tmdb_collection_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS collections_tmdb_collection_id_key ON "{SCHEMA}".collections (tmdb_collection_id) WHERE tmdb_collection_id IS NOT NULL"#
+        ),
         // genres
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".genres (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".genres (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tmdb_genre_id INTEGER NOT NULL
-)"#),
+)"#
+        ),
         format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS genres_tmdb_genre_id_key ON "{SCHEMA}".genres (tmdb_genre_id)"#),
-
         // videos
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".videos (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".videos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -135,10 +144,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     last_sync_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // books
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".books (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -154,10 +164,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     last_sync_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // musics
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".musics (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".musics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -173,10 +184,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     last_sync_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // pt_sites
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".pt_sites (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".pt_sites (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     site_id TEXT NOT NULL,
@@ -195,10 +207,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     last_checked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // download_clients
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".download_clients (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".download_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -215,10 +228,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     mapped_path TEXT,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // download_records
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".download_records (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".download_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     torrent_hash TEXT,
@@ -241,12 +255,13 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS download_records_status_idx ON "{SCHEMA}".download_records (status)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS download_records_app_id_idx ON "{SCHEMA}".download_records (app_id)"#),
-
         // subscription_filters
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscription_filters (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscription_filters (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     sources JSONB,
@@ -265,10 +280,11 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     created_by UUID,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // subscriptions
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscriptions (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subscription_mode TEXT NOT NULL,
     media_type TEXT NOT NULL,
@@ -294,11 +310,12 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     created_by UUID,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON "{SCHEMA}".subscriptions (status)"#),
-
         // organize_reports
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".organize_reports (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".organize_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_path TEXT NOT NULL,
     total_items TEXT NOT NULL,
@@ -308,17 +325,19 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     results JSONB NOT NULL DEFAULT '[]',
     media_names JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ
-)"#),
-
+)"#
+        ),
         // scrape_settings
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".scrape_settings (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".scrape_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     settings_json JSONB NOT NULL DEFAULT '{{}}',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
-
+)"#
+        ),
         // scrape_tasks
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".scrape_tasks (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".scrape_tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     target_type TEXT NOT NULL,
     target_id UUID NOT NULL,
@@ -330,12 +349,15 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS scrape_tasks_status_idx ON "{SCHEMA}".scrape_tasks (status)"#),
-        format!(r#"CREATE INDEX IF NOT EXISTS scrape_tasks_target_idx ON "{SCHEMA}".scrape_tasks (target_type, target_id)"#),
-
+        format!(
+            r#"CREATE INDEX IF NOT EXISTS scrape_tasks_target_idx ON "{SCHEMA}".scrape_tasks (target_type, target_id)"#
+        ),
         // video_persons
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_persons (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_persons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     original_name TEXT,
@@ -357,15 +379,26 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     metadata JSONB,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_tmdb_id_key ON "{SCHEMA}".video_persons (tmdb_id) WHERE tmdb_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_imdb_id_key ON "{SCHEMA}".video_persons (imdb_id) WHERE imdb_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_javbus_id_key ON "{SCHEMA}".video_persons (javbus_id) WHERE javbus_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_javdb_id_key ON "{SCHEMA}".video_persons (javdb_id) WHERE javdb_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_tpdb_id_key ON "{SCHEMA}".video_persons (tpdb_id) WHERE tpdb_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_tmdb_id_key ON "{SCHEMA}".video_persons (tmdb_id) WHERE tmdb_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_imdb_id_key ON "{SCHEMA}".video_persons (imdb_id) WHERE imdb_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_javbus_id_key ON "{SCHEMA}".video_persons (javbus_id) WHERE javbus_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_javdb_id_key ON "{SCHEMA}".video_persons (javdb_id) WHERE javdb_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_persons_tpdb_id_key ON "{SCHEMA}".video_persons (tpdb_id) WHERE tpdb_id IS NOT NULL"#
+        ),
         // tv_persons
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_persons (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_persons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     original_name TEXT,
@@ -385,13 +418,20 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     metadata JSONB,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_tmdb_id_key ON "{SCHEMA}".tv_persons (tmdb_id) WHERE tmdb_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_tvdb_id_key ON "{SCHEMA}".tv_persons (tvdb_id) WHERE tvdb_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_imdb_id_key ON "{SCHEMA}".tv_persons (imdb_id) WHERE imdb_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_tmdb_id_key ON "{SCHEMA}".tv_persons (tmdb_id) WHERE tmdb_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_tvdb_id_key ON "{SCHEMA}".tv_persons (tvdb_id) WHERE tvdb_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_persons_imdb_id_key ON "{SCHEMA}".tv_persons (imdb_id) WHERE imdb_id IS NOT NULL"#
+        ),
         // tv_shows
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_shows (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_shows (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_id UUID NOT NULL,
     title TEXT NOT NULL,
@@ -423,30 +463,43 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     scraped_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_tvdb_id_key ON "{SCHEMA}".tv_shows (video_id, tvdb_id)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_tmdb_id_key ON "{SCHEMA}".tv_shows (video_id, tmdb_id)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_imdb_id_key ON "{SCHEMA}".tv_shows (video_id, imdb_id)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_douban_id_key ON "{SCHEMA}".tv_shows (douban_id) WHERE douban_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_bangumi_id_key ON "{SCHEMA}".tv_shows (bangumi_id) WHERE bangumi_id IS NOT NULL"#),
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_tvdb_id_key ON "{SCHEMA}".tv_shows (video_id, tvdb_id)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_tmdb_id_key ON "{SCHEMA}".tv_shows (video_id, tmdb_id)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_video_id_imdb_id_key ON "{SCHEMA}".tv_shows (video_id, imdb_id)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_douban_id_key ON "{SCHEMA}".tv_shows (douban_id) WHERE douban_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_shows_bangumi_id_key ON "{SCHEMA}".tv_shows (bangumi_id) WHERE bangumi_id IS NOT NULL"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS tv_shows_video_id_idx ON "{SCHEMA}".tv_shows (video_id)"#),
-
         // tv_show_collections
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_show_collections (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_show_collections (
     tv_show_id UUID NOT NULL,
     collection_id UUID NOT NULL,
     PRIMARY KEY (tv_show_id, collection_id)
-)"#),
-
+)"#
+        ),
         // tv_show_genres
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_show_genres (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_show_genres (
     tv_show_id UUID NOT NULL,
     genre_id UUID NOT NULL,
     PRIMARY KEY (tv_show_id, genre_id)
-)"#),
-
+)"#
+        ),
         // seasons
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".seasons (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".seasons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tv_show_id UUID NOT NULL,
     season_number INTEGER NOT NULL,
@@ -455,11 +508,14 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     air_date DATE,
     poster_path TEXT,
     episode_count INTEGER
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS seasons_tv_show_id_season_number_key ON "{SCHEMA}".seasons (tv_show_id, season_number)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS seasons_tv_show_id_season_number_key ON "{SCHEMA}".seasons (tv_show_id, season_number)"#
+        ),
         // tv_season_cast
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_season_cast (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".tv_season_cast (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tv_show_id UUID NOT NULL,
     season_id UUID NOT NULL,
@@ -467,11 +523,14 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     role TEXT NOT NULL,
     character TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_season_cast_season_id_tv_person_id_role_key ON "{SCHEMA}".tv_season_cast (season_id, tv_person_id, role)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS tv_season_cast_season_id_tv_person_id_role_key ON "{SCHEMA}".tv_season_cast (season_id, tv_person_id, role)"#
+        ),
         // episodes
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".episodes (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".episodes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tv_show_id UUID NOT NULL,
     season_id UUID NOT NULL,
@@ -483,12 +542,17 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     still_path TEXT,
     tmdb_rating DOUBLE PRECISION,
     tmdb_id TEXT
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS episodes_season_id_episode_number_key ON "{SCHEMA}".episodes (season_id, episode_number)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS episodes_tmdb_id_key ON "{SCHEMA}".episodes (tmdb_id) WHERE tmdb_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS episodes_season_id_episode_number_key ON "{SCHEMA}".episodes (season_id, episode_number)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS episodes_tmdb_id_key ON "{SCHEMA}".episodes (tmdb_id) WHERE tmdb_id IS NOT NULL"#
+        ),
         // video_items
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_items (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_id UUID NOT NULL,
     title TEXT NOT NULL,
@@ -522,42 +586,60 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     scraped_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_video_id_imdb_id_key ON "{SCHEMA}".video_items (video_id, imdb_id)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_video_id_tmdb_id_key ON "{SCHEMA}".video_items (video_id, tmdb_id)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_douban_id_key ON "{SCHEMA}".video_items (douban_id) WHERE douban_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_jav_number_key ON "{SCHEMA}".video_items (jav_number) WHERE jav_number IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_javbus_id_key ON "{SCHEMA}".video_items (javbus_id) WHERE javbus_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_javdb_id_key ON "{SCHEMA}".video_items (javdb_id) WHERE javdb_id IS NOT NULL"#),
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_video_id_imdb_id_key ON "{SCHEMA}".video_items (video_id, imdb_id)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_video_id_tmdb_id_key ON "{SCHEMA}".video_items (video_id, tmdb_id)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_douban_id_key ON "{SCHEMA}".video_items (douban_id) WHERE douban_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_jav_number_key ON "{SCHEMA}".video_items (jav_number) WHERE jav_number IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_javbus_id_key ON "{SCHEMA}".video_items (javbus_id) WHERE javbus_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_items_javdb_id_key ON "{SCHEMA}".video_items (javdb_id) WHERE javdb_id IS NOT NULL"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS video_items_video_id_idx ON "{SCHEMA}".video_items (video_id)"#),
-
         // video_cast
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_cast (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_cast (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_item_id UUID NOT NULL,
     video_person_id UUID NOT NULL,
     role TEXT NOT NULL,
     character TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_cast_video_item_id_video_person_id_role_key ON "{SCHEMA}".video_cast (video_item_id, video_person_id, role)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_cast_video_item_id_video_person_id_role_key ON "{SCHEMA}".video_cast (video_item_id, video_person_id, role)"#
+        ),
         // video_collections
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_collections (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_collections (
     video_item_id UUID NOT NULL,
     collection_id UUID NOT NULL,
     PRIMARY KEY (video_item_id, collection_id)
-)"#),
-
+)"#
+        ),
         // video_genres
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_genres (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_genres (
     video_item_id UUID NOT NULL,
     genre_id UUID NOT NULL,
     PRIMARY KEY (video_item_id, genre_id)
-)"#),
-
+)"#
+        ),
         // video_files
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_files (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".video_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_id UUID,
     path TEXT NOT NULL,
@@ -581,13 +663,18 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     updated_at TIMESTAMPTZ,
     video_item_id UUID,
     episode_id UUID
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS video_files_source_id_path_key ON "{SCHEMA}".video_files (source_id, path)"#),
-        format!(r#"CREATE INDEX IF NOT EXISTS video_files_video_item_id_idx ON "{SCHEMA}".video_files (video_item_id)"#),
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS video_files_source_id_path_key ON "{SCHEMA}".video_files (source_id, path)"#
+        ),
+        format!(
+            r#"CREATE INDEX IF NOT EXISTS video_files_video_item_id_idx ON "{SCHEMA}".video_files (video_item_id)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS video_files_episode_id_idx ON "{SCHEMA}".video_files (episode_id)"#),
-
         // chapters
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".chapters (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".chapters (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id UUID NOT NULL,
     index INTEGER NOT NULL,
@@ -595,11 +682,14 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     start_time INTEGER NOT NULL DEFAULT 0,
     end_time INTEGER,
     thumb_path TEXT
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS chapters_file_id_index_key ON "{SCHEMA}".chapters (file_id, index)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS chapters_file_id_index_key ON "{SCHEMA}".chapters (file_id, index)"#
+        ),
         // subtitles
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subtitles (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subtitles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id UUID NOT NULL,
     language TEXT NOT NULL,
@@ -615,11 +705,12 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     is_forced BOOLEAN NOT NULL DEFAULT FALSE,
     is_hearing_impaired BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS subtitles_file_id_idx ON "{SCHEMA}".subtitles (file_id)"#),
-
         // media_arts
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".media_arts (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".media_arts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_item_id UUID,
     tv_show_id UUID,
@@ -634,12 +725,13 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     source TEXT,
     is_selected BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS media_arts_video_item_id_idx ON "{SCHEMA}".media_arts (video_item_id)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS media_arts_tv_show_id_idx ON "{SCHEMA}".media_arts (tv_show_id)"#),
-
         // watch_histories
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".watch_histories (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".watch_histories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     file_id UUID NOT NULL,
@@ -651,14 +743,15 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     position INTEGER NOT NULL DEFAULT 0,
     duration INTEGER,
     completed BOOLEAN NOT NULL DEFAULT FALSE
-)"#),
+)"#
+        ),
         format!(r#"CREATE INDEX IF NOT EXISTS watch_histories_user_id_idx ON "{SCHEMA}".watch_histories (user_id)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS watch_histories_file_id_idx ON "{SCHEMA}".watch_histories (file_id)"#),
         // Add snapshot column for users that no longer cross-join public.users
         format!(r#"ALTER TABLE "{SCHEMA}".watch_histories ADD COLUMN IF NOT EXISTS user_display_name_snapshot TEXT"#),
-
         // playback_sessions
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".playback_sessions (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".playback_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     session_id UUID,
@@ -683,12 +776,17 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     stopped_at TIMESTAMPTZ
-)"#),
-        format!(r#"CREATE INDEX IF NOT EXISTS playback_sessions_user_id_idx ON "{SCHEMA}".playback_sessions (user_id)"#),
-        format!(r#"CREATE INDEX IF NOT EXISTS playback_sessions_file_id_idx ON "{SCHEMA}".playback_sessions (file_id)"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE INDEX IF NOT EXISTS playback_sessions_user_id_idx ON "{SCHEMA}".playback_sessions (user_id)"#
+        ),
+        format!(
+            r#"CREATE INDEX IF NOT EXISTS playback_sessions_file_id_idx ON "{SCHEMA}".playback_sessions (file_id)"#
+        ),
         // user_media_states
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_media_states (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_media_states (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     video_item_id UUID,
@@ -701,14 +799,23 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     is_watched BOOLEAN NOT NULL DEFAULT FALSE,
     last_watch_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_video_item_id_key ON "{SCHEMA}".user_media_states (user_id, video_item_id) WHERE video_item_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_tv_show_id_key ON "{SCHEMA}".user_media_states (user_id, tv_show_id) WHERE tv_show_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_episode_id_key ON "{SCHEMA}".user_media_states (user_id, episode_id) WHERE episode_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_book_id_key ON "{SCHEMA}".user_media_states (user_id, book_id) WHERE book_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_video_item_id_key ON "{SCHEMA}".user_media_states (user_id, video_item_id) WHERE video_item_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_tv_show_id_key ON "{SCHEMA}".user_media_states (user_id, tv_show_id) WHERE tv_show_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_episode_id_key ON "{SCHEMA}".user_media_states (user_id, episode_id) WHERE episode_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_states_user_id_book_id_key ON "{SCHEMA}".user_media_states (user_id, book_id) WHERE book_id IS NOT NULL"#
+        ),
         // user_media_ratings
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_media_ratings (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".user_media_ratings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     video_item_id UUID,
@@ -717,17 +824,25 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     rating DOUBLE PRECISION NOT NULL,
     review TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_video_item_id_key ON "{SCHEMA}".user_media_ratings (user_id, video_item_id) WHERE video_item_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_tv_show_id_key ON "{SCHEMA}".user_media_ratings (user_id, tv_show_id) WHERE tv_show_id IS NOT NULL"#),
-        format!(r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_book_id_key ON "{SCHEMA}".user_media_ratings (user_id, book_id) WHERE book_id IS NOT NULL"#),
-
+)"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_video_item_id_key ON "{SCHEMA}".user_media_ratings (user_id, video_item_id) WHERE video_item_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_tv_show_id_key ON "{SCHEMA}".user_media_ratings (user_id, tv_show_id) WHERE tv_show_id IS NOT NULL"#
+        ),
+        format!(
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS user_media_ratings_user_id_book_id_key ON "{SCHEMA}".user_media_ratings (user_id, book_id) WHERE book_id IS NOT NULL"#
+        ),
         // ytdlp_provider_auth
-        format!(r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".ytdlp_provider_auth (
+        format!(
+            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".ytdlp_provider_auth (
     provider TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)"#),
+)"#
+        ),
     ];
 
     for sql in &ddl {

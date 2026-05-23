@@ -14,8 +14,8 @@ use crate::db::models::video::{VideoSyncProgressOutput, VideoSyncStatusOutput, V
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
-use crate::handlers::{ApiResponse, ok};
 use crate::handlers::user::AuthUser;
+use crate::handlers::{ApiResponse, ok};
 use crate::services::media::app_sync::AppSyncService;
 
 use super::{VideoSyncInput, parse_uuid};
@@ -27,7 +27,8 @@ pub async fn sync_video(
     auth: AuthUser,
     body: Option<Json<VideoSyncInput>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let caller_user_id: Uuid = auth.user_id
+    let caller_user_id: Uuid = auth
+        .user_id
         .parse()
         .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
 
@@ -42,7 +43,10 @@ pub async fn sync_video(
     let clear_data = body.and_then(|b| b.clear_data).unwrap_or(false);
 
     if video.sync_status == "syncing" && !clear_data {
-        warn!("Video {} is already syncing (may be stuck from a previous crash), allowing re-sync", video.name);
+        warn!(
+            "Video {} is already syncing (may be stuck from a previous crash), allowing re-sync",
+            video.name
+        );
     }
 
     // Clear data synchronously so frontend sees empty state immediately
@@ -60,12 +64,16 @@ pub async fn sync_video(
 
     tokio::spawn(async move {
         let db2 = db.clone();
-        let result = std::panic::AssertUnwindSafe(
-            AppSyncService::execute_video_sync(
-                &db, &sources, &storage, state.bus_client.clone(), uid, false,
-                http_client, caller_user_id,
-            ),
-        )
+        let result = std::panic::AssertUnwindSafe(AppSyncService::execute_video_sync(
+            &db,
+            &sources,
+            &storage,
+            state.bus_client.clone(),
+            uid,
+            false,
+            http_client,
+            caller_user_id,
+        ))
         .catch_unwind()
         .await;
 

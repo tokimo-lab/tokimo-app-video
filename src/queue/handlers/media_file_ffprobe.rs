@@ -67,12 +67,7 @@ async fn probe_via_direct(
         .map_err(|e| format!("Failed to get VFS for probe: {e}"))?;
 
     let ra = vfs.to_read_at(std::path::Path::new(&target.path)).await;
-    let direct_input = DirectInput::from_read_at(
-        ra,
-        file_size,
-        filename_hint,
-        Some(8 * 1024 * 1024),
-    );
+    let direct_input = DirectInput::from_read_at(ra, file_size, filename_hint, Some(8 * 1024 * 1024));
 
     tokio::task::spawn_blocking(move || {
         let result = tokimo_package_ffmpeg::probe_direct(direct_input);

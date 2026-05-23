@@ -131,10 +131,7 @@ pub struct ReorderItem {
 pub struct SubscriptionFilterRepo;
 
 impl SubscriptionFilterRepo {
-    pub async fn list<C: ConnectionTrait>(
-        db: &C,
-        user_id: &str,
-    ) -> Result<Vec<SubscriptionFilterDto>, AppError> {
+    pub async fn list<C: ConnectionTrait>(db: &C, user_id: &str) -> Result<Vec<SubscriptionFilterDto>, AppError> {
         let uid: Uuid = user_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid user id".into()))?;
@@ -150,16 +147,10 @@ impl SubscriptionFilterRepo {
                 AppError::Database(e)
             })?;
 
-        Ok(rows
-            .into_iter()
-            .map(|filter| to_dto(filter, None))
-            .collect())
+        Ok(rows.into_iter().map(|filter| to_dto(filter, None)).collect())
     }
 
-    pub async fn get_by_id<C: ConnectionTrait>(
-        db: &C,
-        id: &str,
-    ) -> Result<Option<SubscriptionFilterDto>, AppError> {
+    pub async fn get_by_id<C: ConnectionTrait>(db: &C, id: &str) -> Result<Option<SubscriptionFilterDto>, AppError> {
         let uid: Uuid = id.parse().map_err(|_| AppError::BadRequest("invalid id".into()))?;
 
         let row = subscription_filters::Entity::find_by_id(uid)
