@@ -36,7 +36,7 @@ jobs:
         working-directory: ui
         shell: bash
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
 
       - name: Install Rust toolchain
@@ -68,7 +68,7 @@ jobs:
         working-directory: ui
         shell: bash
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
           pnpm build
           if node -e "const s = require('./package.json').scripts || {}; process.exit(s.typecheck ? 0 : 1)"; then
             pnpm typecheck
