@@ -18,7 +18,7 @@ tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", re
 tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
 tokimo-vfs-core       = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
 tokimo-vfs-op         = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
-tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "910aa05ed3e22576dd7bdb2252683f49dd369ca6" }
+tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "6c64e13d7ee216e401fd62196d6e2eb568681b86" }
 tokimo-package-subtitle = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle.git", rev = "399e77ea" }
 tokimo-package-image  = { git = "https://github.com/tokimo-lab/tokimo-package-image.git", rev = "0a651eb7" }
 tokimo-package-ffmpeg = { git = "https://github.com/tokimo-lab/tokimo-package-ffmpeg.git", rev = "9ea65ce9" }
