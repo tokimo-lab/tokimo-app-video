@@ -8,10 +8,12 @@
 import type {
   PlayerPlayMeta,
   PlayerSourceMetadata,
+  ShellJobEvent,
+  ShellPersonEvent,
   WindowState,
 } from "@tokimo/sdk";
 import { useShellApi } from "@tokimo/sdk";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 interface UseAuthResult {
   user: { id: string; username?: string } | null;
@@ -91,14 +93,30 @@ export function usePlayer(): PlayerApi {
   };
 }
 
-interface WsJobEventLike {
-  type: string;
-  [key: string]: unknown;
+export function useAppEvent(onEvent: (event: ShellJobEvent) => void): void {
+  const shell = useShellApi();
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
+
+  useEffect(() => {
+    return shell.jobEvents.subscribe({
+      onEvent: (event) => onEventRef.current(event),
+    });
+  }, [shell.jobEvents]);
 }
 
-/** TODO(phase4b): wire to shell.jobEvents. */
-export function useAppEvent(_onEvent: (event: WsJobEventLike) => void): void {
-  // no-op stub
+export function usePersonEvents(
+  onEvent: (event: ShellPersonEvent) => void,
+): void {
+  const shell = useShellApi();
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
+
+  useEffect(() => {
+    return shell.personEvents.subscribe({
+      onEvent: (event) => onEventRef.current(event),
+    });
+  }, [shell.personEvents]);
 }
 
 /**

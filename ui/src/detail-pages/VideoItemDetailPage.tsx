@@ -9,7 +9,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
-import { useAppEvent, useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
+import {
+  useBackgroundArt,
+  usePersonEvents,
+  usePlayer,
+} from "../hooks/shell-stubs";
 import { createVideoSourceMetadata } from "../player-source-metadata";
 import { useVideoNav } from "../router/useVideoNav";
 import {
@@ -151,12 +155,8 @@ export default function VideoItemDetailPage() {
   }, [artPath, setBackgroundArt]);
 
   // ── WS: refresh movie detail after each person is scraped ──
-  useAppEvent((event) => {
-    if (
-      event.type === "person_scraped" &&
-      event.videoItemId === videoItemId &&
-      videoItemId
-    ) {
+  usePersonEvents((event) => {
+    if (event.videoItemId === videoItemId && videoItemId) {
       api.video.getVideoItemDetail.invalidate(qc, { id: videoItemId });
     }
   });
