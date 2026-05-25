@@ -1,8 +1,8 @@
 import { QueryClient as e, QueryClientProvider as t, useMutation as n, useQuery as r, useQueryClient as i } from "@tanstack/react-query";
 import { RuntimeProvider as a, buildProxiedImageUrl as o, defineApp as s, getAvatarColor as c, getAvatarIcon as l, parseAvatar as u, parseUserAgent as d, posterThumbUrl as f, useInfiniteScroll as p, useJobProgress as m, useMenuBar as h, useRuntimeCtx as g, useShellApi as _, useToast as v, useWindowActions as y, useWindowId as b, useWindowNav as x } from "@tokimo/sdk";
-import { Alert as S, AppSetupGuide as C, AppSidebar as w, ArrowLeftOutlined as T, Avatar as ee, Button as E, Checkbox as te, CircularProgress as ne, ConfigProvider as re, DeleteOutlined as ie, Empty as ae, FolderOpenOutlined as oe, Form as D, Input as se, InputNumber as ce, LinkOutlined as le, Modal as ue, PillTabBar as de, PlusOutlined as eee, Popover as tee, PosterCard as nee, Progress as ree, QuestionCircleOutlined as iee, ScrollArea as fe, Select as pe, SettingGroup as me, SettingRow as he, Spin as ge, StickySaveBar as aee, Tag as O, TemplateInput as oee, ToastProvider as _e, Tooltip as ve, cn as ye, useToast as be, useWatch as xe } from "@tokimo/ui";
-import * as k from "react";
-import { Component as see, Fragment as cee, StrictMode as lee, Suspense as uee, createContext as Se, createElement as Ce, forwardRef as we, lazy as dee, memo as Te, useCallback as A, useContext as Ee, useEffect as j, useId as fee, useInsertionEffect as pee, useLayoutEffect as De, useMemo as M, useRef as Oe, useState as N, useSyncExternalStore as mee } from "react";
+import { Alert as S, AppSetupGuide as C, AppSidebar as w, ArrowLeftOutlined as T, Avatar as ee, Button as E, Checkbox as te, CircularProgress as ne, ConfigProvider as re, DeleteOutlined as ie, Empty as ae, FolderOpenOutlined as oe, Form as D, Input as se, InputNumber as ce, LinkOutlined as le, Modal as ue, PillTabBar as de, PlusOutlined as eee, Popover as tee, PosterCard as nee, Progress as ree, QuestionCircleOutlined as iee, ScrollArea as fe, Select as pe, SettingGroup as me, SettingRow as he, Spin as ge, StickySaveBar as aee, Tag as _e, TemplateInput as oee, ToastProvider as ve, Tooltip as ye, cn as be, useToast as xe, useWatch as Se } from "@tokimo/ui";
+import * as O from "react";
+import { Component as see, Fragment as cee, StrictMode as lee, Suspense as uee, createContext as Ce, createElement as we, forwardRef as Te, lazy as dee, memo as Ee, useCallback as k, useContext as De, useEffect as A, useId as fee, useInsertionEffect as pee, useLayoutEffect as Oe, useMemo as j, useRef as M, useState as N, useSyncExternalStore as mee } from "react";
 import { createRoot as hee } from "react-dom/client";
 import { Fragment as ke, jsx as P, jsxs as F } from "react/jsx-runtime";
 import * as gee from "react-dom";
@@ -113,7 +113,7 @@ var vee = Object.create, Ae = Object.defineProperty, yee = Object.getOwnProperty
 		}
 	};
 })), qe, Lee, Je = I((() => {
-	Ge(), Ke(), qe = Se(), Lee = class {
+	Ge(), Ke(), qe = Ce(), Lee = class {
 		constructor() {
 			this.usedNamespaces = {};
 		}
@@ -128,17 +128,17 @@ var vee = Object.create, Ae = Object.defineProperty, yee = Object.getOwnProperty
 	};
 })), Ree, Ye, zee, L, Bee = I((() => {
 	Je(), wee(), Ree = (e, t) => {
-		let n = Oe();
-		return j(() => {
+		let n = M();
+		return A(() => {
 			n.current = t ? n.current : e;
 		}, [e, t]), n.current;
-	}, Ye = (e, t, n, r) => e.getFixedT(t, n, r), zee = (e, t, n, r) => A(Ye(e, t, n, r), [
+	}, Ye = (e, t, n, r) => e.getFixedT(t, n, r), zee = (e, t, n, r) => k(Ye(e, t, n, r), [
 		e,
 		t,
 		n,
 		r
 	]), L = (e, t = {}) => {
-		let { i18n: n } = t, { i18n: r, defaultNS: i } = Ee(qe) || {}, a = n || r || Pee();
+		let { i18n: n } = t, { i18n: r, defaultNS: i } = De(qe) || {}, a = n || r || Pee();
 		if (a && !a.reportNamespaces && (a.reportNamespaces = new Lee()), !a) {
 			Re(a, "NO_I18NEXT_INSTANCE", "useTranslation: You will need to pass in an i18next instance by using initReactI18next");
 			let e = (e, t) => Ue(t) ? t : Cee(t) && Ue(t.defaultValue) ? t.defaultValue : Array.isArray(e) ? e[e.length - 1] : e, t = [
@@ -157,8 +157,8 @@ var vee = Object.create, Ae = Object.defineProperty, yee = Object.getOwnProperty
 		l = Ue(l) ? [l] : l || ["translation"], a.reportNamespaces.addUsedNamespaces?.(l);
 		let u = (a.isInitialized || a.initializedStoreOnce) && l.every((e) => He(e, a, o)), d = zee(a, t.lng || null, o.nsMode === "fallback" ? l : l[0], c), f = () => d, p = () => Ye(a, t.lng || null, o.nsMode === "fallback" ? l : l[0], c), [m, h] = N(f), g = l.join();
 		t.lng && (g = `${t.lng}${g}`);
-		let _ = Ree(g), v = Oe(!0);
-		j(() => {
+		let _ = Ree(g), v = M(!0);
+		A(() => {
 			let { bindI18n: e, bindI18nStore: n } = o;
 			v.current = !0, !u && !s && (t.lng ? Ve(a, t.lng, l, () => {
 				v.current && h(p);
@@ -171,7 +171,7 @@ var vee = Object.create, Ae = Object.defineProperty, yee = Object.getOwnProperty
 			return e && a?.on(e, r), n && a?.store.on(n, r), () => {
 				v.current = !1, a && e && e?.split(" ").forEach((e) => a.off(e, r)), n && a && n.split(" ").forEach((e) => a.store.off(e, r));
 			};
-		}, [a, g]), j(() => {
+		}, [a, g]), A(() => {
 			v.current && u && h(f);
 		}, [
 			a,
@@ -192,11 +192,11 @@ var vee = Object.create, Ae = Object.defineProperty, yee = Object.getOwnProperty
 //#endregion
 //#region node_modules/.pnpm/react-i18next@15.7.4_i18next@23.16.8_react-dom@19.2.6_react@19.2.6__react@19.2.6_typescript@6.0.3/node_modules/react-i18next/dist/es/I18nextProvider.js
 function Xe({ i18n: e, defaultNS: t, children: n }) {
-	let r = M(() => ({
+	let r = j(() => ({
 		i18n: e,
 		defaultNS: t
 	}), [e, t]);
-	return Ce(qe.Provider, { value: r }, n);
+	return we(qe.Provider, { value: r }, n);
 }
 var Vee = I((() => {
 	Je();
@@ -234,7 +234,7 @@ var Vee = I((() => {
 //#endregion
 //#region node_modules/.pnpm/lucide-react@1.16.0_react@19.2.6/node_modules/lucide-react/dist/esm/context.mjs
 function Xee({ children: e, size: t, color: n, strokeWidth: r, absoluteStrokeWidth: i, className: a }) {
-	let o = M(() => ({
+	let o = j(() => ({
 		size: t,
 		color: n,
 		strokeWidth: r,
@@ -247,14 +247,14 @@ function Xee({ children: e, size: t, color: n, strokeWidth: r, absoluteStrokeWid
 		i,
 		a
 	]);
-	return Ce(tt.Provider, { value: o }, e);
+	return we(tt.Provider, { value: o }, e);
 }
 var tt, nt, rt = I((() => {
-	tt = Se({}), nt = () => Ee(tt);
+	tt = Ce({}), nt = () => De(tt);
 })), it, at = I((() => {
-	Jee(), Yee(), Hee(), rt(), it = we(({ color: e, size: t, strokeWidth: n, absoluteStrokeWidth: r, className: i = "", children: a, iconNode: o, ...s }, c) => {
+	Jee(), Yee(), Hee(), rt(), it = Te(({ color: e, size: t, strokeWidth: n, absoluteStrokeWidth: r, className: i = "", children: a, iconNode: o, ...s }, c) => {
 		let { size: l = 24, strokeWidth: u = 2, absoluteStrokeWidth: d = !1, color: f = "currentColor", className: p = "" } = nt() ?? {}, m = r ?? d ? Number(n ?? u) * 24 / Number(t ?? l) : n ?? u;
-		return Ce("svg", {
+		return we("svg", {
 			ref: c,
 			...$e,
 			width: t ?? l ?? $e.width,
@@ -264,11 +264,11 @@ var tt, nt, rt = I((() => {
 			className: Ze("lucide", p, i),
 			...!a && !et(s) && { "aria-hidden": "true" },
 			...s
-		}, [...o.map(([e, t]) => Ce(e, t)), ...Array.isArray(a) ? a : [a]]);
+		}, [...o.map(([e, t]) => we(e, t)), ...Array.isArray(a) ? a : [a]]);
 	});
 })), z, B = I((() => {
 	Hee(), Wee(), qee(), at(), z = (e, t) => {
-		let n = we(({ className: n, ...r }, i) => Ce(it, {
+		let n = Te(({ className: n, ...r }, i) => we(it, {
 			ref: i,
 			iconNode: t,
 			className: Ze(`lucide-${Uee(Qe(e))}`, `lucide-${e}`, n),
@@ -42907,10 +42907,10 @@ var lHe, uHe = I((() => {
 //#endregion
 //#region src/hooks/useContainerWidth.ts
 function dHe() {
-	let [e, t] = N(null), [n, r] = N(0), i = A((e) => {
+	let [e, t] = N(null), [n, r] = N(0), i = k((e) => {
 		t(e);
 	}, []);
-	return De(() => {
+	return Oe(() => {
 		if (!e) {
 			r(0);
 			return;
@@ -42934,7 +42934,7 @@ function pHe(e, t) {
 			return !1;
 		}
 	});
-	j(() => {
+	A(() => {
 		try {
 			window.localStorage.setItem(n, r ? "1" : "0");
 		} catch {}
@@ -42942,7 +42942,7 @@ function pHe(e, t) {
 	let a = t || r;
 	return {
 		collapsed: a,
-		onToggleCollapse: A(() => {
+		onToggleCollapse: k(() => {
 			i(!a);
 		}, [a])
 	};
@@ -43992,10 +43992,10 @@ function d4(e) {
 	return e?.ownerDocument || document;
 }
 function _Ue(e) {
-	let t = k.useRef(() => {});
+	let t = O.useRef(() => {});
 	return wUe(() => {
 		t.current = e;
-	}), k.useCallback(function() {
+	}), O.useCallback(function() {
 		var e = [...arguments];
 		return t.current == null ? void 0 : t.current(...e);
 	}, []);
@@ -44028,7 +44028,7 @@ function SUe(e) {
 	});
 }
 var p4, CUe, wUe, m4, TUe = I((() => {
-	L2(), pUe(), p4 = typeof document < "u" ? De : function() {}, CUe = { ...k }, wUe = CUe.useInsertionEffect || ((e) => e()), m4 = () => ({
+	L2(), pUe(), p4 = typeof document < "u" ? Oe : function() {}, CUe = { ...O }, wUe = CUe.useInsertionEffect || ((e) => e()), m4 = () => ({
 		getShadowRoot: !0,
 		displayCheck: typeof ResizeObserver == "function" && ResizeObserver.toString().includes("[native code]") ? "full" : "none"
 	});
@@ -44650,27 +44650,27 @@ function mWe(e, t) {
 	return Math.round(t * n) / n;
 }
 function S4(e) {
-	let t = k.useRef(e);
+	let t = O.useRef(e);
 	return C4(() => {
 		t.current = e;
 	}), t;
 }
 function hWe(e) {
 	e === void 0 && (e = {});
-	let { placement: t = "bottom", strategy: n = "absolute", middleware: r = [], platform: i, elements: { reference: a, floating: o } = {}, transform: s = !0, whileElementsMounted: c, open: l } = e, [u, d] = k.useState({
+	let { placement: t = "bottom", strategy: n = "absolute", middleware: r = [], platform: i, elements: { reference: a, floating: o } = {}, transform: s = !0, whileElementsMounted: c, open: l } = e, [u, d] = O.useState({
 		x: 0,
 		y: 0,
 		strategy: n,
 		placement: t,
 		middlewareData: {},
 		isPositioned: !1
-	}), [f, p] = k.useState(r);
+	}), [f, p] = O.useState(r);
 	x4(f, r) || p(r);
-	let [m, h] = k.useState(null), [g, _] = k.useState(null), v = k.useCallback((e) => {
+	let [m, h] = O.useState(null), [g, _] = O.useState(null), v = O.useCallback((e) => {
 		e !== S.current && (S.current = e, h(e));
-	}, []), y = k.useCallback((e) => {
+	}, []), y = O.useCallback((e) => {
 		e !== C.current && (C.current = e, _(e));
-	}, []), b = a || m, x = o || g, S = k.useRef(null), C = k.useRef(null), w = k.useRef(u), T = c != null, ee = S4(c), E = S4(i), te = S4(l), ne = k.useCallback(() => {
+	}, []), b = a || m, x = o || g, S = O.useRef(null), C = O.useRef(null), w = O.useRef(u), T = c != null, ee = S4(c), E = S4(i), te = S4(l), ne = O.useCallback(() => {
 		if (!S.current || !C.current) return;
 		let e = {
 			placement: t,
@@ -44699,7 +44699,7 @@ function hWe(e) {
 			isPositioned: !1
 		})));
 	}, [l]);
-	let re = k.useRef(!1);
+	let re = O.useRef(!1);
 	C4(() => (re.current = !0, () => {
 		re.current = !1;
 	}), []), C4(() => {
@@ -44714,15 +44714,15 @@ function hWe(e) {
 		ee,
 		T
 	]);
-	let ie = k.useMemo(() => ({
+	let ie = O.useMemo(() => ({
 		reference: S,
 		floating: C,
 		setReference: v,
 		setFloating: y
-	}), [v, y]), ae = k.useMemo(() => ({
+	}), [v, y]), ae = O.useMemo(() => ({
 		reference: b,
 		floating: x
-	}), [b, x]), oe = k.useMemo(() => {
+	}), [b, x]), oe = O.useMemo(() => {
 		let e = {
 			position: n,
 			left: 0,
@@ -44746,7 +44746,7 @@ function hWe(e) {
 		u.x,
 		u.y
 	]);
-	return k.useMemo(() => ({
+	return O.useMemo(() => ({
 		...u,
 		update: ne,
 		refs: ie,
@@ -44761,7 +44761,7 @@ function hWe(e) {
 	]);
 }
 var C4, gWe, _We, vWe, yWe, bWe = I((() => {
-	fWe(), C4 = typeof document < "u" ? De : function() {}, gWe = (e, t) => {
+	fWe(), C4 = typeof document < "u" ? Oe : function() {}, gWe = (e, t) => {
 		let n = sWe(e);
 		return {
 			name: n.name,
@@ -44794,10 +44794,10 @@ var C4, gWe, _We, vWe, yWe, bWe = I((() => {
 //#endregion
 //#region node_modules/.pnpm/@floating-ui+react@0.27.19_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/@floating-ui/react/dist/floating-ui.react.mjs
 function xWe() {
-	let [e, t] = k.useState(() => w4 ? T4() : void 0);
+	let [e, t] = O.useState(() => w4 ? T4() : void 0);
 	return p4(() => {
 		e ?? t(T4());
-	}, []), k.useEffect(() => {
+	}, []), O.useEffect(() => {
 		w4 = !0;
 	}, []), e;
 }
@@ -44822,7 +44822,7 @@ function CWe(e) {
 }
 function wWe(e) {
 	e === void 0 && (e = {});
-	let { id: t, root: n } = e, r = E4(), i = HWe(), [a, o] = k.useState(null), s = k.useRef(null);
+	let { id: t, root: n } = e, r = E4(), i = HWe(), [a, o] = O.useState(null), s = O.useRef(null);
 	return p4(() => () => {
 		a?.remove(), queueMicrotask(() => {
 			s.current = null;
@@ -44852,8 +44852,8 @@ function TWe(e) {
 	let { children: t, id: n, root: r, preserveTabOrder: i = !0 } = e, a = wWe({
 		id: n,
 		root: r
-	}), [o, s] = k.useState(null), c = k.useRef(null), l = k.useRef(null), u = k.useRef(null), d = k.useRef(null), f = o?.modal, p = o?.open, m = !!o && !o.modal && o.open && i && !!(r || a);
-	return k.useEffect(() => {
+	}), [o, s] = O.useState(null), c = O.useRef(null), l = O.useRef(null), u = O.useRef(null), d = O.useRef(null), f = o?.modal, p = o?.open, m = !!o && !o.modal && o.open && i && !!(r || a);
+	return O.useEffect(() => {
 		if (!a || !i || f) return;
 		function e(e) {
 			a && f4(e) && (e.type === "focusin" ? SUe : xUe)(a);
@@ -44865,10 +44865,10 @@ function TWe(e) {
 		a,
 		i,
 		f
-	]), k.useEffect(() => {
+	]), O.useEffect(() => {
 		a && (p || SUe(a));
 	}, [p, a]), /* @__PURE__ */ F(O4.Provider, {
-		value: k.useMemo(() => ({
+		value: O.useMemo(() => ({
 			preserveTabOrder: i,
 			beforeOutsideRef: c,
 			afterOutsideRef: l,
@@ -44907,14 +44907,14 @@ function TWe(e) {
 	});
 }
 function EWe(e) {
-	let { open: t = !1, onOpenChange: n, elements: r } = e, i = E4(), a = k.useRef({}), [o] = k.useState(() => SWe()), s = RWe() != null, [c, l] = k.useState(r.reference), u = _Ue((e, t, r) => {
+	let { open: t = !1, onOpenChange: n, elements: r } = e, i = E4(), a = O.useRef({}), [o] = O.useState(() => SWe()), s = RWe() != null, [c, l] = O.useState(r.reference), u = _Ue((e, t, r) => {
 		a.current.openEvent = e ? t : void 0, o.emit("openchange", {
 			open: e,
 			event: t,
 			reason: r,
 			nested: s
 		}), n?.(e, t, r);
-	}), d = k.useMemo(() => ({ setPositionReference: l }), []), f = k.useMemo(() => ({
+	}), d = O.useMemo(() => ({ setPositionReference: l }), []), f = O.useMemo(() => ({
 		reference: c || r.reference || null,
 		floating: r.floating || null,
 		domReference: r.reference
@@ -44923,7 +44923,7 @@ function EWe(e) {
 		r.reference,
 		r.floating
 	]);
-	return k.useMemo(() => ({
+	return O.useMemo(() => ({
 		dataRef: a,
 		open: t,
 		onOpenChange: u,
@@ -44949,7 +44949,7 @@ function DWe(e) {
 			floating: null,
 			...e.elements
 		}
-	}), r = e.rootContext || n, i = r.elements, [a, o] = k.useState(null), [s, c] = k.useState(null), l = i?.domReference || a, u = k.useRef(null), d = zWe();
+	}), r = e.rootContext || n, i = r.elements, [a, o] = O.useState(null), [s, c] = O.useState(null), l = i?.domReference || a, u = O.useRef(null), d = zWe();
 	p4(() => {
 		l && (u.current = l);
 	}, [l]);
@@ -44959,16 +44959,16 @@ function DWe(e) {
 			...i,
 			...s && { reference: s }
 		}
-	}), p = k.useCallback((e) => {
+	}), p = O.useCallback((e) => {
 		let t = C2(e) ? {
 			getBoundingClientRect: () => e.getBoundingClientRect(),
 			getClientRects: () => e.getClientRects(),
 			contextElement: e
 		} : e;
 		c(t), f.refs.setReference(t);
-	}, [f.refs]), m = k.useCallback((e) => {
+	}, [f.refs]), m = O.useCallback((e) => {
 		(C2(e) || e === null) && (u.current = e, o(e)), (C2(f.refs.reference.current) || f.refs.reference.current === null || e !== null && !C2(e)) && f.refs.setReference(e);
-	}, [f.refs]), h = k.useMemo(() => ({
+	}, [f.refs]), h = O.useMemo(() => ({
 		...f.refs,
 		setReference: m,
 		setPositionReference: p,
@@ -44977,10 +44977,10 @@ function DWe(e) {
 		f.refs,
 		m,
 		p
-	]), g = k.useMemo(() => ({
+	]), g = O.useMemo(() => ({
 		...f.elements,
 		domReference: l
-	}), [f.elements, l]), _ = k.useMemo(() => ({
+	}), [f.elements, l]), _ = O.useMemo(() => ({
 		...f,
 		...r,
 		refs: h,
@@ -44997,7 +44997,7 @@ function DWe(e) {
 		r.dataRef.current.floatingContext = _;
 		let e = d?.nodesRef.current.find((e) => e.id === t);
 		e && (e.context = _);
-	}), k.useMemo(() => ({
+	}), O.useMemo(() => ({
 		...f,
 		context: _,
 		refs: h,
@@ -45010,7 +45010,7 @@ function DWe(e) {
 	]);
 }
 var OWe, kWe, AWe, jWe, MWe, NWe, PWe, w4, FWe, T4, E4, IWe, LWe, RWe, zWe, BWe, D4, VWe, O4, k4, HWe, UWe = I((() => {
-	TUe(), L2(), bWe(), OWe = "ArrowLeft", kWe = "ArrowRight", AWe = "ArrowUp", jWe = "ArrowDown", MWe = [OWe, kWe], NWe = [AWe, jWe], [...MWe, ...NWe], PWe = { ...k }, w4 = !1, FWe = 0, T4 = () => "floating-ui-" + Math.random().toString(36).slice(2, 6) + FWe++, E4 = PWe.useId || xWe, IWe = /* @__PURE__ */ k.createContext(null), LWe = /* @__PURE__ */ k.createContext(null), RWe = () => k.useContext(IWe)?.id || null, zWe = () => k.useContext(LWe), BWe = {
+	TUe(), L2(), bWe(), OWe = "ArrowLeft", kWe = "ArrowRight", AWe = "ArrowUp", jWe = "ArrowDown", MWe = [OWe, kWe], NWe = [AWe, jWe], [...MWe, ...NWe], PWe = { ...O }, w4 = !1, FWe = 0, T4 = () => "floating-ui-" + Math.random().toString(36).slice(2, 6) + FWe++, E4 = PWe.useId || xWe, IWe = /* @__PURE__ */ O.createContext(null), LWe = /* @__PURE__ */ O.createContext(null), RWe = () => O.useContext(IWe)?.id || null, zWe = () => O.useContext(LWe), BWe = {
 		border: 0,
 		clip: "rect(0 0 0 0)",
 		height: "1px",
@@ -45022,8 +45022,8 @@ var OWe, kWe, AWe, jWe, MWe, NWe, PWe, w4, FWe, T4, E4, IWe, LWe, RWe, zWe, BWe,
 		width: "1px",
 		top: 0,
 		left: 0
-	}, D4 = /* @__PURE__ */ k.forwardRef(function(e, t) {
-		let [n, r] = k.useState();
+	}, D4 = /* @__PURE__ */ O.forwardRef(function(e, t) {
+		let [n, r] = O.useState();
 		p4(() => {
 			mUe() && r("button");
 		}, []);
@@ -45044,7 +45044,7 @@ var OWe, kWe, AWe, jWe, MWe, NWe, PWe, w4, FWe, T4, E4, IWe, LWe, RWe, zWe, BWe,
 		position: "fixed",
 		top: 0,
 		left: 0
-	}, O4 = /* @__PURE__ */ k.createContext(null), k4 = /* @__PURE__ */ CWe("portal"), HWe = () => k.useContext(O4);
+	}, O4 = /* @__PURE__ */ O.createContext(null), k4 = /* @__PURE__ */ CWe("portal"), HWe = () => O.useContext(O4);
 }));
 //#endregion
 //#region src/shell-shim/apps-finder.ts
@@ -45078,7 +45078,7 @@ function A4({ children: e }) {
 }
 function ZWe({ posterPath: e, title: t, fallbackEmoji: n, landscape: r }) {
 	return /* @__PURE__ */ P("div", {
-		className: ye("hidden flex-shrink-0 overflow-hidden rounded-xl shadow-2xl md:block", r ? "aspect-video w-[320px]" : "aspect-[2/3] w-[160px]"),
+		className: be("hidden flex-shrink-0 overflow-hidden rounded-xl shadow-2xl md:block", r ? "aspect-video w-[320px]" : "aspect-[2/3] w-[160px]"),
 		children: e ? /* @__PURE__ */ P("img", {
 			src: f(e, 300),
 			alt: t,
@@ -45094,7 +45094,7 @@ function QWe({ genres: e, tmdbId: t, imdbId: n, tvdbId: r, mediaType: i }) {
 	if (!e?.length && !t && !n && !r) return null;
 	let o = t ? `https://www.themoviedb.org/${i === "tv" ? "tv" : "movie"}/${t}` : null, s = n ? `https://www.imdb.com/title/${n}` : null, c = r ? `https://www.thetvdb.com/?id=${r}&tab=series` : null;
 	return /* @__PURE__ */ F(ke, { children: [
-		e?.map((e) => /* @__PURE__ */ P(O, {
+		e?.map((e) => /* @__PURE__ */ P(_e, {
 			color: "default",
 			children: o2(e.tmdbGenreId) ? a(o2(e.tmdbGenreId)) : e.name
 		}, e.id)),
@@ -45102,7 +45102,7 @@ function QWe({ genres: e, tmdbId: t, imdbId: n, tvdbId: r, mediaType: i }) {
 			href: o,
 			target: "_blank",
 			rel: "noopener noreferrer",
-			children: /* @__PURE__ */ P(O, {
+			children: /* @__PURE__ */ P(_e, {
 				color: "green",
 				children: "TMDB"
 			})
@@ -45111,7 +45111,7 @@ function QWe({ genres: e, tmdbId: t, imdbId: n, tvdbId: r, mediaType: i }) {
 			href: s,
 			target: "_blank",
 			rel: "noopener noreferrer",
-			children: /* @__PURE__ */ P(O, {
+			children: /* @__PURE__ */ P(_e, {
 				color: "orange",
 				children: "IMDB"
 			})
@@ -45120,7 +45120,7 @@ function QWe({ genres: e, tmdbId: t, imdbId: n, tvdbId: r, mediaType: i }) {
 			href: c,
 			target: "_blank",
 			rel: "noopener noreferrer",
-			children: /* @__PURE__ */ P(O, {
+			children: /* @__PURE__ */ P(_e, {
 				color: "purple",
 				children: "TVDB"
 			})
@@ -45176,7 +45176,7 @@ function $We({ directors: e, writers: t, date: n, dateLabel: r, countries: i }) 
 	}) : null;
 }
 function eGe() {
-	let [e, t] = N(null), [n, r] = N(!1), [i, a] = N(!1), [o, s] = N(!1), c = Oe(0), l = Oe(0), { refs: u, floatingStyles: d } = DWe({
+	let [e, t] = N(null), [n, r] = N(!1), [i, a] = N(!1), [o, s] = N(!1), c = M(0), l = M(0), { refs: u, floatingStyles: d } = DWe({
 		open: n,
 		placement: "bottom-start",
 		middleware: [
@@ -45194,7 +45194,7 @@ function eGe() {
 			})
 		],
 		whileElementsMounted: rWe
-	}), f = A(() => {
+	}), f = k(() => {
 		clearTimeout(c.current), clearTimeout(l.current);
 	}, []);
 	return {
@@ -45202,12 +45202,12 @@ function eGe() {
 		mounted: n,
 		visible: i,
 		sliding: o,
-		enter: A((e, n) => {
+		enter: k((e, n) => {
 			clearTimeout(c.current), clearTimeout(l.current);
 			let o = i;
 			u.setReference(e), t(n), r(!0), s(!!o), requestAnimationFrame(() => a(!0));
 		}, [u, i]),
-		leave: A(() => {
+		leave: k(() => {
 			c.current = window.setTimeout(() => {
 				a(!1), s(!1), l.current = window.setTimeout(() => {
 					r(!1), t(null);
@@ -45399,27 +45399,27 @@ function cGe({ file: e, playMeta: t }) {
 			}), /* @__PURE__ */ F("div", {
 				className: "pointer-events-none flex flex-wrap gap-1.5",
 				children: [
-					e.size != null && /* @__PURE__ */ P(O, {
+					e.size != null && /* @__PURE__ */ P(_e, {
 						size: "small",
 						color: "default",
 						children: XWe(e.size)
 					}),
-					e.videoCodec && /* @__PURE__ */ F(O, {
+					e.videoCodec && /* @__PURE__ */ F(_e, {
 						size: "small",
 						color: "blue",
 						children: [oGe(e.videoCodec), e.videoProfile ? ` ${e.videoProfile}` : ""]
 					}),
-					e.videoHeight != null && /* @__PURE__ */ P(O, {
+					e.videoHeight != null && /* @__PURE__ */ P(_e, {
 						size: "small",
 						color: "blue",
 						children: aGe(e.videoHeight)
 					}),
-					e.hdrType && e.hdrType !== "sdr" && /* @__PURE__ */ P(O, {
+					e.hdrType && e.hdrType !== "sdr" && /* @__PURE__ */ P(_e, {
 						size: "small",
 						color: "gold",
 						children: sGe(e.hdrType)
 					}),
-					e.audioStreams?.map((e, t) => /* @__PURE__ */ F(O, {
+					e.audioStreams?.map((e, t) => /* @__PURE__ */ F(_e, {
 						size: "small",
 						color: "cyan",
 						children: [
@@ -45428,7 +45428,7 @@ function cGe({ file: e, playMeta: t }) {
 							e.channels ? ` ${e.channels === 2 ? "Stereo" : e.channels === 1 ? "Mono" : `${e.channels}ch`}` : ""
 						]
 					}, `audio-${t}-${e.tags?.language ?? ""}-${e.codec_name ?? ""}-${e.channels ?? ""}`)),
-					e.subtitles?.map((e) => /* @__PURE__ */ F(O, {
+					e.subtitles?.map((e) => /* @__PURE__ */ F(_e, {
 						size: "small",
 						color: "purple",
 						children: [
@@ -45625,7 +45625,7 @@ function vGe(e) {
 }
 function yGe({ open: e, position: t, onResume: n, onRestart: r, onClose: i }) {
 	let { t: a } = L(), { shell: o, windowId: s } = g(), [c, l] = N(null);
-	return j(() => {
+	return A(() => {
 		l(o.getWindowContainer(s));
 	}, [o, s]), /* @__PURE__ */ P(ue, {
 		open: e,
@@ -45661,10 +45661,10 @@ function bGe() {
 		videoItemId: r,
 		limit: 1
 	}, { enabled: !!r }), [l, u] = N(null), { setBackgroundArt: d } = wHe(), p = a?.backdropPath ?? a?.posterPath;
-	j(() => (p && d(f(p, 1280) ?? null), () => {
+	A(() => (p && d(f(p, 1280) ?? null), () => {
 		d(null);
 	}), [p, d]);
-	let m = M(() => ({
+	let m = j(() => ({
 		title: a?.title ?? "",
 		poster: a?.posterPath,
 		sourceMetadata: g2({
@@ -45678,7 +45678,7 @@ function bGe() {
 		a?.id,
 		a?.imdbId,
 		a?.tmdbId
-	]), h = A((e, t, n) => {
+	]), h = k((e, t, n) => {
 		let r = a?.files?.find((t) => t.id === e);
 		r && s(r, {
 			...m,
@@ -45941,14 +45941,14 @@ function wGe({ episode: e, playMeta: t }) {
 }
 function TGe() {
 	let { t: e } = L(), { params: t, goBack: n } = N4(), r = t.tvShowId, { setBackgroundArt: i } = wHe(), { play: a } = d2(), { data: o, isLoading: s } = U.video.getTvShowDetail.useQuery({ id: r }, { enabled: !!r }), c = o?.seasons ?? [], [l, u] = N(null), d = c.find((e) => e.seasonNumber === l) ?? c[0];
-	j(() => (o?.backdropPath && i(f(o.backdropPath, 1280) ?? null), () => {
+	A(() => (o?.backdropPath && i(f(o.backdropPath, 1280) ?? null), () => {
 		i(null);
 	}), [o?.backdropPath, i]);
-	let p = M(() => {
+	let p = j(() => {
 		let e = /* @__PURE__ */ new Map();
 		for (let t of o?.seasons ?? []) for (let n of t.episodes ?? []) for (let t of n.files ?? []) e.set(t.id, n);
 		return e;
-	}, [o?.seasons]), m = A((t, n, r) => {
+	}, [o?.seasons]), m = k((t, n, r) => {
 		if (!o) return;
 		let i = p.get(t);
 		if (!i) return;
@@ -46089,7 +46089,7 @@ function OGe(e) {
 function N4() {
 	let { route: e, navigate: t, replace: n, goBack: r, canGoBack: i } = x(), { openWindow: a, openModalWindow: o } = y();
 	b();
-	let { params: s, ViewComponent: c, LazyViewComponent: l } = M(() => {
+	let { params: s, ViewComponent: c, LazyViewComponent: l } = j(() => {
 		let t = _He(e, Object.keys(M4));
 		if (!t) return {
 			params: {},
@@ -46102,10 +46102,10 @@ function N4() {
 			ViewComponent: n,
 			LazyViewComponent: n ? OGe(n) : null
 		};
-	}, [e]), u = A((t) => {
+	}, [e]), u = k((t) => {
 		n(e, t);
 	}, [n, e]);
-	return M(() => ({
+	return j(() => ({
 		route: e,
 		params: s,
 		navigate: t,
@@ -46155,7 +46155,7 @@ function MGe() {
 	return mee(kGe, AGe, AGe);
 }
 function NGe(e, t) {
-	j(() => {
+	A(() => {
 		jGe(e ?? null, t ?? null);
 	}, [e, t]);
 }
@@ -46165,18 +46165,18 @@ var I4, L4, PGe = I((() => {
 		type: null
 	}, L4 = /* @__PURE__ */ new Set();
 })), R4, z4 = I((() => {
-	R4 = Se({});
+	R4 = Ce({});
 }));
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/utils/use-constant.mjs
 function FGe(e) {
-	let t = Oe(null);
+	let t = M(null);
 	return t.current === null && (t.current = e()), t.current;
 }
 var IGe = I((() => {})), B4, V4 = I((() => {
-	B4 = Se(null);
+	B4 = Ce(null);
 })), H4, U4 = I((() => {
-	H4 = Se({
+	H4 = Ce({
 		transformPagePoint: (e) => e,
 		isStatic: !1,
 		reducedMotion: "never"
@@ -46185,13 +46185,13 @@ var IGe = I((() => {})), B4, V4 = I((() => {
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence.mjs
 function LGe(e = !0) {
-	let t = Ee(B4);
+	let t = De(B4);
 	if (t === null) return [!0, null];
 	let { isPresent: n, onExitComplete: r, register: i } = t, a = fee();
-	j(() => {
+	A(() => {
 		e && i(a);
 	}, [e]);
-	let o = A(() => e && r && r(a), [
+	let o = k(() => e && r && r(a), [
 		a,
 		r,
 		e
@@ -46203,7 +46203,7 @@ var RGe = I((() => {
 })), W4, G4 = I((() => {
 	W4 = typeof window < "u";
 })), zGe, BGe = I((() => {
-	G4(), zGe = W4 ? De : j;
+	G4(), zGe = W4 ? Oe : A;
 })), K4, VGe = I((() => {
 	K4 = /* @__NO_SIDE_EFFECTS__ */ (e) => e;
 })), q4, J4, HGe = I((() => {
@@ -46298,7 +46298,7 @@ var t3, YGe, n3 = I((() => {
 })), G, r3, i3, a3, o3 = I((() => {
 	W(), n3(), {schedule: G, cancel: r3, state: i3, steps: a3} = JGe(typeof requestAnimationFrame < "u" ? requestAnimationFrame : K4, !0);
 })), s3, c3 = I((() => {
-	s3 = Se({ strict: !1 });
+	s3 = Ce({ strict: !1 });
 })), l3, u3, d3 = I((() => {
 	l3 = {
 		animation: [
@@ -46385,7 +46385,7 @@ function oKe(e) {
 	return new Proxy((...t) => e(...t), { get: (n, r) => r === "create" ? e : (t.has(r) || t.set(r, e(r)), t.get(r)) });
 }
 var sKe = I((() => {})), m3, h3 = I((() => {
-	m3 = Se({});
+	m3 = Ce({});
 }));
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/render/utils/is-variant-label.mjs
@@ -46438,8 +46438,8 @@ var uKe = I((() => {
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/context/MotionContext/create.mjs
 function dKe(e) {
-	let { initial: t, animate: n } = lKe(e, Ee(m3));
-	return M(() => ({
+	let { initial: t, animate: n } = lKe(e, De(m3));
+	return j(() => ({
 		initial: t,
 		animate: n
 	}), [fKe(t), fKe(n)]);
@@ -46461,7 +46461,7 @@ var E3 = I((() => {}));
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/motion/utils/use-motion-ref.mjs
 function gKe(e, t, n) {
-	return A((r) => {
+	return k((r) => {
 		r && e.onMount && e.onMount(r), t && (r ? t.mount(r) : t.unmount()), n && (typeof n == "function" ? n(r) : T3(n) && (n.current = r));
 	}, [t]);
 }
@@ -46474,12 +46474,12 @@ var _Ke = I((() => {
 })), j3, yKe, M3 = I((() => {
 	n3(), {schedule: j3, cancel: yKe} = JGe(queueMicrotask, !1);
 })), N3, P3 = I((() => {
-	N3 = Se({});
+	N3 = Ce({});
 }));
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/motion/utils/use-visual-element.mjs
 function bKe(e, t, n, r, i) {
-	let { visualElement: a } = Ee(m3), o = Ee(s3), s = Ee(B4), c = Ee(H4).reducedMotion, l = Oe(null);
+	let { visualElement: a } = De(m3), o = De(s3), s = De(B4), c = De(H4).reducedMotion, l = M(null);
 	r ||= o.renderer, !l.current && r && (l.current = r(e, {
 		visualState: t,
 		parent: a,
@@ -46488,16 +46488,16 @@ function bKe(e, t, n, r, i) {
 		blockInitialAnimation: s ? s.initial === !1 : !1,
 		reducedMotionConfig: c
 	}));
-	let u = l.current, d = Ee(N3);
+	let u = l.current, d = De(N3);
 	u && !u.projection && i && (u.type === "html" || u.type === "svg") && xKe(l.current, n, i, d);
-	let f = Oe(!1);
+	let f = M(!1);
 	pee(() => {
 		u && f.current && u.update(n, s);
 	});
-	let p = n[k3], m = Oe(!!p && !window.MotionHandoffIsComplete?.call(window, p) && window.MotionHasOptimisedAnimation?.call(window, p));
+	let p = n[k3], m = M(!!p && !window.MotionHandoffIsComplete?.call(window, p) && window.MotionHasOptimisedAnimation?.call(window, p));
 	return zGe(() => {
 		u && (f.current = !0, window.MotionIsMounted = !0, u.updateFeatures(), j3.render(u.render), m.current && u.animationState && u.animationState.animateChanges());
-	}), j(() => {
+	}), A(() => {
 		u && (!m.current && u.animationState && u.animationState.animateChanges(), m.current &&= (queueMicrotask(() => {
 			var e;
 			(e = window.MotionHandoffMarkAsComplete) == null || e.call(window, p);
@@ -46529,7 +46529,7 @@ function wKe({ preloadedFeatures: e, createVisualElement: t, useRender: n, useVi
 	e && XGe(e);
 	function a(a, o) {
 		let s, c = {
-			...Ee(H4),
+			...De(H4),
 			...a,
 			layoutId: TKe(a)
 		}, { isStatic: l } = c, u = dKe(a), d = r(a, l);
@@ -46547,15 +46547,15 @@ function wKe({ preloadedFeatures: e, createVisualElement: t, useRender: n, useVi
 		});
 	}
 	a.displayName = `motion.${typeof i == "string" ? i : `create(${i.displayName ?? i.name ?? ""})`}`;
-	let o = we(a);
+	let o = Te(a);
 	return o[mKe] = i, o;
 }
 function TKe({ layoutId: e }) {
-	let t = Ee(R4).id;
+	let t = De(R4).id;
 	return t && e !== void 0 ? t + "-" + e : e;
 }
 function EKe(e, t) {
-	Ee(s3).strict;
+	De(s3).strict;
 }
 function DKe(e) {
 	let { drag: t, layout: n } = u3;
@@ -46686,7 +46686,7 @@ function LKe(e, t, n, r) {
 }
 var W3, G3 = I((() => {
 	y3(), h3(), V4(), w3(), R3(), IGe(), U3(), W3 = (e) => (t, n) => {
-		let r = Ee(m3), i = Ee(B4), a = () => IKe(e, t, r, i);
+		let r = De(m3), i = De(B4), a = () => IKe(e, t, r, i);
 		return n ? a() : FGe(a);
 	};
 })), K3, q3, J3 = I((() => {
@@ -47065,7 +47065,7 @@ function xqe(e, t, n) {
 	for (let r in t) !B3(t[r]) && !fqe(r, n) && (e[r] = t[r]);
 }
 function Sqe({ transformTemplate: e }, t) {
-	return M(() => {
+	return j(() => {
 		let n = v6();
 		return m6(n, t, e), Object.assign({}, n.vars, n.style);
 	}, [t]);
@@ -47084,7 +47084,7 @@ var Tqe = I((() => {
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/render/svg/use-props.mjs
 function Eqe(e, t, n, r) {
-	let i = M(() => {
+	let i = j(() => {
 		let n = b6();
 		return g6(n, t, x6(r), e.transformTemplate), {
 			...n.attrs,
@@ -47111,8 +47111,8 @@ function Oqe(e = !1) {
 			...s,
 			...o,
 			ref: r
-		}, { children: l } = n, u = M(() => B3(l) ? l.get() : l, [l]);
-		return Ce(t, {
+		}, { children: l } = n, u = j(() => B3(l) ? l.get() : l, [l]);
+		return we(t, {
 			...c,
 			children: u
 		});
@@ -49828,11 +49828,11 @@ var E7, jQe = I((() => {
 //#endregion
 //#region node_modules/.pnpm/framer-motion@11.18.2_react-dom@19.2.6_react@19.2.6__react@19.2.6/node_modules/framer-motion/dist/es/motion/features/layout/MeasureLayout.mjs
 function PQe(e) {
-	let [t, n] = LGe(), r = Ee(R4);
+	let [t, n] = LGe(), r = De(R4);
 	return P(FQe, {
 		...e,
 		layoutGroup: r,
-		switchLayoutGroup: Ee(N3),
+		switchLayoutGroup: De(N3),
 		isPresent: t,
 		safeToRemove: n
 	});
@@ -51093,25 +51093,25 @@ function Y1e({ label: e, active: t, onClick: n }) {
 	return /* @__PURE__ */ P("button", {
 		type: "button",
 		onClick: n,
-		className: ye("cursor-pointer whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium transition-colors", t ? "bg-[var(--accent)] text-white" : "text-fg-secondary hover:text-fg-primary"),
+		className: be("cursor-pointer whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium transition-colors", t ? "bg-[var(--accent)] text-white" : "text-fg-secondary hover:text-fg-primary"),
 		children: e
 	});
 }
 function X1e({ filters: e, onChange: t, genreOptions: n, countryOptions: r, showRuntime: i = !1 }) {
-	let { t: a } = L(), o = A((n, r) => {
+	let { t: a } = L(), o = k((n, r) => {
 		t({
 			...e,
 			[n]: e[n] === r ? "" : r
 		});
-	}, [e, t]), s = M(() => {
+	}, [e, t]), s = j(() => {
 		let t = 0;
 		return e.sortBy && e.sortBy !== "addedAt" && t++, e.genreId && t++, e.country && t++, e.runtime && t++, e.favorite && t++, e.resolution && t++, t;
-	}, [e]), c = A(() => {
+	}, [e]), c = k(() => {
 		t(Y7);
 	}, [t]);
 	return /* @__PURE__ */ F("div", {
 		className: "space-y-1",
-		children: [M(() => {
+		children: [j(() => {
 			let e = [{
 				key: "sortBy",
 				label: a("media.video.filter.sort"),
@@ -51146,7 +51146,7 @@ function X1e({ filters: e, onChange: t, genreOptions: n, countryOptions: r, show
 		]).map((t) => /* @__PURE__ */ F("div", {
 			className: "flex items-start gap-2 py-1.5",
 			children: [/* @__PURE__ */ P("span", {
-				className: ye("w-14 shrink-0 pt-1 text-[13px] font-semibold", e[t.key] ? "text-[var(--accent)]" : "text-fg-secondary"),
+				className: be("w-14 shrink-0 pt-1 text-[13px] font-semibold", e[t.key] ? "text-[var(--accent)]" : "text-fg-secondary"),
 				children: t.label
 			}), /* @__PURE__ */ F("div", {
 				className: "flex flex-wrap items-center gap-1",
@@ -51326,7 +51326,7 @@ function r0e({ item: e, onClick: t, landscape: n }) {
 		] }),
 		onClick: t,
 		children: [/* @__PURE__ */ P("p", {
-			className: ye("truncate text-sm font-medium", e.isFavorite ? "text-[var(--accent)]" : "text-fg-primary"),
+			className: be("truncate text-sm font-medium", e.isFavorite ? "text-[var(--accent)]" : "text-fg-primary"),
 			title: e.title,
 			children: e.title
 		}), (() => {
@@ -51359,130 +51359,130 @@ function i0e(e) {
 		sortDir: "desc"
 	};
 }
-function a0e({ category: e, syncing: t }) {
-	let { navigate: n } = N4(), { t: r } = L(), i = e.id, a = e.type, o = a === "tv" || a === "anime", s = a === "online_video", [c, l] = N(1), [u, d] = N(Y7), f = Oe(null), [m, h] = N(0);
-	j(() => {
-		let e = f.current;
+function a0e({ category: e }) {
+	let { navigate: t } = N4(), { t: n } = L(), r = e.id, i = e.type, a = i === "tv" || i === "anime", o = i === "online_video", [s, c] = N(1), [l, u] = N(Y7), d = M(null), [f, m] = N(0);
+	A(() => {
+		let e = d.current;
 		if (!e) return;
-		h(e.getBoundingClientRect().width);
+		m(e.getBoundingClientRect().width);
 		let t = new ResizeObserver((e) => {
-			h(e[0].contentRect.width);
+			m(e[0].contentRect.width);
 		});
 		return t.observe(e), () => t.disconnect();
 	}, []);
-	let g = s ? 260 : X7, _ = M(() => m > 0 ? Math.max(2, Math.floor((m + Z7) / (g + Z7))) : s ? 3 : 4, [
-		m,
-		g,
-		s
-	]), v = M(() => {
+	let h = o ? 260 : X7, g = j(() => f > 0 ? Math.max(2, Math.floor((f + Z7) / (h + Z7))) : o ? 3 : 4, [
+		f,
+		h,
+		o
+	]), _ = j(() => {
 		let e = Math.max(2, Math.floor((window.innerWidth * .7 + Z7) / (X7 + Z7))), t = window.innerWidth * .7 / e, n = Math.round(t * 1.5) + o0e, r = Math.ceil(window.innerHeight / (n + Z7));
 		return Math.max(e * (r + 6), 24);
-	}, []), y = i0e(u.sortBy || "addedAt"), b = U.video.listGenres.useQuery({ id: i }, { enabled: !!i }).data ?? [], x = U.video.listCountries.useQuery({ id: i }, { enabled: !!i }).data ?? [], S = U.video.listVideoItems.useQuery({
-		id: i,
-		page: c,
-		pageSize: v,
-		...y,
-		genreId: u.genreId || void 0,
-		country: u.country || void 0,
-		favorite: u.favorite === "true" ? !0 : void 0,
-		resolution: u.resolution || void 0,
-		runtime: u.runtime || void 0
-	}, { enabled: !!i && !o && v > 0 }), C = U.video.listTvShows.useQuery({
-		id: i,
-		page: c,
-		pageSize: v,
-		...y,
-		genreId: u.genreId || void 0,
-		country: u.country || void 0,
-		favorite: u.favorite === "true" ? !0 : void 0,
-		resolution: u.resolution || void 0
-	}, { enabled: !!i && o && v > 0 }), w = o ? C : S, { items: T, total: ee, hasMore: E, sentinelRef: te, reset: ne } = p({
-		queryData: w.data,
-		isFetching: w.isFetching,
-		onLoadMore: () => l((e) => e + 1),
-		enabled: !t
-	}), re = A(() => {
-		ne(), l(1);
-	}, [ne]), ie = w.isLoading || T.length === 0 && w.isFetching;
-	j(() => {
-		re(), d(Y7);
-	}, [i]);
-	let oe = A((e) => {
-		o ? n(`/tv/${e.id}`, `TokimoVideo · ${e.title ?? "TV Show"}`) : n(`/movies/${e.id}`, `TokimoVideo · ${e.title ?? "Movie"}`);
-	}, [o, n]), D = A((e) => {
-		d(e), re();
-	}, [re]), se = M(() => {
+	}, []), v = i0e(l.sortBy || "addedAt"), y = U.video.listGenres.useQuery({ id: r }, { enabled: !!r }).data ?? [], b = U.video.listCountries.useQuery({ id: r }, { enabled: !!r }).data ?? [], x = U.video.listVideoItems.useQuery({
+		id: r,
+		page: s,
+		pageSize: _,
+		...v,
+		genreId: l.genreId || void 0,
+		country: l.country || void 0,
+		favorite: l.favorite === "true" ? !0 : void 0,
+		resolution: l.resolution || void 0,
+		runtime: l.runtime || void 0
+	}, { enabled: !!r && !a && _ > 0 }), S = U.video.listTvShows.useQuery({
+		id: r,
+		page: s,
+		pageSize: _,
+		...v,
+		genreId: l.genreId || void 0,
+		country: l.country || void 0,
+		favorite: l.favorite === "true" ? !0 : void 0,
+		resolution: l.resolution || void 0
+	}, { enabled: !!r && a && _ > 0 }), C = a ? S : x, { items: w, total: T, hasMore: ee, sentinelRef: E, reset: te } = p({
+		queryData: C.data,
+		isFetching: C.isFetching,
+		onLoadMore: () => c((e) => e + 1),
+		enabled: !0
+	}), ne = k(() => {
+		te(), c(1);
+	}, [te]), re = C.isLoading || w.length === 0 && C.isFetching;
+	A(() => {
+		ne(), u(Y7);
+	}, [r]);
+	let ie = k((e) => {
+		a ? t(`/tv/${e.id}`, `TokimoVideo · ${e.title ?? "TV Show"}`) : t(`/movies/${e.id}`, `TokimoVideo · ${e.title ?? "Movie"}`);
+	}, [a, t]), oe = k((e) => {
+		u(e), ne();
+	}, [ne]), D = j(() => {
 		let e = 0;
-		return u.sortBy && u.sortBy !== "addedAt" && e++, u.genreId && e++, u.country && e++, u.runtime && e++, u.favorite && e++, u.resolution && e++, e;
-	}, [u]), ce = M(() => b.map((e) => {
+		return l.sortBy && l.sortBy !== "addedAt" && e++, l.genreId && e++, l.country && e++, l.runtime && e++, l.favorite && e++, l.resolution && e++, e;
+	}, [l]), se = j(() => y.map((e) => {
 		let t = o2(e.tmdbGenreId);
 		return {
-			label: t ? r(t) : e.name,
+			label: t ? n(t) : e.name,
 			value: e.id
 		};
-	}), [b, r]), le = M(() => x.map((e) => ({
-		label: r(J1e(e)),
+	}), [y, n]), ce = j(() => b.map((e) => ({
+		label: n(J1e(e)),
 		value: e
-	})), [x, r]);
+	})), [b, n]);
 	return /* @__PURE__ */ F("div", {
 		className: "flex h-full flex-col overflow-y-auto p-4",
 		children: [
 			/* @__PURE__ */ P("div", {
 				className: "sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-[var(--bg-primary)] px-4 pt-4 pb-3",
 				children: /* @__PURE__ */ P(K1e, {
-					appId: i,
-					searchType: o ? "tv" : "movie",
-					placeholder: r(o ? "media.sidebar.searchTvPlaceholder" : "media.sidebar.searchMoviePlaceholder"),
+					appId: r,
+					searchType: a ? "tv" : "movie",
+					placeholder: n(a ? "media.sidebar.searchTvPlaceholder" : "media.sidebar.searchMoviePlaceholder"),
 					onSelect: (e) => {
-						o ? n(`/tv/${e.id}`, `TokimoVideo · ${e.title ?? "TV Show"}`) : n(`/movies/${e.id}`, `TokimoVideo · ${e.title ?? "Movie"}`);
+						a ? t(`/tv/${e.id}`, `TokimoVideo · ${e.title ?? "TV Show"}`) : t(`/movies/${e.id}`, `TokimoVideo · ${e.title ?? "Movie"}`);
 					}
 				})
 			}),
 			/* @__PURE__ */ P("div", {
 				className: "rounded-lg border border-white/8 bg-black/20 px-4 py-3 backdrop-blur-md",
 				children: /* @__PURE__ */ P(X1e, {
-					filters: u,
-					onChange: D,
-					genreOptions: ce,
-					countryOptions: le,
-					showRuntime: !o
+					filters: l,
+					onChange: oe,
+					genreOptions: se,
+					countryOptions: ce,
+					showRuntime: !a
 				})
 			}),
 			/* @__PURE__ */ P("div", {
-				ref: f,
+				ref: d,
 				className: "mt-3 min-h-0 flex-1",
-				children: (ie || t) && T.length === 0 ? /* @__PURE__ */ P("div", {
+				children: re && w.length === 0 ? /* @__PURE__ */ P("div", {
 					className: "flex h-full items-center justify-center",
 					children: /* @__PURE__ */ P(ge, {})
-				}) : T.length === 0 ? /* @__PURE__ */ P(ae, {
+				}) : w.length === 0 ? /* @__PURE__ */ P(ae, {
 					className: "flex h-full items-center justify-center",
-					description: r(se > 0 ? "media.sidebar.emptyFiltered" : "media.sidebar.emptySyncFirst")
+					description: n(D > 0 ? "media.sidebar.emptyFiltered" : "media.sidebar.emptySyncFirst")
 				}) : /* @__PURE__ */ F(ke, { children: [
 					/* @__PURE__ */ P("div", {
 						style: {
 							display: "grid",
-							gridTemplateColumns: `repeat(${_}, minmax(0, 1fr))`,
+							gridTemplateColumns: `repeat(${g}, minmax(0, 1fr))`,
 							gap: Z7
 						},
-						children: T.map((e) => /* @__PURE__ */ P(H1e.div, {
+						children: w.map((e) => /* @__PURE__ */ P(H1e.div, {
 							layout: !0,
 							transition: s0e,
 							children: /* @__PURE__ */ P(r0e, {
 								item: e,
-								landscape: s,
-								onClick: () => oe(e)
+								landscape: o,
+								onClick: () => ie(e)
 							})
 						}, e.id))
 					}),
 					/* @__PURE__ */ P("div", {
-						ref: te,
+						ref: E,
 						className: "h-px"
 					}),
 					/* @__PURE__ */ F("div", {
 						className: "mt-2 flex justify-center py-3",
-						children: [w.isFetching && /* @__PURE__ */ P(ge, {}), !E && ee > 0 && !w.isFetching && /* @__PURE__ */ P("p", {
+						children: [C.isFetching && /* @__PURE__ */ P(ge, {}), !ee && T > 0 && !C.isFetching && /* @__PURE__ */ P("p", {
 							className: "text-xs text-fg-muted",
-							children: r("media.sidebar.allLoaded", { total: ee })
+							children: n("media.sidebar.allLoaded", { total: T })
 						})]
 					})
 				] })
@@ -51534,7 +51534,7 @@ function p0e({ icon: e, iconComponent: t, image: n, color: r, size: i = 40, surf
 			color: g
 		}
 	}) : l ? /* @__PURE__ */ P("span", {
-		className: ye("text-center leading-none", d && "text-white"),
+		className: be("text-center leading-none", d && "text-white"),
 		style: {
 			fontSize: i * m,
 			whiteSpace: "nowrap"
@@ -51544,7 +51544,7 @@ function p0e({ icon: e, iconComponent: t, image: n, color: r, size: i = 40, surf
 	return s ? /* @__PURE__ */ P("button", {
 		type: "button",
 		"data-app-icon": !0,
-		className: ye(v, f, "cursor-pointer hover:ring-4 hover:ring-black/10 dark:hover:ring-white/10 transition-all", o),
+		className: be(v, f, "cursor-pointer hover:ring-4 hover:ring-black/10 dark:hover:ring-white/10 transition-all", o),
 		style: {
 			width: i,
 			height: i,
@@ -51554,7 +51554,7 @@ function p0e({ icon: e, iconComponent: t, image: n, color: r, size: i = 40, surf
 		children: _
 	}) : /* @__PURE__ */ P("div", {
 		"data-app-icon": !0,
-		className: ye(v, f, o),
+		className: be(v, f, o),
 		style: {
 			width: i,
 			height: i,
@@ -51618,7 +51618,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 	}) }], p = /* @__PURE__ */ F("div", {
 		className: "flex flex-col items-center gap-1",
 		children: [
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.newLibrary"),
 				placement: "right",
 				children: /* @__PURE__ */ P("button", {
@@ -51628,7 +51628,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 					children: /* @__PURE__ */ P(AG, { className: "h-4 w-4" })
 				})
 			}),
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.librarySettings"),
 				placement: "right",
 				children: /* @__PURE__ */ P("button", {
@@ -51638,7 +51638,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 					children: /* @__PURE__ */ P(rJ, { className: "h-4 w-4" })
 				})
 			}),
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.expand"),
 				placement: "right",
 				children: /* @__PURE__ */ P("button", {
@@ -51652,7 +51652,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 	}), m = /* @__PURE__ */ F("div", {
 		className: "flex items-center gap-1",
 		children: [
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.newLibrary"),
 				children: /* @__PURE__ */ P("button", {
 					type: "button",
@@ -51661,7 +51661,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 					children: /* @__PURE__ */ P(AG, { className: "h-4 w-4" })
 				})
 			}),
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.librarySettings"),
 				children: /* @__PURE__ */ P("button", {
 					type: "button",
@@ -51670,7 +51670,7 @@ function g0e({ categories: e, activeId: t, onSelect: n, collapsed: r, onCreateCl
 					children: /* @__PURE__ */ P(rJ, { className: "h-4 w-4" })
 				})
 			}),
-			/* @__PURE__ */ P(ve, {
+			/* @__PURE__ */ P(ye, {
 				title: d("media.sidebar.collapse"),
 				children: /* @__PURE__ */ P("button", {
 					type: "button",
@@ -56036,7 +56036,7 @@ var _0e = I((() => {
 function j9(e, n, r) {
 	return /* @__PURE__ */ P(Xe, {
 		i18n: k9,
-		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
+		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(ve, { children: /* @__PURE__ */ P(t, {
 			client: n,
 			children: /* @__PURE__ */ P(a, {
 				value: e,
@@ -56203,13 +56203,13 @@ var s2e, c2e, R9, l2e, u2e = I((() => {
 function d2e({ binding: e, index: t, sources: n, onUpdate: r, onRemove: i, onSetDefault: a, hideDefaultToggle: o = !1 }) {
 	let { t: s } = L();
 	return /* @__PURE__ */ F("div", {
-		className: ye("rounded-xl border p-4 transition-all", e.isDefaultDownload && !o ? "border-green-300 dark:border-green-700 bg-green-50/40 dark:bg-green-950/15" : "border-border-base bg-white/50 dark:bg-white/[0.02]"),
+		className: be("rounded-xl border p-4 transition-all", e.isDefaultDownload && !o ? "border-green-300 dark:border-green-700 bg-green-50/40 dark:bg-green-950/15" : "border-border-base bg-white/50 dark:bg-white/[0.02]"),
 		children: [
 			/* @__PURE__ */ F("div", {
 				className: "flex items-start justify-between mb-3",
 				children: [/* @__PURE__ */ F("div", {
 					className: "flex items-center gap-2",
-					children: [/* @__PURE__ */ P(O, {
+					children: [/* @__PURE__ */ P(_e, {
 						color: "success",
 						className: "text-xs",
 						children: s("media.videoBindings.fileSource")
@@ -56249,10 +56249,10 @@ function d2e({ binding: e, index: t, sources: n, onUpdate: r, onRemove: i, onSet
 	});
 }
 function f2e({ sources: e, form: t, initialSources: n, maxBindings: r }) {
-	let { t: i } = L(), a = Oe(0), [o, s] = N([]), c = Oe(!1), l = A((e) => {
+	let { t: i } = L(), a = M(0), [o, s] = N([]), c = M(!1), l = k((e) => {
 		s(e), t.setFieldValue("bindings", e);
 	}, [t]);
-	j(() => {
+	A(() => {
 		c.current || (c.current = !0, l((n ?? []).map((e) => ({
 			_key: a.current++,
 			sourceId: e.sourceId,
@@ -57022,13 +57022,13 @@ function V2e() {
 	return { enabled: !1 };
 }
 function H2e(e, t) {
-	return M(() => e.map((e) => ({
+	return j(() => e.map((e) => ({
 		key: e.key,
 		label: t(`media.organizingSettings.placeholders.${e.descKey}`)
 	})), [e, t]);
 }
 function U2e({ form: e, sampleData: t, seasonFolder: n, defaultFolder: r, defaultFile: i, contentType: a }) {
-	let { t: o } = L(), s = xe("folderFormat", e) || r, c = xe("fileFormat", e) || i, l = a === "photo" ? ".jpg" : ".mkv", u = h2e(s, t), d = h2e(c, t), f = [
+	let { t: o } = L(), s = Se("folderFormat", e) || r, c = Se("fileFormat", e) || i, l = a === "photo" ? ".jpg" : ".mkv", u = h2e(s, t), d = h2e(c, t), f = [
 		u,
 		n,
 		d ? `${d}${l}` : ""
@@ -57085,15 +57085,15 @@ function W2e({ items: e }) {
 	});
 }
 function G2e({ form: e }) {
-	let { t } = L(), n = xe("type", e), r = xe("organizeLang", e), i = V2e().enabled, a = Oe(n);
-	j(() => {
+	let { t } = L(), n = Se("type", e), r = Se("organizeLang", e), i = V2e().enabled, a = M(n);
+	A(() => {
 		if (!n || n === a.current) return;
 		let t = a.current;
 		a.current = n;
 		let r = t ? N9(t) : "", i = t ? P9(t) : "", o = e.getFieldValue("folderFormat") ?? "", s = e.getFieldValue("fileFormat") ?? "";
 		(!o || o === r) && e.setFieldValue("folderFormat", N9(n)), (!s || s === i) && e.setFieldValue("fileFormat", P9(n));
 	}, [n, e]);
-	let o = m2e(n ?? "movie"), s = H2e(o, t), c = r || "zh-CN", l = M(() => {
+	let o = m2e(n ?? "movie"), s = H2e(o, t), c = r || "zh-CN", l = j(() => {
 		let e = k2e(n ?? "movie", c);
 		return Object.fromEntries(Object.entries(e).map(([e, n]) => [e, n.startsWith("media.organize.samples.") ? t(n) : n]));
 	}, [
@@ -57106,7 +57106,7 @@ function G2e({ form: e }) {
 	if (f && !i) return null;
 	let v = m ? "Season 1" : void 0;
 	return /* @__PURE__ */ F("div", {
-		className: ye("space-y-2"),
+		className: be("space-y-2"),
 		children: [
 			/* @__PURE__ */ P(D.Item, {
 				name: "linkMode",
@@ -57311,7 +57311,7 @@ function Z2e({ info: e, selected: t, onClick: n }) {
 	return /* @__PURE__ */ F("button", {
 		type: "button",
 		onClick: n,
-		className: ye("group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3.5 text-center transition-all duration-150 cursor-pointer", t ? "border-[var(--accent)] bg-[var(--accent)]/8 shadow-sm" : "border-transparent bg-fill-secondary hover:border-[var(--accent)]/40 hover:bg-fill-tertiary"),
+		className: be("group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3.5 text-center transition-all duration-150 cursor-pointer", t ? "border-[var(--accent)] bg-[var(--accent)]/8 shadow-sm" : "border-transparent bg-fill-secondary hover:border-[var(--accent)]/40 hover:bg-fill-tertiary"),
 		children: [
 			t && /* @__PURE__ */ P("span", {
 				className: "absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)]",
@@ -57321,14 +57321,14 @@ function Z2e({ info: e, selected: t, onClick: n }) {
 				})
 			}),
 			/* @__PURE__ */ P("div", {
-				className: ye("flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-105", e.bgClass),
+				className: be("flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-105", e.bgClass),
 				children: /* @__PURE__ */ P(e.icon, {
-					className: ye("h-[22px] w-[22px]", e.textClass),
+					className: be("h-[22px] w-[22px]", e.textClass),
 					"aria-hidden": !0
 				})
 			}),
 			/* @__PURE__ */ P("p", {
-				className: ye("text-xs font-semibold leading-tight", t ? "text-[var(--accent-text)]" : "text-fg-primary"),
+				className: be("text-xs font-semibold leading-tight", t ? "text-[var(--accent-text)]" : "text-fg-primary"),
 				children: r(e.label)
 			}),
 			/* @__PURE__ */ P("p", {
@@ -57355,14 +57355,14 @@ function K9(e) {
 	return e instanceof Error ? e.message : String(e);
 }
 function t4e() {
-	let { t: e } = L(), t = be(), n = U.video.ytdlpStatus.useQuery(), r = n.data, [i, a] = N(null), [o, s] = N(!1), c = r?.latestVersion ?? i ?? null, l = !!(r?.version && c && r.version === c), u = U.video.updateYtdlp.useMutation({
+	let { t: e } = L(), t = xe(), n = U.video.ytdlpStatus.useQuery(), r = n.data, [i, a] = N(null), [o, s] = N(!1), c = r?.latestVersion ?? i ?? null, l = !!(r?.version && c && r.version === c), u = U.video.updateYtdlp.useMutation({
 		onSuccess: (n) => {
 			t.success(e(`${Q}.ytdlp.updateSuccess`, { version: n.version }));
 		},
 		onError: (n) => {
 			t.error(e(`${Q}.ytdlp.updateFailed`, { error: K9(n) }));
 		}
-	}), d = A(async () => {
+	}), d = k(async () => {
 		s(!0);
 		try {
 			let r = await n.refetch();
@@ -57385,21 +57385,21 @@ function t4e() {
 		t,
 		e,
 		n
-	]), f = U.videoOnlineMedia.providers.useQuery(), p = U.videoOnlineMedia.authSettings.useQuery(), m = U.videoOnlineMedia.updateAuthSetting.useMutation(), h = f.data?.providers ?? [], g = p.data ?? [], _ = M(() => {
+	]), f = U.videoOnlineMedia.providers.useQuery(), p = U.videoOnlineMedia.authSettings.useQuery(), m = U.videoOnlineMedia.updateAuthSetting.useMutation(), h = f.data?.providers ?? [], g = p.data ?? [], _ = j(() => {
 		let e = /* @__PURE__ */ new Map();
 		for (let t of g) e.set(t.providerId, "");
 		return e;
 	}, [g]), [v, y] = N(/* @__PURE__ */ new Map()), [b, x] = N(/* @__PURE__ */ new Set()), [C, w] = N(!1);
-	j(() => {
+	A(() => {
 		y(new Map(_)), x(/* @__PURE__ */ new Set());
 	}, [_]);
-	let T = b.size > 0, ee = A((e, t) => {
+	let T = b.size > 0, ee = k((e, t) => {
 		y((n) => new Map(n).set(e, t)), x((t) => new Set(t).add(e));
-	}, []), te = A(() => {
+	}, []), te = k(() => {
 		y(new Map(_)), x(/* @__PURE__ */ new Set());
-	}, [_]), ne = A((e) => {
+	}, [_]), ne = k((e) => {
 		y((t) => new Map(t).set(e, "")), x((t) => new Set(t).add(e));
-	}, []), re = A(async () => {
+	}, []), re = k(async () => {
 		w(!0);
 		try {
 			for (let e of b) {
@@ -57499,7 +57499,7 @@ function t4e() {
 											className: "text-fg-muted",
 											children: c ?? e(`${Q}.ytdlp.unknown`)
 										}),
-										l && /* @__PURE__ */ P(O, {
+										l && /* @__PURE__ */ P(_e, {
 											color: "success",
 											size: "small",
 											children: e(`${Q}.ytdlp.alreadyLatest`)
@@ -57548,7 +57548,7 @@ function t4e() {
 							return n?.requiresAuth && a.push(e(`${Q}.cookies.requiresAuth`)), n?.authConfigurable && a.push(e(`${Q}.cookies.configurable`)), i && a.push(e(`${Q}.cookies.sources`, { sites: i })), /* @__PURE__ */ F(he, {
 								label: /* @__PURE__ */ F("div", {
 									className: "flex items-center gap-2",
-									children: [/* @__PURE__ */ P("span", { children: t.displayName ?? t.providerId }), n?.requiresAuth && /* @__PURE__ */ P(O, {
+									children: [/* @__PURE__ */ P("span", { children: t.displayName ?? t.providerId }), n?.requiresAuth && /* @__PURE__ */ P(_e, {
 										color: "warning",
 										size: "small",
 										children: e(`${Q}.cookies.authRequired`)
@@ -57593,7 +57593,7 @@ function t4e() {
 function n4e({ win: e }) {
 	return /* @__PURE__ */ P(Xe, {
 		i18n: k9,
-		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
+		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(ve, { children: /* @__PURE__ */ P(t, {
 			client: Q9,
 			children: /* @__PURE__ */ P(t4e, {})
 		}) }) })
@@ -57605,11 +57605,11 @@ var Q, r4e = I((() => {
 //#endregion
 //#region src/VideoLibraryEditor.tsx
 function i4e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
-	let { t: a } = L(), o = v(), s = i(), c = b(), { openModalWindow: l } = y(), [d] = D.useForm(), { data: f = [] } = U.video.list.useQuery(), { data: p = [] } = U.vfs.list.useQuery(), m = e ? f.find((t) => t.id === e) : void 0, [h, g] = N(!e), [_, x] = N(m?.type), [S, C] = N(null), [w, T] = N(!1), [ee, te] = N(""), ne = Oe(e);
-	j(() => {
+	let { t: a } = L(), o = v(), s = i(), c = b(), { openModalWindow: l } = y(), [d] = D.useForm(), { data: f = [] } = U.video.list.useQuery(), { data: p = [] } = U.vfs.list.useQuery(), m = e ? f.find((t) => t.id === e) : void 0, [h, g] = N(!e), [_, x] = N(m?.type), [S, C] = N(null), [w, T] = N(!1), [ee, te] = N(""), ne = M(e);
+	A(() => {
 		ne.current !== e && (ne.current = e, g(!e), x(void 0), T(!1), te(""));
 	}, [e]);
-	let re = A((e) => {
+	let re = k((e) => {
 		let t = J2e(e);
 		C({
 			type: "icon",
@@ -57627,7 +57627,7 @@ function i4e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 			strictYearMatch: !1
 		});
 	}, [d]);
-	j(() => {
+	A(() => {
 		if (m) {
 			let e = m.settings ?? {}, t = m.type;
 			x(t), C(u(m.avatar)), d.setFieldsValue({
@@ -57649,7 +57649,7 @@ function i4e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 			o.success(a("media.libraryEditor.deleteSuccess")), U.video.list.invalidate(s), T(!1), n?.();
 		},
 		onError: (e) => o.error(e.message || a("media.libraryEditor.deleteFailed"))
-	}), ce = A(async () => {
+	}), ce = k(async () => {
 		let e = await d.validateFields(), n = (d.getFieldValue("bindings") ?? []).filter((e) => e.sourceId && e.rootPath).map((e, t) => ({
 			sourceId: e.sourceId,
 			rootPath: e.rootPath,
@@ -57697,7 +57697,7 @@ function i4e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 		o,
 		t,
 		a
-	]), le = A(() => {
+	]), le = k(() => {
 		l({
 			component: () => Promise.resolve().then(() => (r4e(), e4e)),
 			parentWindowId: c,
@@ -57744,25 +57744,25 @@ function i4e({ videoId: e, onSaved: t, onDeleted: n, onCancel: r }) {
 		children: [
 			de && /* @__PURE__ */ F("button", {
 				type: "button",
-				className: ye("mx-5 mt-4 flex w-[calc(100%-2.5rem)] shrink-0 cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-left transition-opacity hover:opacity-80", de.bgClass),
+				className: be("mx-5 mt-4 flex w-[calc(100%-2.5rem)] shrink-0 cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-left transition-opacity hover:opacity-80", de.bgClass),
 				onClick: () => g(!0),
 				title: a("media.libraryEditor.switchTypeTooltip"),
 				children: [
 					/* @__PURE__ */ P(de.icon, {
-						className: ye("mt-0.5 h-5 w-5 shrink-0", de.textClass),
+						className: be("mt-0.5 h-5 w-5 shrink-0", de.textClass),
 						"aria-hidden": !0
 					}),
 					/* @__PURE__ */ F("div", {
 						className: "flex-1",
 						children: [/* @__PURE__ */ P("span", {
-							className: ye("text-sm font-bold", de.textClass),
+							className: be("text-sm font-bold", de.textClass),
 							children: a(de.label)
 						}), /* @__PURE__ */ P("p", {
 							className: "mt-0.5 text-xs leading-relaxed text-fg-muted",
 							children: a(de.detailedDescription)
 						})]
 					}),
-					/* @__PURE__ */ P(JW, { className: ye("mt-0.5 h-3.5 w-3.5 shrink-0", de.textClass) })
+					/* @__PURE__ */ P(JW, { className: be("mt-0.5 h-3.5 w-3.5 shrink-0", de.textClass) })
 				]
 			}),
 			/* @__PURE__ */ F(D, {
@@ -57984,7 +57984,7 @@ var u4e = I((() => {
 })), d4e = /* @__PURE__ */ Ne({ default: () => f4e });
 function f4e() {
 	let { t: e } = L(), { LazyViewComponent: t, params: n, replace: r, updateTitle: a } = N4(), { data: o, isLoading: s } = U.video.list.useQuery(), [c, l] = dHe(), { collapsed: u, onToggleCollapse: d } = pHe("video", l > 0 && l < 720), f = b(), { openModalWindow: p } = y(), h = g(), _ = n.categoryId ?? null, v = !!(n.videoItemId ?? n.tvShowId);
-	j(() => {
+	A(() => {
 		if (o?.length) {
 			if (n.categoryId) {
 				o.some((e) => e.id === n.categoryId) || r(`/library/${o[0].id}`);
@@ -57998,7 +57998,7 @@ function f4e() {
 		v,
 		r
 	]);
-	let x = A((t = {}) => {
+	let x = k((t = {}) => {
 		let n = { bridgeId: hHe({
 			kind: "library-editor",
 			ctx: h,
@@ -58021,7 +58021,7 @@ function f4e() {
 		f,
 		e
 	]), S = o?.find((e) => e.id === _);
-	NGe(S?.id, S?.type), j(() => {
+	NGe(S?.id, S?.type), A(() => {
 		v || S && a(`TokimoVideo · ${S.name}`);
 	}, [
 		S,
@@ -58030,26 +58030,26 @@ function f4e() {
 	]);
 	let w = (e) => {
 		r(`/library/${e}`);
-	}, T = i(), [ee, E] = N(/* @__PURE__ */ new Set()), [te, ne] = N({}), re = Oe(T);
-	re.current = T;
-	let ie = A(() => {
-		let e = re.current;
+	}, T = i(), [ee, E] = N(/* @__PURE__ */ new Set()), [te, ne] = N({}), re = M({}), ie = M(T);
+	ie.current = T;
+	let ae = k(() => {
+		let e = ie.current;
 		U.video.listVideoItems.invalidate(e), U.video.listTvShows.invalidate(e), U.video.getRecentlyAdded.invalidate(e), U.video.listGenres.invalidate(e), U.video.listCountries.invalidate(e), U.video.list.invalidate(e);
-	}, []), ae = Oe(null), oe = Oe(!1), D = A(() => {
-		if (ae.current) {
-			oe.current = !0;
+	}, []), oe = M(null), D = M(!1), se = k(() => {
+		if (oe.current) {
+			D.current = !0;
 			return;
 		}
-		ie(), ae.current = setTimeout(() => {
-			ae.current = null, oe.current && (oe.current = !1, ie());
+		ae(), oe.current = setTimeout(() => {
+			oe.current = null, D.current && (D.current = !1, ae());
 		}, 500);
-	}, [ie]), se = A((e) => {
+	}, [ae]), ce = k((e) => {
 		let t = e.data;
 		if (!t) return;
 		let n = t.params ?? t.payload ?? {}, r = e.appId ?? n.videoId ?? t.videoId;
 		if (!r) return;
 		let i = t.status;
-		i === "completed" || i === "failed" || i === "cancelled" ? (D(), E((e) => {
+		i === "completed" || i === "failed" || i === "cancelled" ? (se(), E((e) => {
 			let t = new Set(e);
 			return t.delete(r), t;
 		})) : E((e) => {
@@ -58057,26 +58057,43 @@ function f4e() {
 			let t = new Set(e);
 			return t.add(r), t;
 		});
-	}, [D]);
-	m("tv_scrape", se), m("movie_scrape", se), j(() => {
+	}, [se]);
+	m("tv_scrape", ce), m("movie_scrape", ce), A(() => {
 		if (ee.size === 0) return;
 		let e = setInterval(async () => {
-			let e = Array.from(ee), t = {};
+			let e = Array.from(ee), t = {}, n = [], r = !1;
 			await Promise.all(e.map(async (e) => {
 				try {
-					let n = await T.fetchQuery({
+					let i = await T.fetchQuery({
 						queryKey: U.video.getSyncProgress.queryKey({ id: e }),
 						queryFn: () => U.video.getSyncProgress.fetch({ id: e }),
 						staleTime: 1e3
-					}), r = n.completed + n.running + n.pending + n.failed;
-					t[e] = r > 0 ? Math.round(n.completed / r * 100) : 0;
+					}), a = i.completed + i.running + i.pending + i.failed;
+					t[e] = a > 0 ? Math.round(i.completed / a * 100) : 0;
+					let o = re.current[e], s = {
+						completed: i.completed,
+						running: i.running,
+						pending: i.pending,
+						failed: i.failed
+					};
+					re.current[e] = s;
+					let c = !o || o.completed !== s.completed || o.running !== s.running || o.pending !== s.pending || o.failed !== s.failed, l = s.running > 0 || s.pending > 0, u = !l;
+					(c || l) && (r = !0), u && n.push(e);
 				} catch {
 					t[e] = 0;
 				}
-			})), ne(t);
+			})), ne(t), n.length > 0 && E((e) => {
+				let t = !1, r = new Set(e);
+				for (let e of n) r.delete(e) && (t = !0, delete re.current[e]);
+				return t ? r : e;
+			}), r && se();
 		}, 5e3);
 		return () => clearInterval(e);
-	}, [ee, T]), j(() => {
+	}, [
+		ee,
+		T,
+		se
+	]), A(() => {
 		if (!o) return;
 		let e = o.filter((e) => e.syncStatus === "syncing").map((e) => e.id);
 		e.length > 0 && E((t) => {
@@ -58085,13 +58102,13 @@ function f4e() {
 			return n.size === t.size ? t : n;
 		});
 	}, [o]);
-	let ce = {};
-	for (let e of ee) ce[e] = {
+	let le = {};
+	for (let e of ee) le[e] = {
 		isActive: !0,
 		pct: te[e] ?? 0
 	};
-	return j(() => () => {
-		ae.current && clearTimeout(ae.current);
+	return A(() => () => {
+		oe.current && clearTimeout(oe.current);
 	}, []), s ? /* @__PURE__ */ P("div", {
 		className: "flex h-full items-center justify-center",
 		children: /* @__PURE__ */ P(ge, {})
@@ -58105,7 +58122,7 @@ function f4e() {
 			collapsed: u,
 			onCreateClick: () => x(),
 			onSettingsClick: () => _ && x({ videoId: _ }),
-			syncProgress: ce,
+			syncProgress: le,
 			onToggleCollapse: d
 		}), /* @__PURE__ */ P("div", {
 			className: `relative min-w-0 flex-1 overflow-auto${v ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`,
@@ -58114,7 +58131,7 @@ function f4e() {
 				children: /* @__PURE__ */ P(t, {})
 			}) : _ && S && /* @__PURE__ */ P(a0e, {
 				category: S,
-				syncing: !!ce[_]?.isActive
+				syncing: !!le[_]?.isActive
 			}, _)
 		})]
 	}) : /* @__PURE__ */ P(C, {
@@ -58177,20 +58194,20 @@ function _4e({ analysis: e, selectedLibrary: t }) {
 					/* @__PURE__ */ F("div", {
 						className: "flex flex-wrap gap-2",
 						children: [
-							e.sourceSite && /* @__PURE__ */ P(O, { children: e.sourceSite }),
-							e.provider && /* @__PURE__ */ P(O, {
+							e.sourceSite && /* @__PURE__ */ P(_e, { children: e.sourceSite }),
+							e.provider && /* @__PURE__ */ P(_e, {
 								color: "processing",
 								children: e.provider.displayName ?? e.provider.name
 							}),
-							e.contentType && /* @__PURE__ */ P(O, {
+							e.contentType && /* @__PURE__ */ P(_e, {
 								color: "blue",
 								children: e.contentType
 							}),
-							r && /* @__PURE__ */ P(O, {
+							r && /* @__PURE__ */ P(_e, {
 								color: "success",
 								children: n(`${$}.onlineMedia.audioOnly`)
 							}),
-							e.requiresAuth && /* @__PURE__ */ P(O, {
+							e.requiresAuth && /* @__PURE__ */ P(_e, {
 								color: "warning",
 								children: n(`${$}.onlineMedia.authRequired`)
 							})
@@ -58264,7 +58281,7 @@ function v4e({ win: e }) {
 			l(null), a.error(e instanceof Error ? e.message : String(e));
 		}
 	}), m = U.videoOnlineMedia.startDownload.useMutation();
-	j(() => {
+	A(() => {
 		let e = t ?? g4e(f, c);
 		e && r.setFieldValue("targetLibraryId", e);
 	}, [
@@ -58273,7 +58290,7 @@ function v4e({ win: e }) {
 		r,
 		t
 	]);
-	let h = M(() => h4e(f, c), [f, c]), g = M(() => f?.find((e) => e.id === u) ?? null, [f, u]), _ = M(() => g4e(f, c), [f, c]), b = !!c?.isSupported && !_ && h.length > 0, x = async () => {
+	let h = j(() => h4e(f, c), [f, c]), g = j(() => f?.find((e) => e.id === u) ?? null, [f, u]), _ = j(() => g4e(f, c), [f, c]), b = !!c?.isSupported && !_ && h.length > 0, x = async () => {
 		let e = await r.validateFields();
 		p.mutate({ url: e.url });
 	}, C = async () => {
@@ -58463,7 +58480,7 @@ function S4e({ configured: e, loading: t, quota: n, onTest: r, testing: i, testR
 								className: "font-medium text-fg-primary",
 								children: o("media.tmdbSettings.connectionStatus")
 							}),
-							/* @__PURE__ */ P(O, {
+							/* @__PURE__ */ P(_e, {
 								color: t ? "default" : e ? "success" : "error",
 								children: o(t ? "media.common.loading" : e ? "media.tmdbSettings.connected" : "media.common.notConfigured")
 							})
@@ -58484,8 +58501,8 @@ function S4e({ configured: e, loading: t, quota: n, onTest: r, testing: i, testR
 	});
 }
 function C4e() {
-	let { t: e } = L(), t = i(), [n, r] = N(!1), [a, o] = N(""), [s, c] = N(null), [l, u] = N(!1), d = be(), f = U.externalDb.getTmdb.useQuery(), p = U.externalDb.updateTmdb.useMutation(), m = U.externalDb.testTmdb.useMutation(), h = U.externalDb.status.useQuery(), g = h.data?.tmdb;
-	j(() => {
+	let { t: e } = L(), t = i(), [n, r] = N(!1), [a, o] = N(""), [s, c] = N(null), [l, u] = N(!1), d = xe(), f = U.externalDb.getTmdb.useQuery(), p = U.externalDb.updateTmdb.useMutation(), m = U.externalDb.testTmdb.useMutation(), h = U.externalDb.status.useQuery(), g = h.data?.tmdb;
+	A(() => {
 		f.data && (o(f.data.apiKey ?? ""), c(f.data.dailyLimit ?? null), u(!1));
 	}, [f.data]);
 	let _ = () => {
@@ -58720,7 +58737,7 @@ function C4e() {
 function w4e({ win: e }) {
 	return /* @__PURE__ */ P(Xe, {
 		i18n: k9,
-		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
+		children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(ve, { children: /* @__PURE__ */ P(t, {
 			client: Q9,
 			children: /* @__PURE__ */ P(C4e, {})
 		}) }) })
@@ -58738,7 +58755,7 @@ function E4e({ children: e }) {
 		},
 		onError: (e) => n.error(e.message || t("media.sidebar.syncFailed"))
 	}), w = s.type === "online_video";
-	return h(M(() => {
+	return h(j(() => {
 		let e = S.map((e) => ({
 			key: `sync-${e.id}`,
 			label: t("media.sidebar.syncLibrary", { name: e.name }),
@@ -58857,7 +58874,7 @@ var D4e = I((() => {
 //#endregion
 //#region src/components/player-controls-shared.tsx
 function J9({ title: e, children: t }) {
-	return /* @__PURE__ */ P(ve, {
+	return /* @__PURE__ */ P(ye, {
 		title: e,
 		mouseEnterDelay: 0,
 		mouseLeaveDelay: 0,
@@ -58866,8 +58883,8 @@ function J9({ title: e, children: t }) {
 	});
 }
 function O4e(e, t, n = [], r = []) {
-	let i = Oe(null);
-	return j(() => {
+	let i = M(null);
+	return A(() => {
 		if (!e) return;
 		let a = (e) => {
 			let a = e.target;
@@ -58885,7 +58902,7 @@ function O4e(e, t, n = [], r = []) {
 }
 function k4e(e, t) {
 	let [n, r] = N(null);
-	return j(() => {
+	return A(() => {
 		if (!t) {
 			r(null);
 			return;
@@ -58916,11 +58933,11 @@ function j4e(e) {
 	return [...t.entries()].sort(([e], [t]) => e - t);
 }
 var Y9, X9, Z9, M4e = I((() => {
-	R(), s2(), f2(), _2(), A4e(), Y9 = Te(function() {
-		let { t: e } = L(), { item: t, play: n } = d2(), [r, i] = N(!1), a = Oe(null), o = O4e(r, () => i(!1), [], [a]), s = k4e(o, r), c = h2(t?.sourceMetadata), l = c?.tvShowId, u = c?.episodeId, { data: d } = U.video.getTvShowDetail.useQuery({ id: l }, { enabled: !!l }), f = M(() => d?.seasons?.flatMap((e) => (e.episodes ?? []).map((t) => ({
+	R(), s2(), f2(), _2(), A4e(), Y9 = Ee(function() {
+		let { t: e } = L(), { item: t, play: n } = d2(), [r, i] = N(!1), a = M(null), o = O4e(r, () => i(!1), [], [a]), s = k4e(o, r), c = h2(t?.sourceMetadata), l = c?.tvShowId, u = c?.episodeId, { data: d } = U.video.getTvShowDetail.useQuery({ id: l }, { enabled: !!l }), f = j(() => d?.seasons?.flatMap((e) => (e.episodes ?? []).map((t) => ({
 			...t,
 			seasonNumber: e.seasonNumber
-		}))) ?? [], [d]), p = f.findIndex((e) => e.id === u), m = f.length, h = A((t) => {
+		}))) ?? [], [d]), p = f.findIndex((e) => e.id === u), m = f.length, h = k((t) => {
 			let r = t.files?.[0];
 			r && n(r, {
 				title: t.title ?? e("media.detail.episodeNumber", { number: t.episodeNumber }),
@@ -58937,7 +58954,7 @@ var Y9, X9, Z9, M4e = I((() => {
 			d,
 			l,
 			e
-		]), g = A(() => {
+		]), g = k(() => {
 			if (p < 0 || p >= m - 1) return;
 			let e = f[p + 1];
 			e && h(e);
@@ -58946,7 +58963,7 @@ var Y9, X9, Z9, M4e = I((() => {
 			m,
 			f,
 			h
-		]), _ = A(() => {
+		]), _ = k(() => {
 			if (p <= 0) return;
 			let e = f[p - 1];
 			e && h(e);
@@ -59060,9 +59077,9 @@ var Y9, X9, Z9, M4e = I((() => {
 				}), document.body)
 			]
 		});
-	}), Y9.displayName = "EpisodeListMenu", X9 = Te(function({ ref: e, episodes: t, currentEpisodeId: n, tvShow: r, portalPos: i, onSelect: a, onClose: o }) {
-		let { t: s } = L(), c = Oe(null), l = (r.seasons?.length ?? 0) > 1;
-		j(() => {
+	}), Y9.displayName = "EpisodeListMenu", X9 = Ee(function({ ref: e, episodes: t, currentEpisodeId: n, tvShow: r, portalPos: i, onSelect: a, onClose: o }) {
+		let { t: s } = L(), c = M(null), l = (r.seasons?.length ?? 0) > 1;
+		A(() => {
 			let e = setTimeout(() => {
 				c.current?.scrollIntoView({
 					block: "center",
@@ -59070,7 +59087,7 @@ var Y9, X9, Z9, M4e = I((() => {
 				});
 			}, 50);
 			return () => clearTimeout(e);
-		}, []), j(() => {
+		}, []), A(() => {
 			let e = (e) => {
 				e.key === "Escape" && o();
 			};
@@ -59120,8 +59137,8 @@ var Y9, X9, Z9, M4e = I((() => {
 				})] }, e))
 			})]
 		});
-	}), X9.displayName = "EpisodeListPanel", Z9 = Te(function({ ref: e, episode: t, isCurrent: n, hasFile: r, onClick: i }) {
-		let { t: a } = L(), o = f(t.stillPath, 160), s = A(() => {
+	}), X9.displayName = "EpisodeListPanel", Z9 = Ee(function({ ref: e, episode: t, isCurrent: n, hasFile: r, onClick: i }) {
+		let { t: a } = L(), o = f(t.stillPath, 160), s = k(() => {
 			r && i();
 		}, [r, i]);
 		return /* @__PURE__ */ F("button", {
@@ -59293,7 +59310,7 @@ var R4e = I((() => {
 			let i = n.shell.subscribeLocale(r), o = n.shell.player.registerExtension(n.appId, L4e(n, Q9)), s = hee(e);
 			return s.render(/* @__PURE__ */ P(lee, { children: /* @__PURE__ */ P(Xe, {
 				i18n: k9,
-				children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(_e, { children: /* @__PURE__ */ P(t, {
+				children: /* @__PURE__ */ P(re, { children: /* @__PURE__ */ P(ve, { children: /* @__PURE__ */ P(t, {
 					client: Q9,
 					children: /* @__PURE__ */ P(a, {
 						value: n,

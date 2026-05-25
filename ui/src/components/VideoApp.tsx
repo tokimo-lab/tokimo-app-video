@@ -105,6 +105,12 @@ export default function VideoApp() {
   const queryClient = useQueryClient();
   const [activeLibIds, setActiveLibIds] = useState<Set<string>>(new Set());
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
+  const lastSyncSnapshotRef = useRef<
+    Record<
+      string,
+      { completed: number; running: number; pending: number; failed: number }
+    >
+  >({});
 
   // Stable refs for content/library refresh callbacks
   const qcRef = useRef(queryClient);
@@ -185,6 +191,8 @@ export default function VideoApp() {
     const interval = setInterval(async () => {
       const ids = Array.from(activeLibIds);
       const pcts: Record<string, number> = {};
+      const terminalIds: string[] = [];
+      let shouldRefresh = false;
       await Promise.all(
         ids.map(async (id) => {
           try {
@@ -197,15 +205,57 @@ export default function VideoApp() {
               data.completed + data.running + data.pending + data.failed;
             pcts[id] =
               total > 0 ? Math.round((data.completed / total) * 100) : 0;
+
+            const prev = lastSyncSnapshotRef.current[id];
+            const next = {
+              completed: data.completed,
+              running: data.running,
+              pending: data.pending,
+              failed: data.failed,
+            };
+            lastSyncSnapshotRef.current[id] = next;
+
+            const changed =
+              !prev ||
+              prev.completed !== next.completed ||
+              prev.running !== next.running ||
+              prev.pending !== next.pending ||
+              prev.failed !== next.failed;
+            const inProgress = next.running > 0 || next.pending > 0;
+            const terminal = !inProgress;
+
+            if (changed || inProgress) {
+              shouldRefresh = true;
+            }
+
+            if (terminal) {
+              terminalIds.push(id);
+            }
           } catch {
             pcts[id] = 0;
           }
         }),
       );
       setProgressPct(pcts);
+      if (terminalIds.length > 0) {
+        setActiveLibIds((prev) => {
+          let mutated = false;
+          const next = new Set(prev);
+          for (const id of terminalIds) {
+            if (next.delete(id)) {
+              mutated = true;
+              delete lastSyncSnapshotRef.current[id];
+            }
+          }
+          return mutated ? next : prev;
+        });
+      }
+      if (shouldRefresh) {
+        throttledRefresh();
+      }
     }, 5000);
     return () => clearInterval(interval);
-  }, [activeLibIds, queryClient]);
+  }, [activeLibIds, queryClient, throttledRefresh]);
 
   // Also seed activeIds from libraries already marked "syncing"
   useEffect(() => {

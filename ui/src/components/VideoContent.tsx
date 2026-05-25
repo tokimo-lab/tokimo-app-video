@@ -116,7 +116,6 @@ function parseSortValue(v: string) {
 
 export default function VideoContent({
   category,
-  syncing,
 }: {
   category: VideoOutput;
   syncing?: boolean;
@@ -221,7 +220,7 @@ export default function VideoContent({
         | undefined,
       isFetching: paginatedQuery.isFetching,
       onLoadMore: () => setPage((p) => p + 1),
-      enabled: !syncing,
+      enabled: true,
     });
 
   const resetAll = useCallback(() => {
@@ -334,7 +333,7 @@ export default function VideoContent({
       </div>
 
       <div ref={gridWrapperRef} className="mt-3 min-h-0 flex-1">
-        {(isLoading || syncing) && items.length === 0 ? (
+        {isLoading && items.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Spin />
           </div>
