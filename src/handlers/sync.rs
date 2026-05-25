@@ -8,7 +8,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::bus_clients::jobs::{self as jobs_client, service_caller, video_library_filter};
+use crate::bus_clients::jobs::{self as jobs_client, video_library_filter};
 use crate::db::ApiDateTimeExt;
 use crate::db::models::video::{VideoSyncProgressOutput, VideoSyncStatusOutput, VideoTaskProgress};
 use crate::db::repos::media::VideoRepo;
@@ -52,7 +52,7 @@ pub async fn sync_video(
     // Clear data synchronously so frontend sees empty state immediately
     if clear_data {
         let client = state.bus_client.get().expect("bus_client not initialized");
-        AppSyncService::clear_library_data(&state.db, client, uid, &video.r#type).await?;
+        AppSyncService::clear_library_data(&state.db, client, uid, &video.r#type, caller_user_id).await?;
     }
 
     VideoRepo::update_sync_status(&state.db, uid, "syncing", None).await?;
@@ -130,7 +130,13 @@ pub async fn get_all_video_sync_statuses(
 pub async fn get_video_sync_progress(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
+    auth: AuthUser,
 ) -> Result<Json<ApiResponse<VideoSyncProgressOutput>>, AppError> {
+    let caller_user_id: Uuid = auth
+        .user_id
+        .parse()
+        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
+
     let uid = parse_uuid(&id)?;
     let video = VideoRepo::get_by_id(&state.db, uid)
         .await?
@@ -139,7 +145,9 @@ pub async fn get_video_sync_progress(
     let job_types: Vec<String> = vec!["movie_scrape".into(), "tv_scrape".into()];
     let client = state.bus_client.get().expect("bus_client not initialized");
     let filter = video_library_filter(uid, None);
-    let summary = jobs_client::progress_summary(client, service_caller(), filter, job_types).await?;
+    let summary =
+        jobs_client::progress_summary(client, jobs_client::video_caller(Some(caller_user_id)), filter, job_types)
+            .await?;
 
     let tasks: Vec<VideoTaskProgress> = summary
         .tasks

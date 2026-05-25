@@ -6,12 +6,13 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::bus_clients::jobs::{self as jobs_client, service_caller, video_library_filter};
+use crate::bus_clients::jobs::{self as jobs_client, video_library_filter};
 use crate::db::models::video::VideoOutput;
 use crate::db::repos::media::VideoRepo;
 use crate::db::repos::media::video_repo::UpdateVideoFields;
 use crate::error::AppError;
 use crate::error::OptionExt;
+use crate::handlers::user::AuthUser;
 use crate::handlers::{ApiResponse, ok, ok_empty};
 use crate::services::media::source::normalize_source_path;
 
@@ -143,11 +144,17 @@ pub async fn update_video(
 pub async fn delete_video(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
+    auth: AuthUser,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
+    let caller_user_id: Uuid = auth
+        .user_id
+        .parse()
+        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
+
     let uid = parse_uuid(&id)?;
     let client = state.bus_client.get().expect("bus_client not initialized");
     let filter = video_library_filter(uid, None);
-    let cancelled = jobs_client::cancel_by_filter(client, service_caller(), filter).await?;
+    let cancelled = jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(caller_user_id)), filter).await?;
     if cancelled > 0 {
         tracing::info!("Cancelled {cancelled} jobs for deleted video category {uid}");
     }

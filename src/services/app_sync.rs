@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest, service_caller, video_library_filter};
+use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest, video_library_filter};
 use crate::db::entities::{episodes, seasons, tv_shows, vfs, video_files, video_items, videos};
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
@@ -411,12 +411,12 @@ impl AppSyncService {
         let client = bus_client.get().expect("bus_client not initialized");
 
         if clear_data {
-            Self::clear_library_data(db, client, video_id, lib_type).await?;
+            Self::clear_library_data(db, client, video_id, lib_type, user_id).await?;
         }
 
         // Clean up old finished jobs so progress counts only reflect this sync run
         let filter = video_library_filter(video_id, None);
-        jobs_client::cleanup(client, service_caller(), filter).await?;
+        jobs_client::cleanup(client, jobs_client::video_caller(Some(user_id)), filter).await?;
 
         let mut total_jobs = 0u64;
 
@@ -455,12 +455,13 @@ impl AppSyncService {
         client: &tokimo_bus_client::BusClient,
         app_id: Uuid,
         lib_type: &str,
+        user_id: Uuid,
     ) -> Result<(), AppError> {
         info!("Clearing data for library {app_id} (type={lib_type})");
 
         // Cancel all pending/running jobs for this library
         let filter = video_library_filter(app_id, None);
-        let cancelled = jobs_client::cancel_by_filter(client, service_caller(), filter).await?;
+        let cancelled = jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(user_id)), filter).await?;
         if cancelled > 0 {
             info!("  Cancelled {cancelled} pending/running jobs");
         }
