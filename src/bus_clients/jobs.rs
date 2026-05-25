@@ -19,9 +19,8 @@ pub type Job = jobs::Model;
 pub struct CreateJobRequest {
     #[serde(rename = "kind")]
     pub job_type: String,
-    #[serde(rename = "payload")]
     pub params: JsonValue,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "meta")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_job_id: Option<Uuid>,
@@ -146,9 +145,7 @@ pub struct JobView {
     pub user_id: Option<Uuid>,
     pub parent_job_id: Option<Uuid>,
     pub task_type: Option<String>,
-    #[serde(rename = "payload")]
     pub params: JsonValue,
-    #[serde(rename = "meta")]
     pub data: Option<JsonValue>,
     pub progress: i32,
     pub priority: i32,
@@ -201,11 +198,11 @@ pub fn service_caller() -> CallerCtx {
 
 /// Build a `JobFilter` that matches jobs belonging to a specific video library.
 pub fn video_library_filter(library_id: Uuid, status: Option<&str>) -> JobFilter {
-    let mut pm = HashMap::new();
-    pm.insert("videoId".to_string(), library_id.to_string());
+    let mut params_match = HashMap::new();
+    params_match.insert("videoId".to_string(), library_id.to_string());
     JobFilter {
         status: status.map(String::from),
-        payload_match: Some(pm),
+        params_match: Some(params_match),
         ..Default::default()
     }
 }
@@ -273,14 +270,14 @@ pub async fn update_status(
 // ── Filter-based types + methods ───────────────────────────────────────────────
 
 /// OS-layer generic job filter — matches host-side `JobFilter`.
-/// Business semantics (e.g. `{"videoId": "..."}`) are encoded in `payload_match`;
+/// Business semantics (e.g. `{"videoId": "..."}`) are encoded in `params_match`;
 /// the bus layer only does JSONB equality matching.
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct JobFilter {
     pub status: Option<String>,
     pub job_type: Option<String>,
-    pub payload_match: Option<HashMap<String, String>>,
+    pub params_match: Option<HashMap<String, String>>,
     pub parents_only: Option<bool>,
 }
 

@@ -17,7 +17,7 @@
 //! ```json
 //! { "job": <JobOutput> }
 //! ```
-//! The handler receives `job.payload` as the `payload: &JsonValue` argument
+//! The handler receives `job.params` as the `params: &JsonValue` argument
 //! and `job.id` as `job_id: Uuid`. A fresh `CancellationToken` (never
 //! cancelled) is created per invocation — job lifecycle (claim / mark done /
 //! mark failed) stays with the main server worker (C2b).
@@ -62,7 +62,7 @@ fn caller_user_id(caller: &tokimo_bus_protocol::CallerCtx) -> Option<Uuid> {
     caller.user_id.as_deref().and_then(|s| Uuid::parse_str(s).ok())
 }
 
-/// Decode `{ "job": { "id": "...", "payload": {...} } }` from JSON bytes.
+/// Decode `{ "job": { "id": "...", "params": {...} } }` from JSON bytes.
 fn decode_request(raw: &[u8]) -> Result<(Uuid, JsonValue), BusError> {
     let v: JsonValue = serde_json::from_slice(raw).map_err(|e| BusError::BadRequest(format!("json decode: {e}")))?;
     let job = v
@@ -73,7 +73,7 @@ fn decode_request(raw: &[u8]) -> Result<(Uuid, JsonValue), BusError> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| BusError::BadRequest("missing 'job.id'".into()))
         .and_then(|s| Uuid::parse_str(s).map_err(|e| BusError::BadRequest(format!("job.id UUID: {e}"))))?;
-    let params = job.get("payload").cloned().unwrap_or(JsonValue::Null);
+    let params = job.get("params").cloned().unwrap_or(JsonValue::Null);
     Ok((job_id, params))
 }
 

@@ -11,9 +11,7 @@ pub struct JobOutput {
     pub r#type: String,
     pub status: String,
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "payload")]
     pub params: serde_json::Value,
-    #[serde(rename = "meta")]
     pub data: Option<serde_json::Value>,
     pub progress: i32,
     pub retry_count: i32,
