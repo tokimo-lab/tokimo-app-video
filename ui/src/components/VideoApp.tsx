@@ -143,8 +143,11 @@ export default function VideoApp() {
     (e: ShellJobEvent) => {
       const data = e.data as Record<string, unknown> | undefined;
       if (!data) return;
-      const payload = (data.payload ?? {}) as Record<string, unknown>;
-      const libId = (data.appId ?? payload.videoId ?? payload.appId) as
+      const params = (data.params ?? data.payload ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const libId = (data.appId ?? params.videoId ?? params.appId) as
         | string
         | undefined;
       if (!libId) return;

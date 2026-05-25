@@ -20,8 +20,8 @@ pub struct Model {
     pub task_type: Option<String>,
     #[sea_orm(column_type = "JsonBinary")]
     pub params: Json,
-    #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub payload: Option<Json>,
+    #[sea_orm(column_name = "payload", column_type = "JsonBinary", nullable)]
+    pub data: Option<Json>,
     pub progress: i32,
     pub retry_count: i32,
     pub max_retries: i32,

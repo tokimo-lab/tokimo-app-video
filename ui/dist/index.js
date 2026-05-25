@@ -58046,7 +58046,7 @@ function f4e() {
 	}, [ie]), se = A((e) => {
 		let t = e.data;
 		if (!t) return;
-		let n = t.payload ?? {}, r = t.appId ?? n.videoId ?? n.appId;
+		let n = t.params ?? t.payload ?? {}, r = t.appId ?? n.videoId ?? n.appId;
 		if (!r) return;
 		let i = t.status;
 		i === "completed" || i === "failed" || i === "cancelled" ? (D(), E((e) => {

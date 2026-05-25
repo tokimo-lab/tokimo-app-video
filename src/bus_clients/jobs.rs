@@ -22,7 +22,7 @@ pub struct CreateJobRequest {
     #[serde(rename = "payload")]
     pub params: JsonValue,
     #[serde(skip_serializing_if = "Option::is_none", rename = "meta")]
-    pub payload: Option<JsonValue>,
+    pub data: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_job_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,7 +38,7 @@ impl CreateJobRequest {
         Self {
             job_type: job_type.into(),
             params,
-            payload: None,
+            data: None,
             parent_job_id: None,
             task_type: None,
             dedupe_key: None,
@@ -46,8 +46,8 @@ impl CreateJobRequest {
         }
     }
 
-    pub fn with_meta(mut self, payload: Option<JsonValue>) -> Self {
-        self.payload = payload;
+    pub fn with_data(mut self, data: Option<JsonValue>) -> Self {
+        self.data = data;
         self
     }
 }
@@ -149,7 +149,7 @@ pub struct JobView {
     #[serde(rename = "payload")]
     pub params: JsonValue,
     #[serde(rename = "meta")]
-    pub payload: Option<JsonValue>,
+    pub data: Option<JsonValue>,
     pub progress: i32,
     pub priority: i32,
     pub error: Option<String>,
@@ -169,7 +169,7 @@ impl From<JobView> for Job {
             parent_job_id: view.parent_job_id,
             task_type: view.task_type,
             params: view.params,
-            payload: view.payload,
+            data: view.data,
             progress: view.progress,
             retry_count: 0,
             max_retries: 3,
@@ -200,7 +200,7 @@ pub fn service_caller() -> CallerCtx {
 }
 
 /// Build a `JobFilter` that matches jobs belonging to a specific video library.
-/// Uses both `videoId` and `appId` payload keys for compatibility.
+/// Uses both `videoId` and `appId` params keys for compatibility.
 pub fn video_library_filter(library_id: Uuid, status: Option<&str>) -> JobFilter {
     let mut pm = HashMap::new();
     pm.insert("videoId".to_string(), library_id.to_string());
@@ -325,7 +325,8 @@ pub struct TaskProgressRowView {
     pub running: i64,
     pub pending: i64,
     pub failed: i64,
-    pub running_meta: Option<JsonValue>,
+    #[serde(rename = "runningMeta", alias = "runningData")]
+    pub running_data: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -11,8 +11,10 @@ pub struct JobOutput {
     pub r#type: String,
     pub status: String,
     pub user_id: Option<uuid::Uuid>,
-    pub payload: serde_json::Value,
-    pub meta: Option<serde_json::Value>,
+    #[serde(rename = "payload")]
+    pub params: serde_json::Value,
+    #[serde(rename = "meta")]
+    pub data: Option<serde_json::Value>,
     pub progress: i32,
     pub retry_count: i32,
     pub max_retries: i32,
@@ -33,8 +35,8 @@ impl From<jobs::Model> for JobOutput {
             r#type: m.r#type,
             status: m.status,
             user_id: m.user_id,
-            payload: m.payload,
-            meta: m.meta,
+            params: m.params,
+            data: m.data,
             progress: m.progress,
             retry_count: m.retry_count,
             max_retries: m.max_retries,
