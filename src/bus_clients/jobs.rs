@@ -200,11 +200,9 @@ pub fn service_caller() -> CallerCtx {
 }
 
 /// Build a `JobFilter` that matches jobs belonging to a specific video library.
-/// Uses both `videoId` and `appId` params keys for compatibility.
 pub fn video_library_filter(library_id: Uuid, status: Option<&str>) -> JobFilter {
     let mut pm = HashMap::new();
     pm.insert("videoId".to_string(), library_id.to_string());
-    pm.insert("appId".to_string(), library_id.to_string());
     JobFilter {
         status: status.map(String::from),
         payload_match: Some(pm),

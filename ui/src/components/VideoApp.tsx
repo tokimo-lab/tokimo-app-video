@@ -147,7 +147,7 @@ export default function VideoApp() {
         string,
         unknown
       >;
-      const libId = (data.appId ?? params.videoId ?? params.appId) as
+      const libId = (e.appId ?? params.videoId ?? data.videoId) as
         | string
         | undefined;
       if (!libId) return;

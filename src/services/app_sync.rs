@@ -1610,7 +1610,7 @@ impl AppSyncService {
                             "music_scrape",
                             json!({
                                 "albumId": album_id.to_string(),
-                                "appId": app_id.to_string(),
+                                "musicId": app_id.to_string(),
                             }),
                             None,
                             None,
