@@ -573,13 +573,13 @@ impl AppSyncService {
             ));
         };
         let mut inserted = 0u64;
-        for (job_type, payload, meta, user_id) in jobs_data {
+        for (job_type, params, payload, user_id) in jobs_data {
             let Some(user_id) = user_id else {
                 return Err(AppError::Unauthorized(
                     "jobs.create via bus requires caller user_id".into(),
                 ));
             };
-            let request = CreateJobRequest::new(job_type, payload).with_meta(meta);
+            let request = CreateJobRequest::new(job_type, params).with_meta(payload);
             jobs_client::create(client, jobs_client::video_caller(Some(user_id)), request).await?;
             inserted += 1;
         }

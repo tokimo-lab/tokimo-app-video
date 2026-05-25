@@ -73,8 +73,8 @@ fn decode_request(raw: &[u8]) -> Result<(Uuid, JsonValue), BusError> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| BusError::BadRequest("missing 'job.id'".into()))
         .and_then(|s| Uuid::parse_str(s).map_err(|e| BusError::BadRequest(format!("job.id UUID: {e}"))))?;
-    let payload = job.get("payload").cloned().unwrap_or(JsonValue::Null);
-    Ok((job_id, payload))
+    let params = job.get("payload").cloned().unwrap_or(JsonValue::Null);
+    Ok((job_id, params))
 }
 
 // ── registration ──────────────────────────────────────────────────────────────
@@ -101,10 +101,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("dispatch_file_scrape", move |req| {
             let ctx = ctx_file.clone();
             async move {
-                let (job_id, payload) = decode_request(&req.payload)?;
+                let (job_id, params) = decode_request(&req.payload)?;
                 let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::handlers::file_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
+                crate::queue::handlers::file_scrape::handle(&ctx.db, &ctx, job_id, &params, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -118,10 +118,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("dispatch_tv_scrape", move |req| {
             let ctx = ctx_tv.clone();
             async move {
-                let (job_id, payload) = decode_request(&req.payload)?;
+                let (job_id, params) = decode_request(&req.payload)?;
                 let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::tv_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
+                crate::queue::tv_scrape::handle(&ctx.db, &ctx, job_id, &params, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -135,10 +135,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("dispatch_movie_scrape", move |req| {
             let ctx = ctx_movie.clone();
             async move {
-                let (job_id, payload) = decode_request(&req.payload)?;
+                let (job_id, params) = decode_request(&req.payload)?;
                 let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::video_item_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
+                crate::queue::video_item_scrape::handle(&ctx.db, &ctx, job_id, &params, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -152,10 +152,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("dispatch_tmdb_person_scrape", move |req| {
             let ctx = ctx_person.clone();
             async move {
-                let (job_id, payload) = decode_request(&req.payload)?;
+                let (job_id, params) = decode_request(&req.payload)?;
                 let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::tmdb_person_scrape::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
+                crate::queue::tmdb_person_scrape::handle(&ctx.db, &ctx, job_id, &params, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))
@@ -169,10 +169,10 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("dispatch_online_video_download", move |req| {
             let ctx = ctx_download.clone();
             async move {
-                let (job_id, payload) = decode_request(&req.payload)?;
+                let (job_id, params) = decode_request(&req.payload)?;
                 let user_id = caller_user_id(&req.caller);
                 let cancel = CancellationToken::new();
-                crate::queue::online_media_download::handle(&ctx.db, &ctx, job_id, &payload, &cancel, user_id)
+                crate::queue::online_media_download::handle(&ctx.db, &ctx, job_id, &params, &cancel, user_id)
                     .await
                     .map(|_| b"{}".to_vec())
                     .map_err(|e| BusError::Internal(e.to_string()))

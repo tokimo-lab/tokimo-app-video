@@ -15,19 +15,19 @@ pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     _job_id: Uuid,
-    payload: &JsonValue,
+    params: &JsonValue,
     cancel: &JobCancel,
     user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
     check_cancel(cancel)?;
-    let person_id = payload
+    let person_id = params
         .get("personId")
         .and_then(|v| v.as_str())
         .ok_or("Missing personId")?;
     let person_uuid = Uuid::parse_str(person_id)?;
 
     // "movie" | "tv" — determines which table to read/write
-    let person_type = payload.get("personType").and_then(|v| v.as_str()).unwrap_or("movie");
+    let person_type = params.get("personType").and_then(|v| v.as_str()).unwrap_or("movie");
 
     let api_key = get_tmdb_api_key(db).await?;
     let Some(api_key) = api_key else {
@@ -104,8 +104,8 @@ pub async fn handle(
     // ── Write scraped data back to the correct table ──
     apply_person_detail(db, person_uuid, person_type, &detail).await?;
 
-    let movie_id = payload.get("movieId").and_then(|v| v.as_str()).map(str::to_string);
-    let tv_show_id = payload.get("tvShowId").and_then(|v| v.as_str()).map(str::to_string);
+    let movie_id = params.get("movieId").and_then(|v| v.as_str()).map(str::to_string);
+    let tv_show_id = params.get("tvShowId").and_then(|v| v.as_str()).map(str::to_string);
     let _ = state.event_tx.send(crate::queue::AppEvent::PersonScraped {
         person_id: person_id.to_string(),
         video_item_id: movie_id,

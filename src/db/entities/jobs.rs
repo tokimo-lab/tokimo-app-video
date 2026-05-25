@@ -19,9 +19,9 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub task_type: Option<String>,
     #[sea_orm(column_type = "JsonBinary")]
-    pub payload: Json,
+    pub params: Json,
     #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub meta: Option<Json>,
+    pub payload: Option<Json>,
     pub progress: i32,
     pub retry_count: i32,
     pub max_retries: i32,

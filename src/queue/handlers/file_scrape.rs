@@ -1,7 +1,7 @@
 //! `file_scrape` queue handler.
 //!
 //! Pipeline:
-//!   parse payload → photo early-return → idempotency check →
+//!   parse params → photo early-return → idempotency check →
 //!   VFS listing → NFO → artwork → parse filename →
 //!   match `lib_type` { `online_video` | movie/adult/custom | tv/anime } →
 //!   create `media_file` → sync subtitles → dispatch ffprobe →
@@ -40,34 +40,34 @@ pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     _job_id: Uuid,
-    payload: &JsonValue,
+    params: &JsonValue,
     cancel: &JobCancel,
     user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, BoxError> {
     check_cancel(cancel)?;
-    // ── 0. Parse payload ──
-    let file_path = payload
+    // ── 0. Parse params ──
+    let file_path = params
         .get("filePath")
         .and_then(|v| v.as_str())
         .ok_or("Missing filePath")?;
-    let dir_path = payload
+    let dir_path = params
         .get("dirPath")
         .and_then(|v| v.as_str())
         .ok_or("Missing dirPath")?;
-    let file_size = payload
+    let file_size = params
         .get("fileSize")
         .and_then(sea_orm::JsonValue::as_i64)
         .unwrap_or(0);
-    let checksum = payload.get("checksum").and_then(|v| v.as_str());
-    let video_id = payload
+    let checksum = params.get("checksum").and_then(|v| v.as_str());
+    let video_id = params
         .get("videoId")
         .and_then(|v| v.as_str())
         .ok_or("Missing videoId")?;
-    let source_id = payload
+    let source_id = params
         .get("sourceId")
         .and_then(|v| v.as_str())
         .ok_or("Missing sourceId")?;
-    let lib_type_str = payload
+    let lib_type_str = params
         .get("libType")
         .and_then(|v| v.as_str())
         .ok_or("Missing libType")?;

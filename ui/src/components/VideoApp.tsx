@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  type LibrarySyncState,
+  type ShellJobEvent,
   useJobProgress,
   useRuntimeCtx,
   useWindowActions,
@@ -101,9 +101,8 @@ export default function VideoApp() {
     replace(`/library/${id}`);
   };
 
-  // ── Sync progress tracking (WS-driven via useJobProgress + fallback polling) ──
+  // ── Sync progress tracking (thin SDK helper + fallback polling) ──
   const queryClient = useQueryClient();
-
   const [activeLibIds, setActiveLibIds] = useState<Set<string>>(new Set());
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
 
@@ -141,7 +140,7 @@ export default function VideoApp() {
 
   // Shared event handler for both tv_scrape and movie_scrape
   const handleJobEvent = useCallback(
-    (e: import("@tokimo/sdk").ShellJobEvent) => {
+    (e: ShellJobEvent) => {
       const data = e.data as Record<string, unknown> | undefined;
       if (!data) return;
       const payload = (data.payload ?? {}) as Record<string, unknown>;
@@ -159,14 +158,14 @@ export default function VideoApp() {
         throttledRefresh();
         setActiveLibIds((prev) => {
           const next = new Set(prev);
-          next.delete(libId!);
+          next.delete(libId);
           return next;
         });
       } else {
         setActiveLibIds((prev) => {
-          if (prev.has(libId!)) return prev;
+          if (prev.has(libId)) return prev;
           const next = new Set(prev);
-          next.add(libId!);
+          next.add(libId);
           return next;
         });
       }
@@ -221,7 +220,7 @@ export default function VideoApp() {
   }, [categories]);
 
   // Build syncProgress map
-  const syncProgress: Record<string, LibrarySyncState> = {};
+  const syncProgress: Record<string, { isActive: boolean; pct: number }> = {};
   for (const id of activeLibIds) {
     syncProgress[id] = { isActive: true, pct: progressPct[id] ?? 0 };
   }

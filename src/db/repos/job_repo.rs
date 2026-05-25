@@ -15,8 +15,8 @@ impl JobRepo {
     pub async fn create_job(
         db: &DatabaseConnection,
         job_type: &str,
-        payload: JsonValue,
-        meta: Option<JsonValue>,
+        params: JsonValue,
+        payload: Option<JsonValue>,
         user_id: Option<Uuid>,
     ) -> Result<jobs::Model, AppError> {
         let now = Utc::now().fixed_offset();
@@ -27,8 +27,8 @@ impl JobRepo {
             user_id: Set(user_id),
             parent_job_id: Set(None),
             task_type: Set(None),
+            params: Set(params),
             payload: Set(payload),
-            meta: Set(meta),
             progress: Set(0),
             retry_count: Set(0),
             max_retries: Set(3),
@@ -44,20 +44,20 @@ impl JobRepo {
         Ok(jobs::Entity::insert(model).exec_with_returning(db).await?)
     }
 
-    /// Update job progress and meta. Fallback when bus is unavailable.
+    /// Update job progress and payload. Fallback when bus is unavailable.
     pub async fn update_progress(
         db: &DatabaseConnection,
         id: Uuid,
         progress: i32,
-        meta: Option<JsonValue>,
+        payload: Option<JsonValue>,
     ) -> Result<Option<jobs::Model>, AppError> {
         let mut update = jobs::Entity::update_many()
             .col_expr(jobs::Column::Progress, Expr::value(progress))
             .col_expr(jobs::Column::UpdatedAt, Expr::cust("NOW()"))
             .filter(jobs::Column::Id.eq(id));
 
-        if let Some(m) = meta {
-            update = update.col_expr(jobs::Column::Meta, Expr::value(m));
+        if let Some(m) = payload {
+            update = update.col_expr(jobs::Column::Payload, Expr::value(m));
         }
 
         let result = update.exec(db).await?;
@@ -70,19 +70,19 @@ impl JobRepo {
     pub async fn create_job_via_bus(
         state: &AppState,
         job_type: &str,
-        payload: JsonValue,
-        meta: Option<JsonValue>,
+        params: JsonValue,
+        payload: Option<JsonValue>,
         user_id: Option<Uuid>,
     ) -> Result<jobs::Model, AppError> {
         let Some(client) = state.bus_client.get() else {
-            return Self::create_job(&state.db, job_type, payload, meta, user_id).await;
+            return Self::create_job(&state.db, job_type, params, payload, user_id).await;
         };
         let Some(caller_user_id) = user_id else {
             return Err(AppError::Unauthorized(
                 "jobs.create via bus requires caller user_id".into(),
             ));
         };
-        let request = CreateJobRequest::new(job_type, payload).with_meta(meta);
+        let request = CreateJobRequest::new(job_type, params).with_meta(payload);
         jobs_client::create(client, jobs_client::video_caller(Some(caller_user_id)), request).await
     }
 
@@ -90,17 +90,17 @@ impl JobRepo {
         state: &AppState,
         job_id: Uuid,
         progress: i32,
-        meta: Option<JsonValue>,
+        payload: Option<JsonValue>,
         user_id: Option<Uuid>,
     ) -> Result<Option<jobs::Model>, AppError> {
         let Some(client) = state.bus_client.get() else {
-            return Self::update_progress(&state.db, job_id, progress, meta).await;
+            return Self::update_progress(&state.db, job_id, progress, payload).await;
         };
         let request = UpdateStatusRequest {
             job_id,
             status: "running".to_string(),
             error: None,
-            result: meta,
+            result: payload,
             progress: Some(progress),
         };
         jobs_client::update_status(client, jobs_client::video_caller(user_id), request)

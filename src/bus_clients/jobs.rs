@@ -19,9 +19,10 @@ pub type Job = jobs::Model;
 pub struct CreateJobRequest {
     #[serde(rename = "kind")]
     pub job_type: String,
-    pub payload: JsonValue,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub meta: Option<JsonValue>,
+    #[serde(rename = "payload")]
+    pub params: JsonValue,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "meta")]
+    pub payload: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_job_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -33,11 +34,11 @@ pub struct CreateJobRequest {
 }
 
 impl CreateJobRequest {
-    pub fn new(job_type: impl Into<String>, payload: JsonValue) -> Self {
+    pub fn new(job_type: impl Into<String>, params: JsonValue) -> Self {
         Self {
             job_type: job_type.into(),
-            payload,
-            meta: None,
+            params,
+            payload: None,
             parent_job_id: None,
             task_type: None,
             dedupe_key: None,
@@ -45,8 +46,8 @@ impl CreateJobRequest {
         }
     }
 
-    pub fn with_meta(mut self, meta: Option<JsonValue>) -> Self {
-        self.meta = meta;
+    pub fn with_meta(mut self, payload: Option<JsonValue>) -> Self {
+        self.payload = payload;
         self
     }
 }
@@ -145,8 +146,10 @@ pub struct JobView {
     pub user_id: Option<Uuid>,
     pub parent_job_id: Option<Uuid>,
     pub task_type: Option<String>,
-    pub payload: JsonValue,
-    pub meta: Option<JsonValue>,
+    #[serde(rename = "payload")]
+    pub params: JsonValue,
+    #[serde(rename = "meta")]
+    pub payload: Option<JsonValue>,
     pub progress: i32,
     pub priority: i32,
     pub error: Option<String>,
@@ -165,8 +168,8 @@ impl From<JobView> for Job {
             user_id: view.user_id,
             parent_job_id: view.parent_job_id,
             task_type: view.task_type,
+            params: view.params,
             payload: view.payload,
-            meta: view.meta,
             progress: view.progress,
             retry_count: 0,
             max_retries: 3,

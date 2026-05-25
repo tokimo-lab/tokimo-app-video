@@ -1438,7 +1438,7 @@ async fn should_dispatch_person_scrape(
                 .add(jobs::Column::Status.eq("running")),
         )
         .filter(Expr::cust_with_values(
-            r#""jobs"."payload"->>'personId' = $1"#,
+            r#""jobs"."params"->>'personId' = $1"#,
             [person_id.to_string()],
         ))
         .count(db)

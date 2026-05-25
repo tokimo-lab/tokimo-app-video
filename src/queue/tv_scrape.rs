@@ -28,28 +28,28 @@ pub async fn handle(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
     job_id: Uuid,
-    payload: &JsonValue,
+    params: &JsonValue,
     cancel: &JobCancel,
     user_id: Option<Uuid>,
 ) -> Result<Option<JsonValue>, Box<dyn std::error::Error + Send + Sync>> {
     check_cancel(cancel)?;
-    let show_dir = payload
+    let show_dir = params
         .get("showDir")
         .and_then(|v| v.as_str())
         .ok_or("Missing showDir")?;
-    let video_id = payload
+    let video_id = params
         .get("videoId")
         .and_then(|v| v.as_str())
         .ok_or("Missing videoId")?;
-    let source_id = payload
+    let source_id = params
         .get("sourceId")
         .and_then(|v| v.as_str())
         .ok_or("Missing sourceId")?;
-    let lib_type = payload
+    let lib_type = params
         .get("libType")
         .and_then(|v| v.as_str())
         .ok_or("Missing libType")?;
-    let files = payload
+    let files = params
         .get("files")
         .and_then(|v| v.as_array())
         .ok_or("Missing files array")?;
