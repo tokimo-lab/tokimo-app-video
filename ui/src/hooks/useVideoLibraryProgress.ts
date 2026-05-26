@@ -182,7 +182,11 @@ export function useVideoLibraryProgress(
     enabled: (categories ?? []).length > 0,
   });
 
-  useAppEntityEvents({ appId: "video", kind: "video_item" }, handleEntityEvent);
+  useAppEntityEvents({
+    appId: "video",
+    kind: "video_item",
+    onEvent: handleEntityEvent,
+  });
 
   useEffect(() => {
     if (!categories) return;
