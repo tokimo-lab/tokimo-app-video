@@ -11,13 +11,6 @@ export interface VideoLibraryProgressState {
   pct: number;
 }
 
-interface SyncSnapshot {
-  completed: number;
-  running: number;
-  pending: number;
-  failed: number;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -25,6 +18,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function stringField(record: Record<string, unknown> | null, key: string) {
   const value = record?.[key];
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function numberField(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "number" ? value : null;
 }
 
 function getJobRecord(event: ShellJobEvent): Record<string, unknown> | null {
@@ -51,13 +49,29 @@ function getJobStatus(event: ShellJobEvent) {
   return stringField(job, "status");
 }
 
+function getJobProgress(event: ShellJobEvent) {
+  const job = getJobRecord(event);
+  const data = isRecord(job?.data) ? job.data : null;
+  const rich = isRecord(data?.progress) ? data.progress : null;
+  const current = numberField(rich, "current");
+  const total = numberField(rich, "total");
+  const progress = numberField(job, "progress") ?? 0;
+  const pct =
+    current !== null && total !== null && total > 0
+      ? Math.round((current / total) * 100)
+      : progress;
+  return {
+    pct: Math.max(0, Math.min(100, pct)),
+    label: stringField(rich, "label") ?? "",
+  };
+}
+
 export function useVideoLibraryProgress(
   categories: VideoOutput[] | undefined,
 ): Record<string, VideoLibraryProgressState> {
   const queryClient = useQueryClient();
   const [activeLibIds, setActiveLibIds] = useState<Set<string>>(new Set());
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
-  const lastSyncSnapshotRef = useRef<Record<string, SyncSnapshot>>({});
   const categoryIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -75,23 +89,6 @@ export function useVideoLibraryProgress(
     api.video.list.invalidate(queryClient);
   }, [queryClient]);
 
-  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const throttlePendingRef = useRef(false);
-  const throttledRefresh = useCallback(() => {
-    if (throttleTimerRef.current) {
-      throttlePendingRef.current = true;
-      return;
-    }
-    refreshContent();
-    throttleTimerRef.current = setTimeout(() => {
-      throttleTimerRef.current = null;
-      if (throttlePendingRef.current) {
-        throttlePendingRef.current = false;
-        refreshContent();
-      }
-    }, 500);
-  }, [refreshContent]);
-
   const handleJobEvent = useCallback(
     (event: ShellJobEvent) => {
       if (event.type !== "job_update") return;
@@ -99,12 +96,22 @@ export function useVideoLibraryProgress(
       if (!libraryId || !categoryIdsRef.current.has(libraryId)) return;
 
       const status = getJobStatus(event);
+      const { pct } = getJobProgress(event);
       if (
         status === "completed" ||
         status === "failed" ||
         status === "cancelled"
       ) {
-        throttledRefresh();
+        refreshContent();
+        setProgressPct((prev) => {
+          const next = { ...prev };
+          if (status === "completed") {
+            next[libraryId] = 100;
+          } else {
+            delete next[libraryId];
+          }
+          return next;
+        });
         setActiveLibIds((prev) => {
           const next = new Set(prev);
           next.delete(libraryId);
@@ -113,6 +120,7 @@ export function useVideoLibraryProgress(
         return;
       }
 
+      setProgressPct((prev) => ({ ...prev, [libraryId]: pct }));
       setActiveLibIds((prev) => {
         if (prev.has(libraryId)) return prev;
         const next = new Set(prev);
@@ -120,7 +128,7 @@ export function useVideoLibraryProgress(
         return next;
       });
     },
-    [throttledRefresh],
+    [refreshContent],
   );
 
   useJobEvents({
@@ -128,77 +136,6 @@ export function useVideoLibraryProgress(
     onEvent: handleJobEvent,
     enabled: (categories ?? []).length > 0,
   });
-
-  useEffect(() => {
-    if (activeLibIds.size === 0) {
-      setProgressPct({});
-      return;
-    }
-
-    const interval = setInterval(async () => {
-      const ids = Array.from(activeLibIds);
-      const pcts: Record<string, number> = {};
-      const terminalIds: string[] = [];
-      let shouldRefresh = false;
-
-      await Promise.all(
-        ids.map(async (id) => {
-          try {
-            const data = await queryClient.fetchQuery({
-              queryKey: api.video.getSyncProgress.queryKey({ id }),
-              queryFn: () => api.video.getSyncProgress.fetch({ id }),
-              staleTime: 1000,
-            });
-            const total =
-              data.completed + data.running + data.pending + data.failed;
-            pcts[id] =
-              total > 0 ? Math.round((data.completed / total) * 100) : 0;
-
-            const prev = lastSyncSnapshotRef.current[id];
-            const next = {
-              completed: data.completed,
-              running: data.running,
-              pending: data.pending,
-              failed: data.failed,
-            };
-            lastSyncSnapshotRef.current[id] = next;
-
-            const changed =
-              !prev ||
-              prev.completed !== next.completed ||
-              prev.running !== next.running ||
-              prev.pending !== next.pending ||
-              prev.failed !== next.failed;
-            const inProgress = next.running > 0 || next.pending > 0;
-
-            if (changed || inProgress) shouldRefresh = true;
-            if (!inProgress) terminalIds.push(id);
-          } catch (err) {
-            console.warn("[video] failed to fetch sync progress", err);
-            pcts[id] = 0;
-          }
-        }),
-      );
-
-      setProgressPct(pcts);
-      if (terminalIds.length > 0) {
-        setActiveLibIds((prev) => {
-          let mutated = false;
-          const next = new Set(prev);
-          for (const id of terminalIds) {
-            if (next.delete(id)) {
-              mutated = true;
-              delete lastSyncSnapshotRef.current[id];
-            }
-          }
-          return mutated ? next : prev;
-        });
-      }
-      if (shouldRefresh) throttledRefresh();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [activeLibIds, queryClient, throttledRefresh]);
 
   useEffect(() => {
     if (!categories) return;
@@ -212,12 +149,6 @@ export function useVideoLibraryProgress(
       return next.size !== prev.size ? next : prev;
     });
   }, [categories]);
-
-  useEffect(() => {
-    return () => {
-      if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
-    };
-  }, []);
 
   const syncProgress: Record<string, VideoLibraryProgressState> = {};
   for (const id of activeLibIds) {
