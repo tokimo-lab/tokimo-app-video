@@ -2,10 +2,12 @@ use sea_orm::DatabaseConnection;
 use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{Duration, Instant};
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs;
 
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
@@ -65,6 +67,8 @@ pub async fn handle(
 
     let processed = Arc::new(AtomicU32::new(0));
     let errors = Arc::new(AtomicU32::new(0));
+    let mut last_reported_pct = -1;
+    let mut last_reported_at: Option<Instant> = None;
 
     // Process the first file sequentially to create the show + first season via TMDB.
     {
@@ -80,6 +84,18 @@ pub async fn handle(
                 errors.fetch_add(1, Ordering::Relaxed);
             }
         }
+        let current = processed.load(Ordering::Relaxed) + errors.load(Ordering::Relaxed);
+        report_progress(
+            state,
+            job_id,
+            user_id,
+            current,
+            total,
+            &mut last_reported_pct,
+            &mut last_reported_at,
+            format!("Scraping {current}/{total}: {show_dir}"),
+        )
+        .await;
     }
 
     // Process remaining files concurrently in batches.
@@ -114,6 +130,18 @@ pub async fn handle(
         }
         for h in handles {
             let _ = h.await;
+            let current = processed.load(Ordering::Relaxed) + errors.load(Ordering::Relaxed);
+            report_progress(
+                state,
+                job_id,
+                user_id,
+                current,
+                total,
+                &mut last_reported_pct,
+                &mut last_reported_at,
+                format!("Scraping {current}/{total}: {show_dir}"),
+            )
+            .await;
         }
     }
 
@@ -143,4 +171,42 @@ fn make_file_payload(file: &JsonValue, video_id: &str, source_id: &str, lib_type
         "sourceId": source_id,
         "libType": lib_type,
     })
+}
+
+async fn report_progress(
+    state: &Arc<AppState>,
+    job_id: Uuid,
+    user_id: Option<Uuid>,
+    current: u32,
+    total: usize,
+    last_reported_pct: &mut i32,
+    last_reported_at: &mut Option<Instant>,
+    label: String,
+) {
+    if total == 0 {
+        return;
+    }
+    let pct = (((current as f64 / total as f64) * 100.0).round() as i32).clamp(0, 100);
+    let is_final = (current as usize) >= total || pct == 100;
+    if is_final && *last_reported_pct >= 100 {
+        return;
+    }
+    let pct_changed = pct >= *last_reported_pct + 2;
+    let time_elapsed = last_reported_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500));
+    if !(pct_changed || time_elapsed || is_final) {
+        return;
+    }
+    *last_reported_pct = pct;
+    *last_reported_at = Some(Instant::now());
+
+    let Some(client) = state.bus_client.get() else { return };
+    jobs::update_progress(
+        client,
+        jobs::video_caller(user_id),
+        job_id,
+        pct,
+        Some(json!({ "progress": { "current": current, "total": total, "label": label } })),
+    )
+    .await
+    .ok();
 }

@@ -1,10 +1,12 @@
 use sea_orm::DatabaseConnection;
 use serde_json::{Value as JsonValue, json};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs;
 
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
@@ -57,6 +59,8 @@ pub async fn handle(
 
     let mut processed = 0u32;
     let mut errors = 0u32;
+    let mut last_reported_pct = -1;
+    let mut last_reported_at: Option<Instant> = None;
 
     for file in files {
         check_cancel(cancel)?;
@@ -78,6 +82,19 @@ pub async fn handle(
                 errors += 1;
             }
         }
+
+        let current = processed + errors;
+        report_progress(
+            state,
+            job_id,
+            user_id,
+            current,
+            total,
+            &mut last_reported_pct,
+            &mut last_reported_at,
+            format!("Scraping {current}/{total}: {movie_dir}"),
+        )
+        .await;
     }
 
     info!("[movie_scrape] dir=\"{movie_dir}\" done: {processed}/{total} ok, {errors} errors");
@@ -92,4 +109,42 @@ pub async fn handle(
         "processed": processed,
         "errors": errors,
     })))
+}
+
+async fn report_progress(
+    state: &Arc<AppState>,
+    job_id: Uuid,
+    user_id: Option<Uuid>,
+    current: u32,
+    total: usize,
+    last_reported_pct: &mut i32,
+    last_reported_at: &mut Option<Instant>,
+    label: String,
+) {
+    if total == 0 {
+        return;
+    }
+    let pct = (((current as f64 / total as f64) * 100.0).round() as i32).clamp(0, 100);
+    let is_final = (current as usize) >= total || pct == 100;
+    if is_final && *last_reported_pct >= 100 {
+        return;
+    }
+    let pct_changed = pct >= *last_reported_pct + 2;
+    let time_elapsed = last_reported_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500));
+    if !(pct_changed || time_elapsed || is_final) {
+        return;
+    }
+    *last_reported_pct = pct;
+    *last_reported_at = Some(Instant::now());
+
+    let Some(client) = state.bus_client.get() else { return };
+    jobs::update_progress(
+        client,
+        jobs::video_caller(user_id),
+        job_id,
+        pct,
+        Some(json!({ "progress": { "current": current, "total": total, "label": label } })),
+    )
+    .await
+    .ok();
 }

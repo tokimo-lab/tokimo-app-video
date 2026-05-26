@@ -135,6 +135,15 @@ pub struct UpdateStatusRequest {
     pub progress: Option<i32>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProgressRequest {
+    job_id: Uuid,
+    progress: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<JsonValue>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JobView {
@@ -265,6 +274,24 @@ pub async fn update_status(
     serde_json::from_slice::<JobView>(&response)
         .map(Job::from)
         .map_err(|error| AppError::Internal(format!("jobs.update_status decode: {error}")))
+}
+
+pub async fn update_progress(
+    client: &BusClient,
+    caller: CallerCtx,
+    job_id: Uuid,
+    progress: i32,
+    progress_data: Option<JsonValue>,
+) -> Result<Job, AppError> {
+    let request = UpdateProgressRequest {
+        job_id,
+        progress,
+        data: progress_data,
+    };
+    let response = invoke_json(client, "update_progress", caller, &request).await?;
+    serde_json::from_slice::<JobView>(&response)
+        .map(Job::from)
+        .map_err(|error| AppError::Internal(format!("jobs.update_progress decode: {error}")))
 }
 
 // ── Filter-based types + methods ───────────────────────────────────────────────
