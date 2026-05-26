@@ -8,6 +8,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::app_events;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::services::common::is_unique_violation;
 
@@ -106,11 +107,21 @@ pub async fn handle(
 
     let movie_id = params.get("movieId").and_then(|v| v.as_str()).map(str::to_string);
     let tv_show_id = params.get("tvShowId").and_then(|v| v.as_str()).map(str::to_string);
-    let _ = state.event_tx.send(crate::queue::AppEvent::PersonScraped {
-        person_id: person_id.to_string(),
-        video_item_id: movie_id,
-        tv_show_id,
-    });
+    if let Some(uid) = user_id {
+        let client = state.bus_client.get().expect("bus_client not initialized");
+        let _ = app_events::emit_entity(
+            client,
+            uid,
+            "person_scraped",
+            Some(format!("person:{person_id}")),
+            json!({
+                "personId": person_id,
+                "videoItemId": movie_id,
+                "tvShowId": tv_show_id,
+            }),
+        )
+        .await;
+    }
 
     // debug!("[tmdb_person_scrape] Updated {person_type} person {person_id}");
     Ok(Some(json!({ "personId": person_id })))

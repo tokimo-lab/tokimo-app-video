@@ -35,7 +35,6 @@ import type {
   VideoItemDetailOutput,
   VideoItemOutput,
   VideoOutput,
-  VideoSyncProgressOutput,
   WatchHistoryEntry,
   YtdlpStatus,
   YtdlpUpdateResult,
@@ -188,18 +187,6 @@ export const apiVideoSync = {
       onSuccess: opts?.onSuccess,
       onError: opts?.onError,
     }),
-};
-
-export const apiVideoGetSyncProgress = {
-  queryKey: (input: { id: string }): unknown[] => [
-    VIDEO_KEY,
-    "sync-progress",
-    input.id,
-  ],
-  fetch: (input: { id: string }) =>
-    videoFetch<VideoSyncProgressOutput>(
-      `/${encodeURIComponent(input.id)}/sync-progress`,
-    ),
 };
 
 export const apiVideoListVideoItems = {

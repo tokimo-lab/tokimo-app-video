@@ -192,6 +192,7 @@ pub async fn handle(
                 &artwork,
                 nfo_poster_tmdb.as_deref(),
                 nfo_backdrop_tmdb.as_deref(),
+                user_id,
             )
             .await?;
             movie_id = Some(result.video_item_id);

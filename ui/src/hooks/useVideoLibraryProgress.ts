@@ -1,5 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { type ShellJobEvent, useJobEvents } from "@tokimo/sdk";
+import {
+  type AppEntityEvent,
+  type ShellJobEvent,
+  useAppEntityEvents,
+  useJobEvents,
+} from "@tokimo/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { VideoOutput } from "../api/types";
@@ -74,13 +79,6 @@ export function useVideoLibraryProgress(
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
   const categoryIdsRef = useRef<Set<string>>(new Set());
   const pendingByLibRef = useRef(new Map<string, Set<string>>());
-  // Throttle mid-sync refreshes so newly scraped items appear in the list
-  // without storming the network (cap = once per 3s while sync is active).
-  const lastRefreshAtRef = useRef(0);
-  const pendingRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const MID_SYNC_REFRESH_THROTTLE_MS = 3000;
 
   useEffect(() => {
     categoryIdsRef.current = new Set(
@@ -89,11 +87,6 @@ export function useVideoLibraryProgress(
   }, [categories]);
 
   const refreshContent = useCallback(() => {
-    lastRefreshAtRef.current = Date.now();
-    if (pendingRefreshTimerRef.current) {
-      clearTimeout(pendingRefreshTimerRef.current);
-      pendingRefreshTimerRef.current = null;
-    }
     api.video.listVideoItems.invalidate(queryClient);
     api.video.listTvShows.invalidate(queryClient);
     api.video.getRecentlyAdded.invalidate(queryClient);
@@ -101,20 +94,6 @@ export function useVideoLibraryProgress(
     api.video.listCountries.invalidate(queryClient);
     api.video.list.invalidate(queryClient);
   }, [queryClient]);
-
-  // Throttled mid-sync refresh: while a library has scrape jobs in flight,
-  // newly scraped items should still appear in the list. Cap at one refresh
-  // per MID_SYNC_REFRESH_THROTTLE_MS to avoid the network storm we get from
-  // refreshing on every child job event.
-  const scheduleMidSyncRefresh = useCallback(() => {
-    if (pendingRefreshTimerRef.current) return;
-    const elapsed = Date.now() - lastRefreshAtRef.current;
-    const wait = Math.max(0, MID_SYNC_REFRESH_THROTTLE_MS - elapsed);
-    pendingRefreshTimerRef.current = setTimeout(() => {
-      pendingRefreshTimerRef.current = null;
-      refreshContent();
-    }, wait);
-  }, [refreshContent]);
 
   const handleJobEvent = useCallback(
     (event: ShellJobEvent) => {
@@ -172,9 +151,6 @@ export function useVideoLibraryProgress(
           }
           pendingJobs.add(jobId);
         }
-        // Throttled refresh so freshly scraped items become visible during
-        // the sync, not only at the very end.
-        scheduleMidSyncRefresh();
       }
 
       setProgressPct((prev) => ({ ...prev, [libraryId]: pct }));
@@ -185,7 +161,19 @@ export function useVideoLibraryProgress(
         return next;
       });
     },
-    [refreshContent, scheduleMidSyncRefresh],
+    [refreshContent],
+  );
+
+  const handleEntityEvent = useCallback(
+    (event: AppEntityEvent) => {
+      const scope = event.scope ?? "";
+      const libraryId = scope.startsWith("library:")
+        ? scope.slice("library:".length)
+        : null;
+      if (!libraryId || !categoryIdsRef.current.has(libraryId)) return;
+      refreshContent();
+    },
+    [refreshContent],
   );
 
   useJobEvents({
@@ -194,14 +182,7 @@ export function useVideoLibraryProgress(
     enabled: (categories ?? []).length > 0,
   });
 
-  useEffect(() => {
-    return () => {
-      if (pendingRefreshTimerRef.current) {
-        clearTimeout(pendingRefreshTimerRef.current);
-        pendingRefreshTimerRef.current = null;
-      }
-    };
-  }, []);
+  useAppEntityEvents({ appId: "video", kind: "video_item" }, handleEntityEvent);
 
   useEffect(() => {
     if (!categories) return;

@@ -8,9 +8,8 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::bus_clients::jobs::{self as jobs_client, video_library_filter};
 use crate::db::ApiDateTimeExt;
-use crate::db::models::video::{VideoSyncProgressOutput, VideoSyncStatusOutput, VideoTaskProgress};
+use crate::db::models::video::VideoSyncStatusOutput;
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
 use crate::error::OptionExt;
@@ -124,69 +123,6 @@ pub async fn get_all_video_sync_statuses(
         })
         .collect();
     Ok(ok(statuses))
-}
-
-/// GET /api/apps/video/{id}/sync-progress
-pub async fn get_video_sync_progress(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-    auth: AuthUser,
-) -> Result<Json<ApiResponse<VideoSyncProgressOutput>>, AppError> {
-    let caller_user_id: Uuid = auth
-        .user_id
-        .parse()
-        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
-
-    let uid = parse_uuid(&id)?;
-    let video = VideoRepo::get_by_id(&state.db, uid)
-        .await?
-        .not_found(format!("video {id} not found"))?;
-
-    let job_types: Vec<String> = vec!["movie_scrape".into(), "tv_scrape".into()];
-    let client = state.bus_client.get().expect("bus_client not initialized");
-    let filter = video_library_filter(uid, None);
-    let summary =
-        jobs_client::progress_summary(client, jobs_client::video_caller(Some(caller_user_id)), filter, job_types)
-            .await?;
-
-    let tasks: Vec<VideoTaskProgress> = summary
-        .tasks
-        .into_iter()
-        .map(|row| {
-            let status = if row.running > 0 {
-                "running"
-            } else if row.pending > 0 {
-                "pending"
-            } else if row.failed > 0 && row.completed == 0 {
-                "failed"
-            } else {
-                "completed"
-            };
-
-            let (total_items, processed_items) = {
-                let t = row.completed + row.running + row.pending + row.failed;
-                (t, row.completed)
-            };
-
-            VideoTaskProgress {
-                task_type: row.job_type,
-                status: status.to_string(),
-                total_items,
-                processed_items,
-            }
-        })
-        .collect();
-
-    Ok(ok(VideoSyncProgressOutput {
-        video_id: uid.to_string(),
-        status: video.sync_status,
-        total: summary.total,
-        completed: summary.completed,
-        running: summary.running,
-        pending: summary.pending,
-        failed: summary.failed,
-        tasks,
-    }))
 }
 
 /// GET /api/apps/video/scraping-settings

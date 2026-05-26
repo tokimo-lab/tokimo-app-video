@@ -44,34 +44,3 @@ pub struct VideoSyncStatusOutput {
     pub status: String,
     pub last_sync_at: Option<String>,
 }
-
-#[derive(Debug, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoSyncProgressOutput {
-    pub video_id: String,
-    pub status: String,
-    #[ts(type = "number")]
-    pub total: i64,
-    #[ts(type = "number")]
-    pub completed: i64,
-    #[ts(type = "number")]
-    pub running: i64,
-    #[ts(type = "number")]
-    pub pending: i64,
-    #[ts(type = "number")]
-    pub failed: i64,
-    pub tasks: Vec<VideoTaskProgress>,
-}
-
-#[derive(Debug, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoTaskProgress {
-    pub task_type: String,
-    pub status: String,
-    #[ts(type = "number")]
-    pub total_items: i64,
-    #[ts(type = "number")]
-    pub processed_items: i64,
-}

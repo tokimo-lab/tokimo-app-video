@@ -16,15 +16,6 @@ use crate::db::models::job::JobOutput;
 pub enum AppEvent {
     #[serde(rename = "job_update")]
     JobUpdate { job: Box<JobOutput> },
-    #[serde(rename = "person_scraped")]
-    PersonScraped {
-        #[serde(rename = "personId")]
-        person_id: String,
-        #[serde(rename = "videoItemId")]
-        video_item_id: Option<String>,
-        #[serde(rename = "tvShowId")]
-        tv_show_id: Option<String>,
-    },
     #[serde(rename = "download_progress")]
     DownloadProgress { records: Vec<serde_json::Value> },
 }

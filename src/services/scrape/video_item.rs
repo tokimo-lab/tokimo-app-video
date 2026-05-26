@@ -9,6 +9,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::app_events;
 use crate::db::entities::video_items;
 
 use crate::services::common::{
@@ -93,6 +94,16 @@ pub async fn find_or_create_video_item(
     let nfo_imdb_id = nfo.and_then(|n| n.imdb_id.as_deref());
     if let Some(id) = find_existing_video_item(db, app_id, nfo_tmdb_id, nfo_imdb_id).await? {
         touch_video_item(db, id).await?;
+        if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+            let _ = app_events::emit_entity(
+                client,
+                uid,
+                "video_item",
+                Some(format!("library:{app_id}")),
+                json!({ "id": id.to_string(), "operation": "updated", "libraryId": app_id.to_string() }),
+            )
+            .await;
+        }
         return Ok(VideoItemResult {
             video_item_id: id,
             scraped: false,
@@ -103,6 +114,16 @@ pub async fn find_or_create_video_item(
     // in the same movie directory already created the movie record.
     if let Some(id) = find_existing_video_item_by_title(db, app_id, parsed_title, parsed_year).await? {
         touch_video_item(db, id).await?;
+        if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+            let _ = app_events::emit_entity(
+                client,
+                uid,
+                "video_item",
+                Some(format!("library:{app_id}")),
+                json!({ "id": id.to_string(), "operation": "updated", "libraryId": app_id.to_string() }),
+            )
+            .await;
+        }
         return Ok(VideoItemResult {
             video_item_id: id,
             scraped: false,
@@ -153,6 +174,16 @@ pub async fn find_or_create_video_item(
         )
         .await?;
         touch_video_item(db, id).await?;
+        if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+            let _ = app_events::emit_entity(
+                client,
+                uid,
+                "video_item",
+                Some(format!("library:{app_id}")),
+                json!({ "id": id.to_string(), "operation": "updated", "libraryId": app_id.to_string() }),
+            )
+            .await;
+        }
         return Ok(VideoItemResult {
             video_item_id: id,
             scraped: false,
@@ -239,6 +270,17 @@ pub async fn find_or_create_video_item(
     }
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;
+
+    if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+        let _ = app_events::emit_entity(
+            client,
+            uid,
+            "video_item",
+            Some(format!("library:{app_id}")),
+            json!({ "id": movie_id.to_string(), "operation": "created", "libraryId": app_id.to_string() }),
+        )
+        .await;
+    }
 
     Ok(VideoItemResult {
         video_item_id: movie_id,

@@ -769,24 +769,6 @@ export interface FileProbeResult {
   chapters: Array<FileProbeChapter>;
 }
 
-export interface VideoTaskProgress {
-  taskType: string;
-  status: string;
-  totalItems: number;
-  processedItems: number;
-}
-
-export interface VideoSyncProgressOutput {
-  videoId: string;
-  status: string;
-  total: number;
-  completed: number;
-  running: number;
-  pending: number;
-  failed: number;
-  tasks: Array<VideoTaskProgress>;
-}
-
 // ── Watch history ──────────────────────────────────────────────────────────
 
 export interface WatchHistoryEntry {

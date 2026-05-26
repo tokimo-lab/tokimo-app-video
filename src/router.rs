@@ -112,10 +112,6 @@ pub fn build_video_app_routes() -> Router<Arc<AppState>> {
             get(handlers::get_video_sync_status),
         )
         .route(
-            "/{id}/sync-progress",
-            get(handlers::get_video_sync_progress),
-        )
-        .route(
             "/{id}/items",
             get(handlers::list_video_items),
         )

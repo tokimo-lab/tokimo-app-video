@@ -13,6 +13,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::app_events;
 use crate::db::entities::{download_records, video_items};
 
 use crate::services::common::is_unique_violation;
@@ -110,6 +111,7 @@ pub async fn find_or_create_online_video(
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
+    user_id: Option<Uuid>,
 ) -> Result<OnlineVideoResult, Box<dyn std::error::Error + Send + Sync>> {
     // Title: NFO → download_records → fallback (parsed filename / dir name)
     let nfo_title = nfo.and_then(|n| n.title.clone());
@@ -134,6 +136,7 @@ pub async fn find_or_create_online_video(
 
     // Dedup by title within the same library
     let existing = find_existing(db, app_id, &title).await?;
+    let is_new = existing.is_none();
 
     let movie_id = if let Some(id) = existing {
         // Backfill metadata/year/overview if not yet populated (e.g. prior scan had no download_record match)
@@ -177,6 +180,16 @@ pub async fn find_or_create_online_video(
 
                     update.exec(&txn).await?;
                     txn.commit().await?;
+                    if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+                        let _ = app_events::emit_entity(
+                            client,
+                            uid,
+                            "video_item",
+                            Some(format!("library:{app_id}")),
+                            json!({ "id": id.to_string(), "operation": "updated", "libraryId": app_id.to_string() }),
+                        )
+                        .await;
+                    }
                     return upload_artwork_and_finish(
                         db,
                         state,
@@ -206,6 +219,18 @@ pub async fn find_or_create_online_video(
         txn.commit().await?;
         id
     };
+
+    if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+        let operation = if is_new { "created" } else { "updated" };
+        let _ = app_events::emit_entity(
+            client,
+            uid,
+            "video_item",
+            Some(format!("library:{app_id}")),
+            json!({ "id": movie_id.to_string(), "operation": operation, "libraryId": app_id.to_string() }),
+        )
+        .await;
+    }
 
     upload_artwork_and_finish(
         db,
