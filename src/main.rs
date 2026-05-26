@@ -21,6 +21,8 @@ mod router;
 mod services;
 mod state;
 
+pub(crate) const MANIFEST: &str = include_str!("../tokimo-app.toml");
+
 pub use state::AppCtx as AppState;
 
 use std::path::PathBuf;
