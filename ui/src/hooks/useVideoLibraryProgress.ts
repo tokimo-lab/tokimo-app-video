@@ -5,7 +5,6 @@ import { api } from "../api";
 import type { VideoOutput } from "../api/types";
 
 const VIDEO_SCAN_JOB_TYPES = ["tv_scrape", "movie_scrape", "file_scrape"];
-const REFRESH_DEBOUNCE_MS = 500;
 
 export interface VideoLibraryProgressState {
   isActive: boolean;
@@ -74,7 +73,7 @@ export function useVideoLibraryProgress(
   const [activeLibIds, setActiveLibIds] = useState<Set<string>>(new Set());
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
   const categoryIdsRef = useRef<Set<string>>(new Set());
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingByLibRef = useRef(new Map<string, Set<string>>());
 
   useEffect(() => {
     categoryIdsRef.current = new Set(
@@ -91,32 +90,14 @@ export function useVideoLibraryProgress(
     api.video.list.invalidate(queryClient);
   }, [queryClient]);
 
-  // Coalesce bursts of completed/failed/cancelled file_scrape events from
-  // OV-style libraries (1 job per file → N completions in seconds) into one
-  // refetch per 500ms window. Otherwise N=1000 files = 6000 invalidations.
-  const scheduleRefresh = useCallback(() => {
-    if (refreshTimerRef.current !== null) return;
-    refreshTimerRef.current = setTimeout(() => {
-      refreshTimerRef.current = null;
-      refreshContent();
-    }, REFRESH_DEBOUNCE_MS);
-  }, [refreshContent]);
-
-  useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current !== null) {
-        clearTimeout(refreshTimerRef.current);
-        refreshTimerRef.current = null;
-      }
-    };
-  }, []);
-
   const handleJobEvent = useCallback(
     (event: ShellJobEvent) => {
       if (event.type !== "job_update") return;
       const libraryId = extractVideoLibraryId(event);
       if (!libraryId || !categoryIdsRef.current.has(libraryId)) return;
 
+      const job = getJobRecord(event);
+      const jobId = stringField(job, "id");
       const status = getJobStatus(event);
       const { pct } = getJobProgress(event);
       if (
@@ -124,7 +105,21 @@ export function useVideoLibraryProgress(
         status === "failed" ||
         status === "cancelled"
       ) {
-        scheduleRefresh();
+        if (!jobId) {
+          refreshContent();
+        } else {
+          const pendingJobs = pendingByLibRef.current.get(libraryId);
+          if (pendingJobs) {
+            const wasNonEmpty = pendingJobs.size > 0;
+            pendingJobs.delete(jobId);
+            if (wasNonEmpty && pendingJobs.size === 0) {
+              refreshContent();
+              pendingByLibRef.current.delete(libraryId);
+            }
+          } else {
+            refreshContent();
+          }
+        }
         setProgressPct((prev) => {
           const next = { ...prev };
           if (status === "completed") {
@@ -142,6 +137,17 @@ export function useVideoLibraryProgress(
         return;
       }
 
+      if (status === "pending" || status === "running") {
+        if (jobId) {
+          let pendingJobs = pendingByLibRef.current.get(libraryId);
+          if (!pendingJobs) {
+            pendingJobs = new Set();
+            pendingByLibRef.current.set(libraryId, pendingJobs);
+          }
+          pendingJobs.add(jobId);
+        }
+      }
+
       setProgressPct((prev) => ({ ...prev, [libraryId]: pct }));
       setActiveLibIds((prev) => {
         if (prev.has(libraryId)) return prev;
@@ -150,7 +156,7 @@ export function useVideoLibraryProgress(
         return next;
       });
     },
-    [scheduleRefresh],
+    [refreshContent],
   );
 
   useJobEvents({
