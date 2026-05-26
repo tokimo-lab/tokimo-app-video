@@ -79,12 +79,25 @@ export function useVideoLibraryProgress(
   const [progressPct, setProgressPct] = useState<Record<string, number>>({});
   const categoryIdsRef = useRef<Set<string>>(new Set());
   const pendingByLibRef = useRef(new Map<string, Set<string>>());
+  const entityRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     categoryIdsRef.current = new Set(
       (categories ?? []).map((category) => category.id),
     );
   }, [categories]);
+
+  useEffect(
+    () => () => {
+      if (entityRefreshTimerRef.current) {
+        clearTimeout(entityRefreshTimerRef.current);
+        entityRefreshTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const refreshContent = useCallback(() => {
     api.video.listVideoItems.invalidate(queryClient);
@@ -94,6 +107,14 @@ export function useVideoLibraryProgress(
     api.video.listCountries.invalidate(queryClient);
     api.video.list.invalidate(queryClient);
   }, [queryClient]);
+
+  const scheduleEntityRefresh = useCallback(() => {
+    if (entityRefreshTimerRef.current) return;
+    entityRefreshTimerRef.current = setTimeout(() => {
+      entityRefreshTimerRef.current = null;
+      refreshContent();
+    }, 800);
+  }, [refreshContent]);
 
   const handleJobEvent = useCallback(
     (event: ShellJobEvent) => {
@@ -171,9 +192,9 @@ export function useVideoLibraryProgress(
         ? scope.slice("library:".length)
         : null;
       if (!libraryId || !categoryIdsRef.current.has(libraryId)) return;
-      refreshContent();
+      scheduleEntityRefresh();
     },
-    [refreshContent],
+    [scheduleEntityRefresh],
   );
 
   useJobEvents({
