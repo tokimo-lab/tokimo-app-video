@@ -410,13 +410,7 @@ function DownloadEngineSettingsContent() {
   );
 }
 
-export default function DownloadEngineSettingsWindow({
-  win,
-}: {
-  win: ShellWindowHandle;
-}) {
-  void win;
-
+export function DownloadEngineSettingsSection() {
   return (
     <I18nextProvider i18n={i18n}>
       <ConfigProvider>
@@ -428,4 +422,13 @@ export default function DownloadEngineSettingsWindow({
       </ConfigProvider>
     </I18nextProvider>
   );
+}
+
+export default function DownloadEngineSettingsWindow({
+  win,
+}: {
+  win: ShellWindowHandle;
+}) {
+  void win;
+  return <DownloadEngineSettingsSection />;
 }

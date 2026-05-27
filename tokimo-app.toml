@@ -18,3 +18,15 @@ icon         = "Film"
 color        = "#ef4444"
 width        = 1280
 height       = 800
+
+[[app_settings]]
+id                   = "download-engine"
+title                = "media.downloads.engineSettings.title"
+icon                 = "Settings"
+component_section_id = "download-engine"
+
+[[app_settings]]
+id                   = "tmdb"
+title                = "media.tmdbSettings.title"
+icon                 = "Settings"
+component_section_id = "tmdb"

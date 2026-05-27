@@ -386,13 +386,7 @@ function TmdbSettingsContent() {
   );
 }
 
-export default function TmdbSettingsWindow({
-  win,
-}: {
-  win: ShellWindowHandle;
-}) {
-  void win;
-
+export function TmdbSettingsSection() {
   return (
     <I18nextProvider i18n={i18n}>
       <ConfigProvider>
@@ -404,4 +398,13 @@ export default function TmdbSettingsWindow({
       </ConfigProvider>
     </I18nextProvider>
   );
+}
+
+export default function TmdbSettingsWindow({
+  win,
+}: {
+  win: ShellWindowHandle;
+}) {
+  void win;
+  return <TmdbSettingsSection />;
 }

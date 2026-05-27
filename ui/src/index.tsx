@@ -4,6 +4,8 @@ import { ConfigProvider, ToastProvider } from "@tokimo/ui";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
+import { DownloadEngineSettingsSection } from "./components/DownloadEngineSettingsWindow";
+import { TmdbSettingsSection } from "./components/TmdbSettingsWindow";
 import VideoApp from "./components/VideoApp";
 import VideoMenuBar from "./components/VideoMenuBar";
 import i18n, { SUPPORTED_LOCALES } from "./i18n";
@@ -26,6 +28,20 @@ export default defineApp({
     windowType: "tokimo-video",
     defaultSize: { width: 1200, height: 800 },
     category: "app",
+    appSettings: [
+      {
+        id: "download-engine",
+        title: "media.downloads.engineSettings.title",
+        icon: "Settings",
+        componentSectionId: "download-engine",
+      },
+      {
+        id: "tmdb",
+        title: "media.tmdbSettings.title",
+        icon: "Settings",
+        componentSectionId: "tmdb",
+      },
+    ],
   },
   mount(container, ctx): Dispose {
     const applyLocale = (raw: string) => {
@@ -40,6 +56,14 @@ export default defineApp({
     const unregisterPlayerExtension = ctx.shell.player.registerExtension(
       ctx.appId,
       createVideoPlayerExtension(ctx, queryClient),
+    );
+    const unregisterDownloadEngineSection = ctx.shell.registerAppSection(
+      "download-engine",
+      DownloadEngineSettingsSection,
+    );
+    const unregisterTmdbSection = ctx.shell.registerAppSection(
+      "tmdb",
+      TmdbSettingsSection,
     );
 
     const root: Root = createRoot(container);
@@ -61,6 +85,8 @@ export default defineApp({
       </StrictMode>,
     );
     return () => {
+      unregisterTmdbSection();
+      unregisterDownloadEngineSection();
       unregisterPlayerExtension();
       unsubLocale();
       root.unmount();
