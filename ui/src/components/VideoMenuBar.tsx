@@ -147,11 +147,10 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
             ...(syncItems.length > 0
               ? [{ type: "divider" as const }, ...syncItems]
               : []),
-            { type: "divider" as const },
-            ...settingsItems,
           ],
         },
       ],
+      appMenu: settingsItems,
     };
   }, [
     categories,
