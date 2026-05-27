@@ -154,7 +154,8 @@ pub async fn delete_video(
     let uid = parse_uuid(&id)?;
     let client = state.bus_client.get().expect("bus_client not initialized");
     let filter = video_library_filter(uid, None);
-    let cancelled = jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(caller_user_id)), filter).await?;
+    let cancelled =
+        jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(caller_user_id)), filter).await?;
     if cancelled > 0 {
         tracing::info!("Cancelled {cancelled} jobs for deleted video category {uid}");
     }

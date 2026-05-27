@@ -33,8 +33,7 @@ pub async fn emit_entity(
         scope,
         payload,
     };
-    let body = serde_json::to_vec(&req)
-        .map_err(|e| AppError::Internal(format!("app_events.emit encode: {e}")))?;
+    let body = serde_json::to_vec(&req).map_err(|e| AppError::Internal(format!("app_events.emit encode: {e}")))?;
     client
         .invoke("app_events", "emit", body, caller)
         .await

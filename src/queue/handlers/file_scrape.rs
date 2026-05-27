@@ -54,10 +54,7 @@ pub async fn handle(
         .get("dirPath")
         .and_then(|v| v.as_str())
         .ok_or("Missing dirPath")?;
-    let file_size = params
-        .get("fileSize")
-        .and_then(sea_orm::JsonValue::as_i64)
-        .unwrap_or(0);
+    let file_size = params.get("fileSize").and_then(sea_orm::JsonValue::as_i64).unwrap_or(0);
     let checksum = params.get("checksum").and_then(|v| v.as_str());
     let video_id = params
         .get("videoId")
