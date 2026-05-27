@@ -91,6 +91,39 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
       });
     }
 
+    const settingsItems = [
+      {
+        key: "download-engine-settings",
+        label: t("media.downloads.engineSettings.menu"),
+        icon: <Settings size={14} />,
+        onClick: () => {
+          openModalWindow({
+            component: () => import("./DownloadEngineSettingsWindow"),
+            parentWindowId: windowId,
+            title: t("media.downloads.engineSettings.title"),
+            width: 720,
+            height: 640,
+            noMinimize: true,
+          });
+        },
+      },
+      {
+        key: "tmdb-settings",
+        label: t("media.tmdbSettings.title"),
+        icon: <Settings size={14} />,
+        onClick: () => {
+          openModalWindow({
+            component: () => import("./TmdbSettingsWindow"),
+            parentWindowId: windowId,
+            title: t("media.tmdbSettings.title"),
+            width: 760,
+            height: 680,
+            noMinimize: true,
+          });
+        },
+      },
+    ];
+
     return {
       menus: [
         {
@@ -114,42 +147,8 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
             ...(syncItems.length > 0
               ? [{ type: "divider" as const }, ...syncItems]
               : []),
-          ],
-        },
-        {
-          key: "settings",
-          label: t("media.menu.settings"),
-          items: [
-            {
-              key: "download-engine-settings",
-              label: t("media.downloads.engineSettings.menu"),
-              icon: <Settings size={14} />,
-              onClick: () => {
-                openModalWindow({
-                  component: () => import("./DownloadEngineSettingsWindow"),
-                  parentWindowId: windowId,
-                  title: t("media.downloads.engineSettings.title"),
-                  width: 720,
-                  height: 640,
-                  noMinimize: true,
-                });
-              },
-            },
-            {
-              key: "tmdb-settings",
-              label: t("media.tmdbSettings.title"),
-              icon: <Settings size={14} />,
-              onClick: () => {
-                openModalWindow({
-                  component: () => import("./TmdbSettingsWindow"),
-                  parentWindowId: windowId,
-                  title: t("media.tmdbSettings.title"),
-                  width: 760,
-                  height: 680,
-                  noMinimize: true,
-                });
-              },
-            },
+            { type: "divider" as const },
+            ...settingsItems,
           ],
         },
       ],
