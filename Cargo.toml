@@ -9,10 +9,10 @@ repository  = "https://github.com/tokimo-lab/tokimo-app-video"
 
 [dependencies]
 # Tokimo bus (independent submodule repo, git rev pinned — matches helloworld范式)
-tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e" }
-tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e", features = ["axum"] }
-tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e", features = ["axum", "cli-db"] }
-tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "6bc835c0c8890089b18e63cbe5c0562779a88f7e" }
+tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "80063cb4391c5249df9cd3b570b1eabed64c3843" }
+tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "80063cb4391c5249df9cd3b570b1eabed64c3843", features = ["axum"] }
+tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "80063cb4391c5249df9cd3b570b1eabed64c3843", features = ["axum", "cli-db"] }
+tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "80063cb4391c5249df9cd3b570b1eabed64c3843" }
 
 # Public packages — git pinned (独立仓库已开源)
 tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
