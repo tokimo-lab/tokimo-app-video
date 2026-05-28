@@ -62,7 +62,11 @@ jobs:
 
       - name: Install libudfread (macOS)
         if: runner.os == 'macOS'
-        run: brew install libudfread
+        run: |
+          brew install libudfread
+          BREW_PREFIX="$(brew --prefix)"
+          echo "LIBRARY_PATH=${BREW_PREFIX}/lib:${LIBRARY_PATH}" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=${BREW_PREFIX}/lib:${DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
 
       - name: Download tokimo-lib (macOS)
         if: runner.os == 'macOS'
