@@ -41,6 +41,12 @@ jobs:
           pnpm install --no-frozen-lockfile
           pnpm build
 
+      - name: Install libudfread (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudfread-dev
+
       - name: Download tokimo-lib (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -53,6 +59,10 @@ jobs:
           echo "FFMPEG_INCLUDE_DIR=${{ github.workspace }}/bin/tokimo-lib/current/include" >> "$GITHUB_ENV"
           echo "FFMPEG_PKG_CONFIG_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib/pkgconfig" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Install libudfread (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libudfread
 
       - name: Download tokimo-lib (macOS)
         if: runner.os == 'macOS'
@@ -108,6 +118,11 @@ jobs:
           else
             echo 'No ui lint script configured; build completed.'
           fi
+
+      - name: Install libudfread (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudfread-dev
 
       - name: Download tokimo-lib
         shell: bash
