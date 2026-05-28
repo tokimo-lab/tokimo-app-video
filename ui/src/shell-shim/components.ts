@@ -1,8 +1,6 @@
 // TODO(phase3): NEED_SDK_CROSS_APP_COMPONENTS — shared components
 
-export function AvatarPicker(): null {
-  return null;
-}
+export { AvatarPicker } from "@tokimo/ui";
 
 export function ContentSearch(): null {
   return null;
