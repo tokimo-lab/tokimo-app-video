@@ -167,6 +167,13 @@ async fn run_server() -> anyhow::Result<()> {
         .set(Arc::clone(&client))
         .map_err(|_| anyhow::anyhow!("client_slot already set"))?;
 
+    // Register job handlers with the main server (appId inferred from bus caller).
+    bus_clients::jobs::register_handler(&client, "file_scrape", "dispatch_file_scrape").await?;
+    bus_clients::jobs::register_handler(&client, "tv_scrape", "dispatch_tv_scrape").await?;
+    bus_clients::jobs::register_handler(&client, "movie_scrape", "dispatch_movie_scrape").await?;
+    bus_clients::jobs::register_handler(&client, "tmdb_person_scrape", "dispatch_tmdb_person_scrape").await?;
+    bus_clients::jobs::register_handler(&client, "online_media_ingest", "dispatch_online_video_download").await?;
+
     if let Err(error) = crate::bus_clients::downloader::register_downloaders(&client).await {
         warn!(%error, "video: failed to register downloader SDK with host");
     }

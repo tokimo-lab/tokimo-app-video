@@ -444,3 +444,28 @@ async fn invoke_json<T: Serialize>(
         .await
         .map_err(|error| AppError::Internal(format!("jobs.{method} via bus: {error}")))
 }
+
+/// Register a single job handler mapping with the main server.
+///
+/// The main server infers `appId` from the bus caller context (broker-stamped),
+/// so the sidecar cannot spoof its identity.
+pub async fn register_handler(
+    client: &BusClient,
+    job_type: &str,
+    method: &str,
+) -> Result<(), AppError> {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Req<'a> {
+        job_type: &'a str,
+        method: &'a str,
+    }
+    let _ = invoke_json(
+        client,
+        "register_handler",
+        CallerCtx::default(),
+        &Req { job_type, method },
+    )
+    .await?;
+    Ok(())
+}
