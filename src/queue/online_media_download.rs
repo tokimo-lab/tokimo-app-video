@@ -12,7 +12,7 @@ use crate::db::entities::{vfs, video_files};
 use crate::db::repos::download_record_repo::DownloadRecordRepo;
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
-use crate::services::storage::UploadOptions;
+use tokimo_storage::UploadOptions;
 
 // ── Download log helpers ──────────────────────────────────────────────────────
 
@@ -40,12 +40,12 @@ async fn append_download_log(
     let new_line = format!("{}\n", serde_json::to_string(&entry).unwrap_or_default());
 
     // Download existing content, append new line, re-upload.
-    let existing = state.storage.download(&key).await.unwrap_or_default();
+    let existing = state.storage().download(&key).await.unwrap_or_default();
     let mut content = existing.to_vec();
     content.extend_from_slice(new_line.as_bytes());
 
     if let Err(e) = state
-        .storage
+        .storage()
         .upload(
             &key,
             Bytes::from(content),

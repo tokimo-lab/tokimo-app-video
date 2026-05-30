@@ -5,5 +5,4 @@ pub mod media;
 pub mod nfo_parser;
 pub mod scrape;
 pub mod source;
-pub mod storage;
 pub mod stream_session;

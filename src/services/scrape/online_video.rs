@@ -513,5 +513,5 @@ async fn download_thumbnail(
         })
         .unwrap_or_else(|| "jpg".to_string());
     let key = format!("library-images/movies/{entity_id}/poster.{ext}");
-    crate::services::scrape::shared::artwork::upload_image_buffer(&state.storage, &bytes, &key).await
+    crate::services::scrape::shared::artwork::upload_image_buffer(state.storage(), &bytes, &key).await
 }

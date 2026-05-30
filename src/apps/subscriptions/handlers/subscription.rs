@@ -16,7 +16,7 @@ use crate::apps::subscriptions::repos::subscription_repo::{
 use crate::db::ApiDateTimeExt;
 use crate::error::AppError;
 use crate::handlers::{ok, user::AuthUser};
-use crate::services::storage::{StorageProvider, UploadOptions};
+use tokimo_storage::{StorageProvider, UploadOptions};
 
 // ── Log types ────────────────────────────────────────────────────────────────
 
@@ -239,7 +239,7 @@ pub async fn create(
             }
             let active_runs = Arc::clone(&state.active_subscription_runs);
             let db = state.db.clone();
-            let storage = Arc::clone(&state.storage);
+            let storage = Arc::clone(state.storage());
             let interval = sub.interval_minutes;
             tokio::spawn(async move {
                 append_log(&storage, &sub_id, &run_id, "start", "订阅执行开始", None).await;
@@ -294,7 +294,7 @@ pub async fn delete(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id)
 
     match SubscriptionRepo::delete(&state.db, &id).await {
         Ok(true) => {
-            delete_subscription_logs(&state.storage, &id).await;
+            delete_subscription_logs(state.storage(), &id).await;
             ok(SuccessBody { success: true }).into_response()
         }
         Ok(false) => AppError::NotFound("订阅不存在".into()).into_response(),
@@ -335,7 +335,7 @@ pub async fn execute(State(state): State<Arc<AppState>>, auth: AuthUser, Path(id
 
     let active_runs = Arc::clone(&state.active_subscription_runs);
     let db = state.db.clone();
-    let storage = Arc::clone(&state.storage);
+    let storage = Arc::clone(state.storage());
     let run_id_clone = run_id.clone();
     let interval: i32 = sub.interval_minutes.parse().unwrap_or(30);
 
@@ -404,7 +404,7 @@ pub async fn get_debug_info(State(state): State<Arc<AppState>>, auth: AuthUser, 
         .ok()
         .and_then(|runs| runs.get(&id).cloned());
 
-    let mut recent_runs = get_run_summaries(&state.storage, &id, 20).await;
+    let mut recent_runs = get_run_summaries(state.storage(), &id, 20).await;
     if let Some(ref active_id) = active_run_id {
         for run in &mut recent_runs {
             if run.run_id == *active_id {
@@ -450,7 +450,7 @@ pub async fn get_recent_logs(
     }
 
     let limit = query.limit.unwrap_or(200);
-    let logs = read_recent_logs(&state.storage, &id, limit).await;
+    let logs = read_recent_logs(state.storage(), &id, limit).await;
     ok(logs).into_response()
 }
 
@@ -469,7 +469,7 @@ pub async fn get_run_logs(
         Err(e) => return e.into_response(),
     }
 
-    let all = read_recent_logs(&state.storage, &id, 10000).await;
+    let all = read_recent_logs(state.storage(), &id, 10000).await;
     let run_logs: Vec<SubscriptionLogEntry> = all.into_iter().filter(|e| e.run_id == run_id).collect();
     ok(run_logs).into_response()
 }

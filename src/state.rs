@@ -11,13 +11,12 @@ use crate::db::models::job::JobOutput;
 use crate::queue::AppEvent;
 use crate::services::downloads::log_bus::LogBus;
 use crate::services::media::source::SourceRegistry;
-use crate::services::storage::StorageProvider;
 use crate::services::stream_session::StreamSessionManager;
 
 pub struct AppCtx {
     pub db: DatabaseConnection,
     pub sources: Arc<SourceRegistry>,
-    pub storage: Arc<dyn StorageProvider>,
+    pub storage: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>>,
     pub http_client: reqwest::Client,
     pub image_proxy_key: String,
     pub hls_manager: Arc<tokimo_package_hls::HlsSessionManager>,
@@ -43,6 +42,7 @@ impl AppCtx {
         db: sea_orm::DatabaseConnection,
         client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
         ytdlp_root: PathBuf,
+        storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>>,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
         let sources = Arc::new(crate::services::source::SourceRegistry::new(
@@ -52,7 +52,6 @@ impl AppCtx {
         let data_local_path = std::env::var("DATA_LOCAL_PATH")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("./.data/local"));
-        let storage = crate::services::storage::create_storage_from_env(&data_local_path);
         let http_client = reqwest::Client::new();
         let image_proxy_key = hex::encode(rand::random::<[u8; 32]>());
         let hls_manager = Arc::new(tokimo_package_hls::HlsSessionManager::new());
@@ -66,7 +65,7 @@ impl AppCtx {
         Ok(Self {
             db,
             sources,
-            storage,
+            storage: storage_slot,
             http_client,
             image_proxy_key,
             hls_manager,
@@ -90,6 +89,13 @@ impl AppCtx {
 
     pub fn image_proxy_key(&self) -> &str {
         &self.image_proxy_key
+    }
+
+    /// 获取 storage provider（必须在 bus client 就绪后调用）。
+    pub fn storage(&self) -> &Arc<dyn tokimo_storage::StorageProvider> {
+        self.storage
+            .get()
+            .expect("storage not initialized — bus client must be connected first")
     }
 }
 

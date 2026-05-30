@@ -25,7 +25,7 @@ use tokimo_vfs_core::model::storage::{ConnectionState, StorageCapabilities, Stor
 use tracing::{error, warn};
 
 use crate::apps::docs::services::markdown_sync::ATTACHMENTS_MANIFEST;
-use crate::services::storage::StorageProvider;
+use tokimo_storage::StorageProvider;
 
 /// Callback interface for VFS write events.
 ///

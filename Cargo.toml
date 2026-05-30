@@ -73,4 +73,5 @@ tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-pack
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
-opendal            = { version = "0.55", features = ["services-fs"] }
+tokimo-storage     = { path = "../../packages/tokimo-storage" }
+tokimo-storage-bus = { path = "../../packages/tokimo-storage-bus" }

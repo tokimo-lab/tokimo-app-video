@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::{episodes, video_files};
-use crate::services::storage::UploadOptions;
+use tokimo_storage::UploadOptions;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -138,7 +138,7 @@ async fn do_capture(
     // Upload to S3.
     let storage_key = format!("library-images/episodes/{episode_id}/still.jpg");
     state
-        .storage
+        .storage()
         .upload(
             &storage_key,
             Bytes::from(bytes),

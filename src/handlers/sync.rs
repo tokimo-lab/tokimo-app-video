@@ -58,7 +58,7 @@ pub async fn sync_video(
 
     let db = state.db.clone();
     let sources = state.sources.clone();
-    let storage = state.storage.clone();
+    let storage = state.storage().clone();
     let http_client = state.http_client.clone();
 
     tokio::spawn(async move {

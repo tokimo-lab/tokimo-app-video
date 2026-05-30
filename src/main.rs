@@ -150,7 +150,9 @@ async fn run_server() -> anyhow::Result<()> {
 
     let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
-    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root).await?;
+    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>> =
+        Arc::new(OnceLock::new());
+    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root, Arc::clone(&storage_slot)).await?;
     let ctx = Arc::new(ctx);
 
     let app_socket = app_server::spawn("video", Arc::clone(&ctx))
@@ -166,6 +168,11 @@ async fn run_server() -> anyhow::Result<()> {
     client_slot
         .set(Arc::clone(&client))
         .map_err(|_| anyhow::anyhow!("client_slot already set"))?;
+
+    // 初始化 storage：通过 bus 调用主 server 的 storage service
+    storage_slot
+        .set(Arc::new(tokimo_storage_bus::BusStorageProvider::new(Arc::clone(&client))))
+        .map_err(|_| anyhow::anyhow!("storage_slot already set"))?;
 
     // Register job handlers with the main server (appId inferred from bus caller).
     bus_clients::jobs::register_handler(&client, "file_scrape", "dispatch_file_scrape").await?;
@@ -204,7 +211,17 @@ async fn run_standalone(port: u16) -> anyhow::Result<()> {
 
     let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
-    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root).await?;
+    // Standalone mode: use local filesystem storage directly
+    let data_local_path = data_local_path();
+    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>> =
+        Arc::new(OnceLock::new());
+    storage_slot
+        .set(Arc::new(
+            tokimo_storage::OpendalStorageProvider::new(&data_local_path.join("storage"))
+                .expect("storage init"),
+        ))
+        .map_err(|_| anyhow::anyhow!("storage_slot already set"))?;
+    let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root, storage_slot).await?;
     let ctx = Arc::new(ctx);
 
     app_server::spawn_tcp(port, ctx).await?;

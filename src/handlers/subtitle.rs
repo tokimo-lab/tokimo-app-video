@@ -19,8 +19,9 @@ use crate::{
     db::models::subtitle::SubtitleRecord,
     db::repos::subtitle_repo::{CreateSubtitleInput, SubtitleRepo},
     handlers::{ApiResponse, err500, ok},
-    services::storage::UploadOptions,
 };
+
+use tokimo_storage::UploadOptions;
 
 // ── Download request wrapper (adds file_id + aggregator routing fields) ───────
 
@@ -126,7 +127,7 @@ pub async fn download(
 
     // 3. Upload to storage
     if let Err(e) = state
-        .storage
+        .storage()
         .upload(
             &s3_key,
             Bytes::from(content_bytes),
@@ -188,7 +189,7 @@ pub async fn delete_subtitle(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, (axum::http::StatusCode, Json<ApiResponse<serde_json::Value>>)> {
     match SubtitleRepo::delete_subtitle(&state.db, &subtitle_id).await {
         Ok(Some(s3_key)) => {
-            let _ = state.storage.delete(&s3_key).await;
+            let _ = state.storage().delete(&s3_key).await;
             Ok(ok(serde_json::json!({ "ok": true })))
         }
         Ok(None) => Ok(ok(serde_json::json!({ "ok": true }))),

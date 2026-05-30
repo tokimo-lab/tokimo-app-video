@@ -10,13 +10,13 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::db::entities::media_arts;
 use crate::db::repos::job_repo::JobRepo;
-use crate::services::storage::{StorageProvider, UploadOptions};
+use tokimo_storage::{StorageProvider, UploadOptions};
 
 use super::DirContext;
 use super::constants::{EXTRA_ART, FANART_NAMES, POSTER_NAMES, image_mime, image_storage_ext};
 use super::parse::find_stem_poster_filename;
 
-/// Upload a local image buffer to S3 and return the storage path.
+/// Upload a local image buffer to storage and return the opaque storage path.
 pub async fn upload_image_buffer(
     storage: &Arc<dyn StorageProvider>,
     buf: &[u8],
@@ -24,8 +24,8 @@ pub async fn upload_image_buffer(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let ext = storage_key.rsplit('.').next().unwrap_or("jpg");
     let mime = image_mime(ext);
-    storage
-        .upload(
+    let opaque_key = storage
+        .upload_opaque(
             storage_key,
             Bytes::from(buf.to_vec()),
             Some(UploadOptions {
@@ -34,7 +34,7 @@ pub async fn upload_image_buffer(
         )
         .await
         .map_err(|e| format!("Storage upload failed: {e}"))?;
-    Ok(format!("/storage/{storage_key}"))
+    Ok(format!("/storage/{opaque_key}"))
 }
 
 /// Dispatch TMDB `image_upload` job.
@@ -160,7 +160,7 @@ pub async fn upload_poster_and_backdrop(
             let ext = image_storage_ext(filename);
             let key = format!("library-images/{folder}/{id_str}/poster.{ext}");
             Ok::<_, Box<dyn std::error::Error + Send + Sync>>(Some(
-                upload_image_buffer(&state.storage, buf, &key).await?,
+                upload_image_buffer(state.storage(), buf, &key).await?,
             ))
         } else {
             let tmdb_path = nfo_poster_tmdb_path.or(tmdb_poster_path);
@@ -175,7 +175,7 @@ pub async fn upload_poster_and_backdrop(
         if let Some(buf) = &artwork.fanart_buf {
             let key = format!("library-images/{folder}/{id_str}/backdrop.jpg");
             Ok::<_, Box<dyn std::error::Error + Send + Sync>>(Some(
-                upload_image_buffer(&state.storage, buf, &key).await?,
+                upload_image_buffer(state.storage(), buf, &key).await?,
             ))
         } else {
             let tmdb_path = nfo_backdrop_tmdb_path.or(tmdb_backdrop_path);
@@ -209,7 +209,7 @@ pub async fn upload_extra_art(
     // Upload all images concurrently via spawned tasks
     let mut handles = Vec::with_capacity(extra_art.len());
     for art in extra_art {
-        let storage = state.storage.clone();
+        let storage = state.storage().clone();
         let key = format!("library-images/{folder}/{id_str}/{}.{}", art.art_type, art.ext);
         let art_type = art.art_type.clone();
         let buf = art.buf.clone();

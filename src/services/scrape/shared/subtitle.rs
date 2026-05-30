@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::subtitles;
-use crate::services::storage::UploadOptions;
+use tokimo_storage::UploadOptions;
 
 use super::DirContext;
 use super::constants::{SUBTITLE_EXTENSIONS, subtitle_ext_to_format};
@@ -62,7 +62,7 @@ pub async fn sync_subtitles(
                 "text/plain; charset=utf-8"
             };
             match state
-                .storage
+                .storage()
                 .upload(
                     &key,
                     Bytes::from(buf),
