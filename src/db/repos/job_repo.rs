@@ -12,8 +12,8 @@ pub struct JobRepo;
 
 impl JobRepo {
     /// Create a new job record with status "pending".
-    pub async fn create_job(
-        db: &DatabaseConnection,
+    pub async fn create_job<C: ConnectionTrait>(
+        db: &C,
         job_type: &str,
         params: JsonValue,
         data: Option<JsonValue>,
@@ -45,8 +45,8 @@ impl JobRepo {
     }
 
     /// Update job progress and data. Fallback when bus is unavailable.
-    pub async fn update_progress(
-        db: &DatabaseConnection,
+    pub async fn update_progress<C: ConnectionTrait>(
+        db: &C,
         id: Uuid,
         progress: i32,
         data: Option<JsonValue>,

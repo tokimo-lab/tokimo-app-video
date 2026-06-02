@@ -23,7 +23,7 @@ pub struct SubtitleRepo;
 
 impl SubtitleRepo {
     /// Load all embedded subtitles for a media file, together with ffprobe data.
-    pub async fn load_file_subtitles(db: &DatabaseConnection, file_id: &str) -> Result<Vec<FileSubtitleRow>, AppError> {
+    pub async fn load_file_subtitles<C: ConnectionTrait>(db: &C, file_id: &str) -> Result<Vec<FileSubtitleRow>, AppError> {
         let fid: Uuid = file_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid file id".into()))?;
@@ -60,8 +60,8 @@ impl SubtitleRepo {
     }
 
     /// Load ALL subtitles for a media file (embedded + downloaded + external).
-    pub async fn get_all_file_subtitles(
-        db: &DatabaseConnection,
+    pub async fn get_all_file_subtitles<C: ConnectionTrait>(
+        db: &C,
         file_id: &str,
         storage_base_url: &str,
     ) -> Result<Vec<SubtitleRecord>, AppError> {
@@ -102,8 +102,8 @@ impl SubtitleRepo {
     }
 
     /// Create a new subtitle record after downloading from an external provider.
-    pub async fn create_subtitle(
-        db: &DatabaseConnection,
+    pub async fn create_subtitle<C: ConnectionTrait>(
+        db: &C,
         input: CreateSubtitleInput,
     ) -> Result<subtitles::Model, AppError> {
         use sea_orm::ActiveValue::Set;
@@ -136,7 +136,7 @@ impl SubtitleRepo {
     }
 
     /// Find a subtitle record by ID.
-    pub async fn find_by_id(db: &DatabaseConnection, subtitle_id: &str) -> Result<Option<subtitles::Model>, AppError> {
+    pub async fn find_by_id<C: ConnectionTrait>(db: &C, subtitle_id: &str) -> Result<Option<subtitles::Model>, AppError> {
         let sid: Uuid = subtitle_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid subtitle id".into()))?;
@@ -145,7 +145,7 @@ impl SubtitleRepo {
     }
 
     /// Delete a subtitle record by ID. Returns the `s3_key` (if any) so the caller can clean up storage.
-    pub async fn delete_subtitle(db: &DatabaseConnection, subtitle_id: &str) -> Result<Option<String>, AppError> {
+    pub async fn delete_subtitle<C: ConnectionTrait>(db: &C, subtitle_id: &str) -> Result<Option<String>, AppError> {
         let sid: Uuid = subtitle_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid subtitle id".into()))?;

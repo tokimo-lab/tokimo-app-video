@@ -22,7 +22,7 @@ pub struct CreateOrganizeReportInput {
 pub struct OrganizeReportRepo;
 
 impl OrganizeReportRepo {
-    pub async fn list(db: &DatabaseConnection) -> Result<Vec<organize_reports::Model>, AppError> {
+    pub async fn list<C: ConnectionTrait>(db: &C) -> Result<Vec<organize_reports::Model>, AppError> {
         let models = organize_reports::Entity::find()
             .order_by_desc(organize_reports::Column::CreatedAt)
             .all(db)
@@ -30,12 +30,12 @@ impl OrganizeReportRepo {
         Ok(models)
     }
 
-    pub async fn get_by_id(db: &DatabaseConnection, id: Uuid) -> Result<Option<organize_reports::Model>, AppError> {
+    pub async fn get_by_id<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<Option<organize_reports::Model>, AppError> {
         Ok(organize_reports::Entity::find_by_id(id).one(db).await?)
     }
 
-    pub async fn create(
-        db: &DatabaseConnection,
+    pub async fn create<C: ConnectionTrait>(
+        db: &C,
         input: CreateOrganizeReportInput,
     ) -> Result<organize_reports::Model, AppError> {
         let id = Uuid::new_v4();
@@ -58,7 +58,7 @@ impl OrganizeReportRepo {
             .not_found("failed to fetch created organize report")
     }
 
-    pub async fn delete(db: &DatabaseConnection, id: Uuid) -> Result<bool, AppError> {
+    pub async fn delete<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<bool, AppError> {
         let result = organize_reports::Entity::delete_by_id(id).exec(db).await?;
         if result.rows_affected == 0 {
             return Err(AppError::NotFound(format!("organize report {id} not found")));

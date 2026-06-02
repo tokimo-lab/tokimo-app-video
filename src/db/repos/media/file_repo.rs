@@ -10,8 +10,8 @@ pub struct VideoFileRepo;
 impl VideoFileRepo {
     /// Load the minimal info needed to stream a video file: its path, source
     /// type, and whether it belongs to a media server.
-    pub async fn load_stream_target(
-        db: &DatabaseConnection,
+    pub async fn load_stream_target<C: ConnectionTrait>(
+        db: &C,
         file_id: &str,
     ) -> Result<Option<MediaFileStreamTarget>, AppError> {
         let fid: Uuid = file_id

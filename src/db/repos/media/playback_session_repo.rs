@@ -45,7 +45,7 @@ pub struct PlaybackSessionRepo;
 
 impl PlaybackSessionRepo {
     /// Insert a new active session. Returns the generated session UUID.
-    pub async fn create(db: &DatabaseConnection, input: CreatePlaybackSessionInput) -> Result<Uuid, AppError> {
+    pub async fn create<C: ConnectionTrait>(db: &C, input: CreatePlaybackSessionInput) -> Result<Uuid, AppError> {
         let id = Uuid::new_v4();
         let now = Utc::now().fixed_offset();
 
@@ -81,7 +81,7 @@ impl PlaybackSessionRepo {
     }
 
     /// Update the last-known playback position and refresh the heartbeat timestamp.
-    pub async fn update_progress(db: &DatabaseConnection, session_id: Uuid, position: i32) -> Result<(), AppError> {
+    pub async fn update_progress<C: ConnectionTrait>(db: &C, session_id: Uuid, position: i32) -> Result<(), AppError> {
         playback_sessions::Entity::update_many()
             .col_expr(playback_sessions::Column::Position, Expr::value(position))
             .col_expr(playback_sessions::Column::LastSeenAt, Expr::cust("NOW()"))
@@ -93,7 +93,7 @@ impl PlaybackSessionRepo {
     }
 
     /// Mark a session as stopped by its UUID.
-    pub async fn stop(db: &DatabaseConnection, session_id: Uuid, position: i32) -> Result<(), AppError> {
+    pub async fn stop<C: ConnectionTrait>(db: &C, session_id: Uuid, position: i32) -> Result<(), AppError> {
         playback_sessions::Entity::update_many()
             .col_expr(playback_sessions::Column::Position, Expr::value(position))
             .col_expr(playback_sessions::Column::StoppedAt, Expr::cust("NOW()"))
@@ -106,7 +106,7 @@ impl PlaybackSessionRepo {
     }
 
     /// Mark all active sessions for a given file as stopped (used by native stop-session endpoint).
-    pub async fn stop_by_file(db: &DatabaseConnection, file_id: Uuid) -> Result<(), AppError> {
+    pub async fn stop_by_file<C: ConnectionTrait>(db: &C, file_id: Uuid) -> Result<(), AppError> {
         playback_sessions::Entity::update_many()
             .col_expr(playback_sessions::Column::StoppedAt, Expr::cust("NOW()"))
             .col_expr(playback_sessions::Column::LastSeenAt, Expr::cust("NOW()"))
@@ -118,8 +118,8 @@ impl PlaybackSessionRepo {
     }
 
     /// Update position + heartbeat matched by (file_id, user_id). Used by Jellyfin path.
-    pub async fn update_progress_by_file(
-        db: &DatabaseConnection,
+    pub async fn update_progress_by_file<C: ConnectionTrait>(
+        db: &C,
         file_id: Uuid,
         user_id: Uuid,
         position: i32,
@@ -136,8 +136,8 @@ impl PlaybackSessionRepo {
     }
 
     /// Mark a session stopped matched by (file_id, user_id). Used by Jellyfin path.
-    pub async fn stop_by_file_and_user(
-        db: &DatabaseConnection,
+    pub async fn stop_by_file_and_user<C: ConnectionTrait>(
+        db: &C,
         file_id: Uuid,
         user_id: Uuid,
         position: i32,

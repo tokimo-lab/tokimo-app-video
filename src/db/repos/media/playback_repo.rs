@@ -1,7 +1,7 @@
 use sea_orm::{
-    ActiveModelTrait,
     ActiveValue::Set,
-    ColumnTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter,
+    QueryOrder,
     sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
@@ -30,8 +30,8 @@ pub struct PlaybackRepo;
 impl PlaybackRepo {
     // ── query endpoints ────────────────────────────────────────────────────
 
-    pub async fn get_resume_position(
-        db: &DatabaseConnection,
+    pub async fn get_resume_position<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         movie_id: Option<Uuid>,
         episode_id: Option<Uuid>,
@@ -220,8 +220,8 @@ impl PlaybackRepo {
 
     // ── user_media_states upserts ──────────────────────────────────────────
 
-    pub async fn upsert_movie_state_completed(
-        db: &DatabaseConnection,
+    pub async fn upsert_movie_state_completed<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         movie_id: Uuid,
         position: i32,
@@ -262,8 +262,8 @@ impl PlaybackRepo {
         Ok(())
     }
 
-    pub async fn upsert_movie_state_in_progress(
-        db: &DatabaseConnection,
+    pub async fn upsert_movie_state_in_progress<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         movie_id: Uuid,
         position: i32,
@@ -299,8 +299,8 @@ impl PlaybackRepo {
         Ok(())
     }
 
-    pub async fn upsert_episode_state_completed(
-        db: &DatabaseConnection,
+    pub async fn upsert_episode_state_completed<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         episode_id: Uuid,
         position: i32,
@@ -338,8 +338,8 @@ impl PlaybackRepo {
         Ok(())
     }
 
-    pub async fn upsert_episode_state_in_progress(
-        db: &DatabaseConnection,
+    pub async fn upsert_episode_state_in_progress<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         episode_id: Uuid,
         position: i32,
@@ -376,8 +376,8 @@ impl PlaybackRepo {
 
     /// Find an active (non-stopped) watch history entry for this user+file
     /// started within the last 8 hours.
-    pub async fn find_active_history(
-        db: &DatabaseConnection,
+    pub async fn find_active_history<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         file_id: Uuid,
     ) -> Result<Option<Uuid>, AppError> {
@@ -393,39 +393,42 @@ impl PlaybackRepo {
         Ok(row.map(|r| r.id))
     }
 
-    pub async fn update_history_completed(
-        db: &DatabaseConnection,
+    pub async fn update_history_completed<C: ConnectionTrait>(
+        db: &C,
         history_id: Uuid,
         position: i32,
         duration: Option<i32>,
     ) -> Result<(), AppError> {
-        let model = watch_histories::Entity::find_by_id(history_id).one(db).await?;
-        let Some(model) = model else { return Ok(()) };
-        let mut active: watch_histories::ActiveModel = model.into();
-        active.position = Set(position);
-        active.duration = Set(duration);
-        active.completed = Set(true);
-        active.stopped_at = Set(Some(chrono::Utc::now().into()));
-        active.update(db).await?;
+        watch_histories::Entity::update_many()
+            .filter(watch_histories::Column::Id.eq(history_id))
+            .col_expr(watch_histories::Column::Position, Expr::value(position))
+            .col_expr(watch_histories::Column::Duration, Expr::value(duration))
+            .col_expr(watch_histories::Column::Completed, Expr::value(true))
+            .col_expr(
+                watch_histories::Column::StoppedAt,
+                Expr::value(Some(chrono::Utc::now().into())),
+            )
+            .exec(db)
+            .await?;
         Ok(())
     }
 
-    pub async fn update_history_in_progress(
-        db: &DatabaseConnection,
+    pub async fn update_history_in_progress<C: ConnectionTrait>(
+        db: &C,
         history_id: Uuid,
         position: i32,
         duration: Option<i32>,
     ) -> Result<(), AppError> {
-        let model = watch_histories::Entity::find_by_id(history_id).one(db).await?;
-        let Some(model) = model else { return Ok(()) };
-        let mut active: watch_histories::ActiveModel = model.into();
-        active.position = Set(position);
-        active.duration = Set(duration);
-        active.update(db).await?;
+        watch_histories::Entity::update_many()
+            .filter(watch_histories::Column::Id.eq(history_id))
+            .col_expr(watch_histories::Column::Position, Expr::value(position))
+            .col_expr(watch_histories::Column::Duration, Expr::value(duration))
+            .exec(db)
+            .await?;
         Ok(())
     }
 
-    pub async fn insert_history_completed(db: &DatabaseConnection, input: InsertHistoryInput) -> Result<(), AppError> {
+    pub async fn insert_history_completed<C: ConnectionTrait>(db: &C, input: InsertHistoryInput) -> Result<(), AppError> {
         let now = chrono::Utc::now().into();
         let active = watch_histories::ActiveModel {
             id: Set(input.id),
@@ -445,8 +448,8 @@ impl PlaybackRepo {
         Ok(())
     }
 
-    pub async fn insert_history_in_progress(
-        db: &DatabaseConnection,
+    pub async fn insert_history_in_progress<C: ConnectionTrait>(
+        db: &C,
         input: InsertHistoryInput,
     ) -> Result<(), AppError> {
         let now = chrono::Utc::now().into();
@@ -484,51 +487,65 @@ impl PlaybackRepo {
 
         let completed = duration.is_some_and(|d| d > 0 && position + COMPLETION_THRESHOLD_SECS >= d);
 
-        // Update the watch_histories record
-        let row = watch_histories::Entity::find_by_id(history_id)
-            .filter(watch_histories::Column::UserId.eq(user_id))
-            .one(db)
-            .await?;
-        let Some(row) = row else {
-            return Err(AppError::NotFound("watch history not found".into()));
-        };
+        let txn = db.begin().await?;
 
-        let mut active: watch_histories::ActiveModel = row.into();
-        active.position = Set(position);
-        active.duration = Set(duration);
+        // Update the watch_histories record
+        let mut update = watch_histories::Entity::update_many()
+            .filter(watch_histories::Column::Id.eq(history_id))
+            .filter(watch_histories::Column::UserId.eq(user_id))
+            .col_expr(watch_histories::Column::Position, Expr::value(position))
+            .col_expr(watch_histories::Column::Duration, Expr::value(duration));
+
         if completed {
-            active.completed = Set(true);
-            active.stopped_at = Set(Some(chrono::Utc::now().into()));
+            update = update
+                .col_expr(watch_histories::Column::Completed, Expr::value(true))
+                .col_expr(
+                    watch_histories::Column::StoppedAt,
+                    Expr::value(Some(chrono::Utc::now().into())),
+                );
         }
-        active.update(db).await?;
+
+        let result = update.exec(&txn).await?;
+        if result.rows_affected == 0 {
+            return Err(AppError::NotFound("watch history not found".into()));
+        }
 
         // Look up video_item_id / episode_id from file
-        let history = watch_histories::Entity::find_by_id(history_id).one(db).await?;
+        let history = watch_histories::Entity::find_by_id(history_id)
+            .one(&txn)
+            .await?;
         if let Some(history) = history {
-            let file = video_files::Entity::find_by_id(history.file_id).one(db).await?;
+            let file = video_files::Entity::find_by_id(history.file_id)
+                .one(&txn)
+                .await?;
             if let Some(file) = file {
                 if let Some(movie_id) = file.video_item_id {
                     if completed {
-                        Self::upsert_movie_state_completed(db, user_id, movie_id, position).await?;
+                        Self::upsert_movie_state_completed(&txn, user_id, movie_id, position)
+                            .await?;
                     } else {
-                        Self::upsert_movie_state_in_progress(db, user_id, movie_id, position).await?;
+                        Self::upsert_movie_state_in_progress(&txn, user_id, movie_id, position)
+                            .await?;
                     }
                 } else if let Some(episode_id) = file.episode_id {
                     if completed {
-                        Self::upsert_episode_state_completed(db, user_id, episode_id, position).await?;
+                        Self::upsert_episode_state_completed(&txn, user_id, episode_id, position)
+                            .await?;
                     } else {
-                        Self::upsert_episode_state_in_progress(db, user_id, episode_id, position).await?;
+                        Self::upsert_episode_state_in_progress(&txn, user_id, episode_id, position)
+                            .await?;
                     }
                 }
             }
         }
 
+        txn.commit().await?;
         Ok(completed)
     }
 
     /// Create a new watch history record (for stream-url playback start).
-    pub async fn create_history(
-        db: &DatabaseConnection,
+    pub async fn create_history<C: ConnectionTrait>(
+        db: &C,
         user_id: Uuid,
         file_id: Uuid,
         user_agent: Option<String>,
@@ -556,8 +573,8 @@ impl PlaybackRepo {
     }
 
     /// Verify that a watch history record belongs to the given user.
-    pub async fn verify_history_ownership(
-        db: &DatabaseConnection,
+    pub async fn verify_history_ownership<C: ConnectionTrait>(
+        db: &C,
         history_id: Uuid,
         user_id: Uuid,
     ) -> Result<bool, AppError> {

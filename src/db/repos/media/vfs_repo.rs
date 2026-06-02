@@ -10,7 +10,7 @@ pub struct VfsRepo;
 
 impl VfsRepo {
     /// Fetch all file systems as lightweight records (for `SourceRegistry`).
-    pub async fn fetch_all(db: &DatabaseConnection) -> Result<Vec<VfsRecord>, AppError> {
+    pub async fn fetch_all<C: ConnectionTrait>(db: &C) -> Result<Vec<VfsRecord>, AppError> {
         let rows = vfs::Entity::find().all(db).await?;
         Ok(rows
             .into_iter()
@@ -23,7 +23,7 @@ impl VfsRepo {
     }
 
     /// Fetch a single file system record by ID (for `SourceRegistry`).
-    pub async fn fetch_by_id(db: &DatabaseConnection, id: &str) -> Result<Option<VfsRecord>, AppError> {
+    pub async fn fetch_by_id<C: ConnectionTrait>(db: &C, id: &str) -> Result<Option<VfsRecord>, AppError> {
         let uid: Uuid = id.parse().map_err(|_| AppError::BadRequest("invalid vfs id".into()))?;
         let row = vfs::Entity::find_by_id(uid).one(db).await?;
         Ok(row.map(|r| VfsRecord {
@@ -34,7 +34,7 @@ impl VfsRepo {
     }
 
     /// List all file systems ordered by `sort_order` then `created_at`.
-    pub async fn list_all(db: &DatabaseConnection) -> Result<Vec<vfs::Model>, AppError> {
+    pub async fn list_all<C: ConnectionTrait>(db: &C) -> Result<Vec<vfs::Model>, AppError> {
         let rows = vfs::Entity::find()
             .order_by_asc(vfs::Column::SortOrder)
             .order_by_asc(vfs::Column::CreatedAt)
@@ -44,7 +44,7 @@ impl VfsRepo {
     }
 
     /// Get a single file system entity by ID.
-    pub async fn get_by_id(db: &DatabaseConnection, id: Uuid) -> Result<Option<vfs::Model>, AppError> {
+    pub async fn get_by_id<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<Option<vfs::Model>, AppError> {
         Ok(vfs::Entity::find_by_id(id).one(db).await?)
     }
 }
