@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, Statement, Value};
+use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, Value};
 use serde_json::json;
 
 use uuid::Uuid;
@@ -215,14 +215,14 @@ fn collection_to_json(r: &sea_orm::QueryResult) -> serde_json::Value {
     })
 }
 
-async fn query_count(db: &DatabaseConnection, sql: &str, params: Vec<Value>) -> Result<i64, AppError> {
+async fn query_count(db: &impl ConnectionTrait, sql: &str, params: Vec<Value>) -> Result<i64, AppError> {
     let stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, params);
     let row = db.query_one_raw(stmt).await?.internal("count query returned no rows")?;
     col(&row, "total")
 }
 
 async fn query_subtitles_for_files(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     join_col: &str,
     parent_id: Uuid,
 ) -> Result<HashMap<String, Vec<serde_json::Value>>, AppError> {
@@ -243,7 +243,7 @@ async fn query_subtitles_for_files(
 }
 
 async fn query_chapters_for_files(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     join_col: &str,
     parent_id: Uuid,
 ) -> Result<HashMap<String, Vec<serde_json::Value>>, AppError> {
@@ -307,7 +307,7 @@ impl MediaContentRepo {
     // ── Video Items ──
 
     pub async fn list_video_items(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         input: ListMediaInput,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
         let mut conds = vec![
@@ -409,7 +409,7 @@ impl MediaContentRepo {
     // ── TV Shows ──
 
     pub async fn list_tv_shows(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         input: ListMediaInput,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
         let mut conds = vec![
@@ -509,7 +509,7 @@ impl MediaContentRepo {
 
     // ── Genres ──
 
-    pub async fn list_genres(db: &DatabaseConnection, app_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    pub async fn list_genres(db: &impl ConnectionTrait, app_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
         let type_stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT type FROM videos WHERE id = $1
@@ -550,7 +550,7 @@ impl MediaContentRepo {
 
     // ── Countries ──
 
-    pub async fn list_countries(db: &DatabaseConnection, app_id: Uuid) -> Result<Vec<String>, AppError> {
+    pub async fn list_countries(db: &impl ConnectionTrait, app_id: Uuid) -> Result<Vec<String>, AppError> {
         let type_stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT type FROM videos WHERE id = $1 LIMIT 1",
@@ -575,7 +575,7 @@ impl MediaContentRepo {
     // ── Recently Added ──
 
     pub async fn get_recently_added(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         app_id: Uuid,
         limit: i64,
     ) -> Result<Vec<serde_json::Value>, AppError> {
@@ -669,7 +669,7 @@ impl MediaContentRepo {
 
     // ── Toggle Favorite ──
 
-    pub async fn toggle_favorite(db: &DatabaseConnection, media_type: &str, id: Uuid) -> Result<bool, AppError> {
+    pub async fn toggle_favorite(db: &impl ConnectionTrait, media_type: &str, id: Uuid) -> Result<bool, AppError> {
         let sql = match media_type {
             "movie" => "UPDATE video_items SET is_favorite = NOT is_favorite WHERE id = $1 RETURNING is_favorite",
             "tvshow" | "tv" => "UPDATE tv_shows SET is_favorite = NOT is_favorite WHERE id = $1 RETURNING is_favorite",
@@ -685,7 +685,7 @@ impl MediaContentRepo {
     // ── Video Item Detail ──
 
     pub async fn get_video_item_detail(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         id: Uuid,
     ) -> Result<Option<serde_json::Value>, AppError> {
         // Base movie
@@ -755,7 +755,7 @@ impl MediaContentRepo {
 
     // ── TV Show Detail ──
 
-    pub async fn get_tv_show_detail(db: &DatabaseConnection, id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
+    pub async fn get_tv_show_detail(db: &impl ConnectionTrait, id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT t.id, t.video_id, t.title, t.original_title, t.sort_title, \
@@ -935,7 +935,7 @@ impl MediaContentRepo {
     // ── Person Detail ──
 
     pub async fn get_person_detail(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         id: Uuid,
         person_type: &str,
     ) -> Result<Option<serde_json::Value>, AppError> {
@@ -951,7 +951,7 @@ impl MediaContentRepo {
     }
 
     async fn query_person_detail_from_table(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         id: Uuid,
         person_type: &str,
     ) -> Result<Option<serde_json::Value>, AppError> {
@@ -1046,7 +1046,7 @@ impl MediaContentRepo {
     // ── Extras & Collections ──
 
     pub async fn list_collections(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         movie_id: Option<Uuid>,
         tv_show_id: Option<Uuid>,
     ) -> Result<Vec<serde_json::Value>, AppError> {
@@ -1062,7 +1062,7 @@ impl MediaContentRepo {
     // ── Music: Albums ──
 
     pub async fn list_albums(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         input: ListAlbumsInput,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
         let mut conds = vec!["a.music_id = $1".to_string()];
@@ -1159,7 +1159,7 @@ impl MediaContentRepo {
     // ── Music: Album Detail ──
 
     pub async fn get_album_detail(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         album_id: Uuid,
     ) -> Result<Option<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
@@ -1266,7 +1266,7 @@ impl MediaContentRepo {
     // ── Music: Tracks ──
 
     pub async fn list_tracks(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         input: ListTracksInput,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
         let mut conds = vec!["a.music_id = $1".to_string()];
@@ -1357,7 +1357,7 @@ impl MediaContentRepo {
     // ── Music: Artists ──
 
     pub async fn list_artists(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         music_id: Uuid,
         page: i64,
         page_size: i64,
@@ -1425,7 +1425,7 @@ impl MediaContentRepo {
     // ── Music: Artist Detail ──
 
     pub async fn get_artist_detail(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         person_id: Uuid,
         music_id: Uuid,
     ) -> Result<Option<serde_json::Value>, AppError> {
@@ -1488,7 +1488,7 @@ impl MediaContentRepo {
 
     // ── Music: Toggle Album Favorite ──
 
-    pub async fn toggle_album_favorite(db: &DatabaseConnection, album_id: Uuid) -> Result<bool, AppError> {
+    pub async fn toggle_album_favorite(db: &impl ConnectionTrait, album_id: Uuid) -> Result<bool, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE music_albums SET is_favorite = NOT is_favorite WHERE id = $1 RETURNING is_favorite",
@@ -1500,7 +1500,7 @@ impl MediaContentRepo {
 
     // ── Track Lyrics ──
 
-    pub async fn get_track_lyrics(db: &DatabaseConnection, track_id: Uuid) -> Result<Option<String>, AppError> {
+    pub async fn get_track_lyrics(db: &impl ConnectionTrait, track_id: Uuid) -> Result<Option<String>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT t.lyrics_path FROM music_tracks t WHERE t.id = $1",
@@ -1512,7 +1512,7 @@ impl MediaContentRepo {
 
     // ── Play URL ──
 
-    pub async fn get_play_url(db: &DatabaseConnection, media_file_id: Uuid) -> Result<Option<String>, AppError> {
+    pub async fn get_play_url(db: &impl ConnectionTrait, media_file_id: Uuid) -> Result<Option<String>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT mf.id FROM video_files mf WHERE mf.id = $1",
@@ -1529,7 +1529,7 @@ impl MediaContentRepo {
     // ── Private helpers ──
 
     async fn query_genres_for_video_item(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         movie_id: Uuid,
     ) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
@@ -1552,7 +1552,7 @@ impl MediaContentRepo {
             .collect())
     }
 
-    async fn query_genres_for_tv(db: &DatabaseConnection, tv_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    async fn query_genres_for_tv(db: &impl ConnectionTrait, tv_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r"SELECT g.id, g.tmdb_genre_id FROM genres g
@@ -1574,7 +1574,7 @@ impl MediaContentRepo {
     }
 
     async fn query_video_item_credits(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         movie_id: Uuid,
     ) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
@@ -1588,7 +1588,7 @@ impl MediaContentRepo {
         Ok(Self::map_credit_rows(db.query_all_raw(stmt).await?))
     }
 
-    async fn query_tv_credits(db: &DatabaseConnection, tv_show_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    async fn query_tv_credits(db: &impl ConnectionTrait, tv_show_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT DISTINCT ON (c.tv_person_id, c.role) \
@@ -1601,7 +1601,7 @@ impl MediaContentRepo {
         Ok(Self::map_credit_rows(db.query_all_raw(stmt).await?))
     }
 
-    async fn query_album_credits(db: &DatabaseConnection, album_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    async fn query_album_credits(db: &impl ConnectionTrait, album_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT aa.id, aa.role, NULL::text as character, aa.sort_order, \
@@ -1632,7 +1632,7 @@ impl MediaContentRepo {
     }
 
     async fn query_files_with_nested(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         fk_col: &str,
         parent_id: Uuid,
     ) -> Result<Vec<serde_json::Value>, AppError> {
@@ -1663,7 +1663,7 @@ impl MediaContentRepo {
     }
 
     async fn query_video_item_collections(
-        db: &DatabaseConnection,
+        db: &impl ConnectionTrait,
         movie_id: Uuid,
     ) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
@@ -1676,7 +1676,7 @@ impl MediaContentRepo {
         Ok(rows.iter().map(collection_to_json).collect())
     }
 
-    async fn query_tv_collections(db: &DatabaseConnection, tv_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    async fn query_tv_collections(db: &impl ConnectionTrait, tv_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r"SELECT c.id, c.name, c.poster_path, c.overview FROM collections c
