@@ -7,7 +7,7 @@
       "dependencies": {
         "@floating-ui/react": "^0.27.0",
         "@tanstack/react-query": "^5.0.0",
-        "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#4c2e43b",
+        "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#0abcc1e",
         "@tokimo/ui": "github:tokimo-lab/tokimo-ui#c707ec1",
         "dayjs": "^1.11.0",
         "framer-motion": "^11.0.0",
@@ -132,7 +132,7 @@
 
     "@tokimo/app-builder": ["@tokimo/app-builder@github:tokimo-lab/tokimo-app-builder#2232b1b", { "dependencies": { "@tailwindcss/vite": "^4.2.4", "@vitejs/plugin-react": "^6.0.1" }, "peerDependencies": { "vite": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "tokimo-lab-tokimo-app-builder-2232b1b", "sha512-zQrg+RSNLqmEArShe2b6SzhNG8SSpZrDX+6RUrNDly18BcWCMMYIunr3x4lFZuS/CkyPYHBkjF9Bk0y9yBQo9w=="],
 
-    "@tokimo/sdk": ["@tokimo/sdk@github:tokimo-lab/tokimo-package-sdk#4c2e43b", { "peerDependencies": { "@tanstack/react-query": "^5.0.0", "@tokimo/viewers": "*", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@tokimo/viewers"] }, "tokimo-lab-tokimo-package-sdk-4c2e43b", "sha512-TQPAnd6pwYKX+g9oXg47/Qw+71dSW2fIIxiAnxlUmWBHLwx++fb1WWY7guCnhC9HCz1cTWUIGEYdClqKruF4Lg=="],
+    "@tokimo/sdk": ["@tokimo/sdk@github:tokimo-lab/tokimo-package-sdk#0abcc1e", { "peerDependencies": { "@tanstack/react-query": "^5.0.0", "@tokimo/viewers": "*", "react": "^19.0.0", "react-dom": "^19.0.0" }, "optionalPeers": ["@tokimo/viewers"] }, "tokimo-lab-tokimo-package-sdk-0abcc1e", "sha512-ZUcrv6H1p6V1+3sOBUi2zIUHhenx7mB7+xBky5HBois1p68rcOfWdYAbEBf6GqzJ8+Mt7MO8BF5P1AfD8OM1NA=="],
 
     "@tokimo/ui": ["@tokimo/ui@github:tokimo-lab/tokimo-ui#c707ec1", { "dependencies": { "@emoji-mart/data": "^1.2.1", "@emoji-mart/react": "^1.1.1", "@floating-ui/react": "^0.27.19", "dayjs": "^1.11.20", "highlight.js": "11.11.1", "lucide-react": "^1.7.0", "marked": "^16.4.2", "material-icon-theme": "^5.32.0", "mime": "^4.0.5", "react-i18next": "^15.2.1" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0", "tailwindcss": "^4.3.0" } }, "tokimo-lab-tokimo-ui-c707ec1", "sha512-DAyBHroBVhpBCiHZflj8YWVaW/GbZTqwXn0M7etmhxahfF8FT7jE62RFu9/isEG5QEs2SSQvZ5o+I5LKm3bOlQ=="],
 

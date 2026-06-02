@@ -10,14 +10,14 @@
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
     "@tanstack/react-query": "^5.0.0",
-    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#4c2e43b",
+    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#0abcc1e",
     "@tokimo/ui": "github:tokimo-lab/tokimo-ui#f0e2dd4",
-    "dayjs": "^1.11.0",
+    "dayjs": "^1.11.21",
     "framer-motion": "^11.0.0",
     "i18next": "^23.0.0",
-    "lucide-react": "^1.11.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-i18next": "^15.0.0"
   },
   "devDependencies": {
