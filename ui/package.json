@@ -11,7 +11,7 @@
     "@floating-ui/react": "^0.27.0",
     "@tanstack/react-query": "^5.0.0",
     "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#4c2e43b",
-    "@tokimo/ui": "github:tokimo-lab/tokimo-ui#c707ec1",
+    "@tokimo/ui": "github:tokimo-lab/tokimo-ui#f0e2dd4",
     "dayjs": "^1.11.0",
     "framer-motion": "^11.0.0",
     "i18next": "^23.0.0",
