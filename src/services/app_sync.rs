@@ -160,7 +160,7 @@ impl AppSyncService {
     pub async fn execute_video_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         bus_client: Arc<OnceLock<Arc<BusClient>>>,
         video_id: Uuid,
         clear_data: bool,
@@ -216,7 +216,7 @@ impl AppSyncService {
     pub async fn execute_music_sync(
         _db: &DatabaseConnection,
         _sources: &SourceRegistry,
-        _storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        _storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         _music_id: Uuid,
         _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
@@ -231,7 +231,7 @@ impl AppSyncService {
     pub async fn execute_book_sync(
         _db: &DatabaseConnection,
         _sources: &SourceRegistry,
-        _storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        _storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         _book_id: Uuid,
         _clear_data: bool,
     ) -> Result<SyncResult, AppError> {
@@ -245,7 +245,7 @@ impl AppSyncService {
     async fn do_book_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         book: &books::Model,
         clear_data: bool,
     ) -> Result<SyncResult, AppError> {
@@ -289,7 +289,7 @@ impl AppSyncService {
     pub async fn execute_photo_sync(
         _db: &DatabaseConnection,
         _sources: &SourceRegistry,
-        _storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        _storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         _library_id: Uuid,
         _clear_data: bool,
         _user_id: Option<Uuid>,
@@ -304,7 +304,7 @@ impl AppSyncService {
     async fn do_photo_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         library: &photo_libraries::Model,
         clear_data: bool,
         user_id: Option<Uuid>,
@@ -351,7 +351,7 @@ impl AppSyncService {
     async fn do_music_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         music: &musics::Model,
         clear_data: bool,
     ) -> Result<SyncResult, AppError> {
@@ -397,7 +397,7 @@ impl AppSyncService {
     async fn do_video_sync(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         video: &videos::Model,
         lib_type: &str,
@@ -634,7 +634,7 @@ impl AppSyncService {
     async fn sync_fs_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        _storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        _storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         bus_client: &Arc<OnceLock<Arc<BusClient>>>,
         app_id: Uuid,
         lib_type: &str,
@@ -1432,7 +1432,7 @@ impl AppSyncService {
     async fn process_album_group(
         db: &DatabaseConnection,
         app_id: Uuid,
-        _storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        _storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         group: &AlbumGroup,
         is_local: bool,
         vfs: Option<&Arc<Vfs>>,
@@ -1470,7 +1470,7 @@ impl AppSyncService {
     async fn sync_music_source(
         db: &DatabaseConnection,
         sources: &SourceRegistry,
-        storage: &Arc<dyn tokimo_storage::StorageProvider>,
+        storage: &Arc<dyn tokimo_package_storage::StorageProvider>,
         app_id: Uuid,
         source: &vfs::Model,
         root_path: &str,

@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::subtitles;
-use tokimo_storage::UploadOptions;
+use tokimo_package_storage::UploadOptions;
 
 use super::DirContext;
 use super::constants::{SUBTITLE_EXTENSIONS, subtitle_ext_to_format};

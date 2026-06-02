@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::{episodes, video_files};
-use tokimo_storage::UploadOptions;
+use tokimo_package_storage::UploadOptions;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 

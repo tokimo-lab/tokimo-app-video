@@ -16,7 +16,7 @@ use crate::services::stream_session::StreamSessionManager;
 pub struct AppCtx {
     pub db: DatabaseConnection,
     pub sources: Arc<SourceRegistry>,
-    pub storage: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>>,
+    pub storage: Arc<OnceLock<Arc<dyn tokimo_package_storage::StorageProvider>>>,
     pub http_client: reqwest::Client,
     pub image_proxy_key: String,
     pub hls_manager: Arc<tokimo_package_hls::HlsSessionManager>,
@@ -42,7 +42,7 @@ impl AppCtx {
         db: sea_orm::DatabaseConnection,
         client_slot: std::sync::Arc<std::sync::OnceLock<std::sync::Arc<tokimo_bus_client::BusClient>>>,
         ytdlp_root: PathBuf,
-        storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>>,
+        storage_slot: Arc<OnceLock<Arc<dyn tokimo_package_storage::StorageProvider>>>,
     ) -> anyhow::Result<Self> {
         let (event_tx, _) = broadcast::channel(256);
         let sources = Arc::new(crate::services::source::SourceRegistry::new(
@@ -92,7 +92,7 @@ impl AppCtx {
     }
 
     /// 获取 storage provider（必须在 bus client 就绪后调用）。
-    pub fn storage(&self) -> &Arc<dyn tokimo_storage::StorageProvider> {
+    pub fn storage(&self) -> &Arc<dyn tokimo_package_storage::StorageProvider> {
         self.storage
             .get()
             .expect("storage not initialized — bus client must be connected first")

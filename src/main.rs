@@ -150,7 +150,7 @@ async fn run_server() -> anyhow::Result<()> {
 
     let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
-    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>> =
+    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_package_storage::StorageProvider>>> =
         Arc::new(OnceLock::new());
     let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root, Arc::clone(&storage_slot)).await?;
     let ctx = Arc::new(ctx);
@@ -209,11 +209,11 @@ async fn run_standalone(port: u16) -> anyhow::Result<()> {
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
     // Standalone mode: use local filesystem storage directly
     let data_local_path = data_local_path();
-    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_storage::StorageProvider>>> =
+    let storage_slot: Arc<OnceLock<Arc<dyn tokimo_package_storage::StorageProvider>>> =
         Arc::new(OnceLock::new());
     storage_slot
         .set(Arc::new(
-            tokimo_storage::OpendalStorageProvider::new(&data_local_path.join("storage"))
+            tokimo_package_storage::OpendalStorageProvider::new(&data_local_path.join("storage"))
                 .expect("storage init"),
         ))
         .map_err(|_| anyhow::anyhow!("storage_slot already set"))?;

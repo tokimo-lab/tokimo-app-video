@@ -16,7 +16,7 @@ use crate::apps::subscriptions::repos::subscription_repo::{
 use crate::db::ApiDateTimeExt;
 use crate::error::AppError;
 use crate::handlers::{ok, user::AuthUser};
-use tokimo_storage::{StorageProvider, UploadOptions};
+use tokimo_package_storage::{StorageProvider, UploadOptions};
 
 // ── Log types ────────────────────────────────────────────────────────────────
 

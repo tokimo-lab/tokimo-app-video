@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::db::entities::media_arts;
 use crate::db::repos::job_repo::JobRepo;
-use tokimo_storage::{StorageProvider, UploadOptions};
+use tokimo_package_storage::{StorageProvider, UploadOptions};
 
 use super::DirContext;
 use super::constants::{EXTRA_ART, FANART_NAMES, POSTER_NAMES, image_mime, image_storage_ext};

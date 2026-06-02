@@ -12,7 +12,7 @@ use crate::db::entities::{vfs, video_files};
 use crate::db::repos::download_record_repo::DownloadRecordRepo;
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
-use tokimo_storage::UploadOptions;
+use tokimo_package_storage::UploadOptions;
 
 // ── Download log helpers ──────────────────────────────────────────────────────
 

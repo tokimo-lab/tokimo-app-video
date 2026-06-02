@@ -21,7 +21,7 @@ use crate::{
     handlers::{ApiResponse, err500, ok},
 };
 
-use tokimo_storage::UploadOptions;
+use tokimo_package_storage::UploadOptions;
 
 // ── Download request wrapper (adds file_id + aggregator routing fields) ───────
 
