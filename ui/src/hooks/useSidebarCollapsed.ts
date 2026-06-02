@@ -1,42 +1,33 @@
-import { useCallback, useEffect, useState } from "react";
+import { useRuntimeCtx, useShellPreference } from "@tokimo/sdk";
+import { useCallback } from "react";
 
 /**
- * Sidebar collapsed state — mirrors the host shell's `useSidebarCollapsed`
- * signature: `useSidebarCollapsed(componentId, autoCollapsed)` →
- * `{ collapsed, onToggleCollapse }`.
+ * Sidebar collapsed state — backed by the host shell's DB preference system
+ * via `ctx.shell.preferences` (scope = "app", scopeId = appId).
  *
- * Storage: localStorage keyed by componentId. The host shell uses a DB-backed
- * preference; the SDK doesn't expose preferences yet, so this is a temporary
- * localStorage fallback.
+ * Combines auto-collapse (e.g. < 720px) with manual user override:
+ * - Auto-collapse only when the container is narrow AND no manual lock.
+ * - If the user manually collapses, it stays collapsed regardless of width.
+ * - Clicking the expand button releases the manual lock.
  */
 export function useSidebarCollapsed(
   componentId: string,
   autoCollapsed: boolean,
 ): { collapsed: boolean; onToggleCollapse: () => void } {
-  const storageKey = `video-app:sidebar-collapsed:${componentId}`;
+  const ctx = useRuntimeCtx();
+  const { data, patch } = useShellPreference<{
+    sidebar?: Record<string, { sidebarCollapsed?: boolean }>;
+  }>(ctx);
 
-  const [manuallyCollapsed, setManuallyCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(storageKey) === "1";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(storageKey, manuallyCollapsed ? "1" : "0");
-    } catch {
-      // ignore quota / privacy errors
-    }
-  }, [manuallyCollapsed, storageKey]);
-
+  const manuallyCollapsed =
+    data.sidebar?.[componentId]?.sidebarCollapsed === true;
   const collapsed = autoCollapsed || manuallyCollapsed;
 
   const onToggleCollapse = useCallback(() => {
-    setManuallyCollapsed(!collapsed);
-  }, [collapsed]);
+    patch({
+      sidebar: { [componentId]: { sidebarCollapsed: !collapsed } },
+    });
+  }, [collapsed, componentId, patch]);
 
   return { collapsed, onToggleCollapse };
 }
