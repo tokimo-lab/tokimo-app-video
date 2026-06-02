@@ -74,4 +74,3 @@ tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
 tokimo-storage     = { path = "../../packages/tokimo-storage" }
-tokimo-storage-bus = { path = "../../packages/tokimo-storage-bus" }

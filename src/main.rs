@@ -169,10 +169,6 @@ async fn run_server() -> anyhow::Result<()> {
         .set(Arc::clone(&client))
         .map_err(|_| anyhow::anyhow!("client_slot already set"))?;
 
-    // 初始化 storage：通过 bus 调用主 server 的 storage service
-    storage_slot
-        .set(Arc::new(tokimo_storage_bus::BusStorageProvider::new(Arc::clone(&client))))
-        .map_err(|_| anyhow::anyhow!("storage_slot already set"))?;
 
     // Register job handlers with the main server (appId inferred from bus caller).
     bus_clients::jobs::register_handler(&client, "file_scrape", "dispatch_file_scrape").await?;
