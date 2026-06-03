@@ -1,7 +1,7 @@
 use sea_orm::{
     ActiveValue::Set,
     ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter,
-    QueryOrder,
+    QueryOrder, TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
@@ -406,7 +406,9 @@ impl PlaybackRepo {
             .col_expr(watch_histories::Column::Completed, Expr::value(true))
             .col_expr(
                 watch_histories::Column::StoppedAt,
-                Expr::value(Some(chrono::Utc::now().into())),
+                Expr::value(Some::<sea_orm::prelude::DateTimeWithTimeZone>(
+                    chrono::Utc::now().into(),
+                )),
             )
             .exec(db)
             .await?;
@@ -501,7 +503,9 @@ impl PlaybackRepo {
                 .col_expr(watch_histories::Column::Completed, Expr::value(true))
                 .col_expr(
                     watch_histories::Column::StoppedAt,
-                    Expr::value(Some(chrono::Utc::now().into())),
+                    Expr::value(Some::<sea_orm::prelude::DateTimeWithTimeZone>(
+                        chrono::Utc::now().into(),
+                    )),
                 );
         }
 
