@@ -68,7 +68,7 @@ export function MediaPoster({
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[var(--bg-skeleton)] text-5xl">
+        <div className="flex h-full w-full items-center justify-center bg-[var(--color-fill-skeleton)] text-5xl">
           {fallbackEmoji}
         </div>
       )}
@@ -333,10 +333,10 @@ export function PersonCard({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover triggers shared panel
     <div
-      className="w-[110px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-surface-elevated text-left hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60"
+      className="w-[110px] flex-shrink-0 cursor-pointer overflow-hidden rounded-lg bg-surface-raised text-left hover:outline hover:outline-2 hover:outline-offset-1 hover:outline-primary/60"
       onMouseEnter={(e) => onMouseEnter?.(e.currentTarget)}
     >
-      <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
+      <div className="relative aspect-[2/3] overflow-hidden bg-[var(--color-fill-skeleton)]">
         {profilePath ? (
           <img
             src={posterThumbUrl(profilePath, 340)}
@@ -557,7 +557,7 @@ export function MediaFileCard({
               <button
                 type="button"
                 title={t("media.detail.play")}
-                className="inline-flex h-8 cursor-pointer flex-shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 text-xs font-medium text-white hover:opacity-90"
+                className="inline-flex h-8 cursor-pointer flex-shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 text-xs font-medium text-white hover:opacity-90"
                 onClick={(event) => {
                   event.stopPropagation();
                   play(file, playMeta);

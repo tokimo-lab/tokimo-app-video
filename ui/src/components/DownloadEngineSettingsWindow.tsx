@@ -239,7 +239,7 @@ function DownloadEngineSettingsContent() {
                   label={t(`${ns}.ytdlp.version`)}
                   orientation="horizontal"
                 >
-                  <span className="text-fg-base">
+                  <span className="text-fg-primary">
                     {ytdlpStatus.version ?? t(`${ns}.ytdlp.unknown`)}
                   </span>
                 </SettingRow>

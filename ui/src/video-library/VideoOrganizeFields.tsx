@@ -78,7 +78,7 @@ function TemplatePreview({
       <span className="shrink-0">
         {t("media.organizingSettings.previewOutput")}
       </span>
-      <code className="text-[var(--accent-text)] break-all">{preview}</code>
+      <code className="text-[var(--color-accent-text)] break-all">{preview}</code>
     </div>
   );
 }
@@ -90,7 +90,7 @@ function PlaceholderHelp({ items }: { items: PlaceholderItem[] }) {
       <span>
         {t("media.organizingSettings.placeholders.descPre")}
         <a
-          className="text-[var(--accent-text)] hover:text-[var(--accent)]"
+          className="text-[var(--color-accent-text)] hover:text-[var(--color-accent)]"
           href={JINJA2_DOC_URL}
           target="_blank"
           rel="noopener noreferrer"
@@ -109,7 +109,7 @@ function PlaceholderHelp({ items }: { items: PlaceholderItem[] }) {
                 {items.map((item) => (
                   <tr key={item.key}>
                     <td className="pr-3 py-0.5 whitespace-nowrap align-top">
-                      <code className="text-[var(--accent-text)]">
+                      <code className="text-[var(--color-accent-text)]">
                         {`{{${item.key}}}`}
                       </code>
                     </td>
@@ -125,7 +125,7 @@ function PlaceholderHelp({ items }: { items: PlaceholderItem[] }) {
           </div>
         }
       >
-        <span className="cursor-help inline-flex items-center gap-1 text-[var(--accent-text)] hover:text-[var(--accent)]">
+        <span className="cursor-help inline-flex items-center gap-1 text-[var(--color-accent-text)] hover:text-[var(--color-accent)]">
           <QuestionCircleOutlined className="w-3.5 h-3.5" />
           {t("media.organizingSettings.placeholders.varsLabel")}
         </span>

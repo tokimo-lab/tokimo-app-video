@@ -102,14 +102,14 @@ function ResumePromptModal({
       <div className="flex flex-col">
         <button
           type="button"
-          className="w-full cursor-pointer border-b border-border-base bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
+          className="w-full cursor-pointer border-b border-border-base bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--color-fg-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
           onClick={onRestart}
         >
           {t("media.detail.restart")}
         </button>
         <button
           type="button"
-          className="w-full cursor-pointer bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
+          className="w-full cursor-pointer bg-white/40 px-4 py-4 text-center text-base font-medium text-[var(--color-fg-primary)] transition-colors hover:bg-white/70 dark:bg-white/[0.03] dark:hover:bg-white/[0.08]"
           onClick={onResume}
         >
           {t("media.detail.resumeFrom", { position: formatPosition(position) })}
@@ -284,7 +284,7 @@ export default function VideoItemDetailPage() {
               className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity hover:opacity-100"
               onClick={() => handlePlay(firstFile)}
             >
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] shadow-lg">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-accent)] shadow-lg">
                 <svg
                   className="h-7 w-7 text-white"
                   viewBox="0 0 24 24"
@@ -356,7 +356,7 @@ export default function VideoItemDetailPage() {
               <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
-                  className="flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 py-2.5 font-semibold text-white hover:opacity-90"
                   onClick={() => handlePlay(firstFile)}
                 >
                   <svg

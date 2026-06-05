@@ -150,7 +150,7 @@ export function WatchHistoryTable({
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-700">
                         <div
-                          className="h-full rounded-full bg-[var(--accent)]"
+                          className="h-full rounded-full bg-[var(--color-accent)]"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -182,7 +182,7 @@ export function WatchHistoryTable({
                     {canContinue && onResumePlay && (
                       <button
                         type="button"
-                        className="cursor-pointer rounded px-2 py-1 text-xs text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
+                        className="cursor-pointer rounded px-2 py-1 text-xs text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)]/10"
                         onClick={() =>
                           onResumePlay(item.fileId!, item.position, item.id)
                         }

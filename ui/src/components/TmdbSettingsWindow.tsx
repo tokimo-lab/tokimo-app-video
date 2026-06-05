@@ -281,7 +281,7 @@ function TmdbSettingsContent() {
                   <li>
                     {t("media.tmdbSettings.step1Visit")}{" "}
                     <a
-                      className="text-[var(--accent-text)] hover:text-[var(--accent)]"
+                      className="text-[var(--color-accent-text)] hover:text-[var(--color-accent)]"
                       href="https://www.themoviedb.org/signup"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -293,7 +293,7 @@ function TmdbSettingsContent() {
                   <li>
                     {t("media.tmdbSettings.step2Login")}{" "}
                     <a
-                      className="text-[var(--accent-text)] hover:text-[var(--accent)]"
+                      className="text-[var(--color-accent-text)] hover:text-[var(--color-accent)]"
                       href="https://www.themoviedb.org/settings/api"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -361,7 +361,7 @@ function TmdbSettingsContent() {
               <div key={href} className="flex items-center gap-1.5">
                 <Link2 size={13} className="text-fg-muted" />
                 <a
-                  className="text-[var(--accent-text)] hover:text-[var(--accent)]"
+                  className="text-[var(--color-accent-text)] hover:text-[var(--color-accent)]"
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"

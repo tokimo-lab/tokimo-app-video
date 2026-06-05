@@ -160,7 +160,7 @@ export default function VideoMenuBar({ children }: { children: ReactNode }) {
         >
           {t("media.sidebar.clearDataResync")}
         </Checkbox>
-        <p className="mt-2 text-xs text-[var(--text-muted)]">
+        <p className="mt-2 text-xs text-[var(--color-fg-muted)]">
           {t("media.sidebar.clearDataResyncDesc")}
         </p>
       </Modal>

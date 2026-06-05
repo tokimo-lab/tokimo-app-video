@@ -127,7 +127,7 @@ function VfsVideoViewer({
         </div>
 
         {/* ── Bottom bar with info toggle ─────────────────────── */}
-        <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-t border-border-base bg-surface-elevated px-3 ">
+        <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-t border-border-base bg-surface-raised px-3 ">
           {fileSystemId && (
             <SiblingFileList
               windowId={win.id}
@@ -153,7 +153,7 @@ function VfsVideoViewer({
 
       {/* ── Detail panel (right) ──────────────────────────────── */}
       {showInfo && fileSystemId && (
-        <div className="w-[280px] shrink-0 border-l border-border-base bg-surface-elevated ">
+        <div className="w-[280px] shrink-0 border-l border-border-base bg-surface-raised ">
           <FileProbePanel
             fileSystemId={fileSystemId}
             filePath={filePath}

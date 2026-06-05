@@ -21,12 +21,12 @@ function VideoTypeCard({
       className={cn(
         "group relative flex flex-col items-center gap-2 rounded-2xl border-2 p-3.5 text-center transition-all duration-150 cursor-pointer",
         selected
-          ? "border-[var(--accent)] bg-[var(--accent)]/8 shadow-sm"
-          : "border-transparent bg-fill-secondary hover:border-[var(--accent)]/40 hover:bg-fill-tertiary",
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/8 shadow-sm"
+          : "border-transparent bg-fill-secondary hover:border-[var(--color-accent)]/40 hover:bg-fill-tertiary",
       )}
     >
       {selected && (
-        <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)]">
+        <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-accent)]">
           <Check className="h-2.5 w-2.5 text-white" aria-hidden />
         </span>
       )}
@@ -44,7 +44,7 @@ function VideoTypeCard({
       <p
         className={cn(
           "text-xs font-semibold leading-tight",
-          selected ? "text-[var(--accent-text)]" : "text-fg-primary",
+          selected ? "text-[var(--color-accent-text)]" : "text-fg-primary",
         )}
       >
         {t(info.label)}

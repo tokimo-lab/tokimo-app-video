@@ -27,7 +27,7 @@ const CARD_GAP = 12;
 const CARD_TITLE_HEIGHT = 52;
 
 const POSTER_BADGE_CLASS =
-  "absolute right-0 inline-flex items-center gap-1 rounded-l-md rounded-r-none border border-r-0 border-white/12 bg-[var(--sidebar-bg)] px-2 py-1 text-[10px] font-medium shadow-sm backdrop-blur-md";
+  "absolute right-0 inline-flex items-center gap-1 rounded-l-md rounded-r-none border border-r-0 border-white/12 bg-[var(--color-surface-sidebar)] px-2 py-1 text-[10px] font-medium shadow-sm backdrop-blur-md";
 
 const LAYOUT_SPRING = {
   type: "spring" as const,
@@ -83,7 +83,7 @@ function MediaCard({
         className={cn(
           "truncate text-sm font-medium",
           (item as VideoItemOutput).isFavorite
-            ? "text-[var(--accent)]"
+            ? "text-[var(--color-accent)]"
             : "text-fg-primary",
         )}
         title={item.title}
@@ -296,7 +296,7 @@ export default function VideoContent({
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4">
       {/* Search bar — PillTabBar style, sticky */}
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-[var(--bg-primary)] px-4 pt-4 pb-3">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-surface-base px-4 pt-4 pb-3">
         <ContentSearch
           appId={id}
           searchType={isTv ? "tv" : "movie"}

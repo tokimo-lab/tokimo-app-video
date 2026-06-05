@@ -390,7 +390,7 @@ const EpisodeItem = memo(function EpisodeItem({
 
       {/* Playing indicator */}
       {isCurrent && (
-        <span className="flex-shrink-0 text-[10px] font-medium text-[var(--accent)]">
+        <span className="flex-shrink-0 text-[10px] font-medium text-[var(--color-accent)]">
           {t("media.viewer.playing")}
         </span>
       )}

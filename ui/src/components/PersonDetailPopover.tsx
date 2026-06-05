@@ -105,7 +105,7 @@ export function PersonDetailPopoverContent({
     <div className="space-y-3 text-[12px]">
       {/* Header: photo + name + meta */}
       <div className="flex items-start gap-3">
-        <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-md bg-[var(--bg-skeleton)] shadow ring-1 ring-black/10 dark:ring-white/10">
+        <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-md bg-[var(--color-fill-skeleton)] shadow ring-1 ring-black/10 dark:ring-white/10">
           {profileSrc ? (
             <img
               src={profileSrc}
@@ -212,7 +212,7 @@ export function PersonDetailPopoverContent({
                   <button
                     key={c?.id}
                     type="button"
-                    className="group w-[72px] flex-shrink-0 cursor-pointer overflow-hidden rounded-md bg-surface-elevated text-left transition-shadow hover:shadow-md"
+                    className="group w-[72px] flex-shrink-0 cursor-pointer overflow-hidden rounded-md bg-surface-raised text-left transition-shadow hover:shadow-md"
                     onClick={() => {
                       if (c?.videoItemId)
                         navigate(
@@ -226,7 +226,7 @@ export function PersonDetailPopoverContent({
                         );
                     }}
                   >
-                    <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-skeleton)]">
+                    <div className="relative aspect-[2/3] overflow-hidden bg-[var(--color-fill-skeleton)]">
                       {posterSrc ? (
                         <img
                           src={posterSrc}

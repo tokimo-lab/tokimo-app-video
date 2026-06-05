@@ -86,7 +86,7 @@ function AnalysisCard({
     analysis.contentType === "music" || selectedLibrary?.type === "music";
 
   return (
-    <div className="rounded-xl border border-[var(--glass-border)] bg-surface-glass p-4 shadow-sm">
+    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-surface-overlay p-4 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row">
         {analysis.thumbnailUrl ? (
           <img
@@ -456,7 +456,7 @@ function AddOnlineMediaContent({ win }: { win: WindowState }) {
       </div>
 
       {/* Footer */}
-      <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--border-base)] px-6 py-4">
+      <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--color-border-base)] px-6 py-4">
         <Button onClick={() => closeWindow(win.id)}>{t(`${ns}.cancel`)}</Button>
         <Button
           variant="primary"

@@ -47,7 +47,7 @@ function RemotePathField({
       onChange?.(onSelectTransform ? onSelectTransform(picked) : picked);
   };
   return (
-    <div className="flex flex-1 min-w-0 rounded-md border border-black/[0.08] dark:border-white/[0.1] focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
+    <div className="flex flex-1 min-w-0 rounded-md border border-black/[0.08] dark:border-white/[0.1] focus-within:border-[var(--color-accent)] focus-within:ring-1 focus-within:ring-[var(--color-accent)] transition-colors">
       <Input
         className="flex-1 min-w-0 !rounded-r-none !border-0 !ring-0 focus-within:!border-0 focus-within:!ring-0"
         placeholder={placeholder}
