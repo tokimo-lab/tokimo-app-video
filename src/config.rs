@@ -48,7 +48,6 @@ pub struct SystemSettings {
     pub internal_stream_access_token_expires_at: Option<DateTime<FixedOffset>>,
 }
 
-
 impl SystemConfigSection for TmdbSettings {
     const SCOPE: &'static str = "metadata";
     const SCOPE_ID: &'static str = "tmdb";

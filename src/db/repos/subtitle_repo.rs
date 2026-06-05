@@ -23,7 +23,10 @@ pub struct SubtitleRepo;
 
 impl SubtitleRepo {
     /// Load all embedded subtitles for a media file, together with ffprobe data.
-    pub async fn load_file_subtitles<C: ConnectionTrait>(db: &C, file_id: &str) -> Result<Vec<FileSubtitleRow>, AppError> {
+    pub async fn load_file_subtitles<C: ConnectionTrait>(
+        db: &C,
+        file_id: &str,
+    ) -> Result<Vec<FileSubtitleRow>, AppError> {
         let fid: Uuid = file_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid file id".into()))?;
@@ -136,7 +139,10 @@ impl SubtitleRepo {
     }
 
     /// Find a subtitle record by ID.
-    pub async fn find_by_id<C: ConnectionTrait>(db: &C, subtitle_id: &str) -> Result<Option<subtitles::Model>, AppError> {
+    pub async fn find_by_id<C: ConnectionTrait>(
+        db: &C,
+        subtitle_id: &str,
+    ) -> Result<Option<subtitles::Model>, AppError> {
         let sid: Uuid = subtitle_id
             .parse()
             .map_err(|_| AppError::BadRequest("invalid subtitle id".into()))?;

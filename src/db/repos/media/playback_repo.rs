@@ -1,7 +1,7 @@
 use sea_orm::{
     ActiveValue::Set,
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter,
-    QueryOrder, TransactionTrait,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, ExprTrait, QueryFilter, QueryOrder,
+    TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
@@ -430,7 +430,10 @@ impl PlaybackRepo {
         Ok(())
     }
 
-    pub async fn insert_history_completed<C: ConnectionTrait>(db: &C, input: InsertHistoryInput) -> Result<(), AppError> {
+    pub async fn insert_history_completed<C: ConnectionTrait>(
+        db: &C,
+        input: InsertHistoryInput,
+    ) -> Result<(), AppError> {
         let now = chrono::Utc::now().into();
         let active = watch_histories::ActiveModel {
             id: Set(input.id),
@@ -515,29 +518,21 @@ impl PlaybackRepo {
         }
 
         // Look up video_item_id / episode_id from file
-        let history = watch_histories::Entity::find_by_id(history_id)
-            .one(&txn)
-            .await?;
+        let history = watch_histories::Entity::find_by_id(history_id).one(&txn).await?;
         if let Some(history) = history {
-            let file = video_files::Entity::find_by_id(history.file_id)
-                .one(&txn)
-                .await?;
+            let file = video_files::Entity::find_by_id(history.file_id).one(&txn).await?;
             if let Some(file) = file {
                 if let Some(movie_id) = file.video_item_id {
                     if completed {
-                        Self::upsert_movie_state_completed(&txn, user_id, movie_id, position)
-                            .await?;
+                        Self::upsert_movie_state_completed(&txn, user_id, movie_id, position).await?;
                     } else {
-                        Self::upsert_movie_state_in_progress(&txn, user_id, movie_id, position)
-                            .await?;
+                        Self::upsert_movie_state_in_progress(&txn, user_id, movie_id, position).await?;
                     }
                 } else if let Some(episode_id) = file.episode_id {
                     if completed {
-                        Self::upsert_episode_state_completed(&txn, user_id, episode_id, position)
-                            .await?;
+                        Self::upsert_episode_state_completed(&txn, user_id, episode_id, position).await?;
                     } else {
-                        Self::upsert_episode_state_in_progress(&txn, user_id, episode_id, position)
-                            .await?;
+                        Self::upsert_episode_state_in_progress(&txn, user_id, episode_id, position).await?;
                     }
                 }
             }

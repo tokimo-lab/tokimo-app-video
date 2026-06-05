@@ -127,20 +127,23 @@ async fn validate_stream_access(
 
     // 2. Validate SESSION_ID cookie via bus auth service.
     if let Some(sid) = session_id_from_cookie(headers.get(header::COOKIE))
-        && let Some(user_id) = state.auth_client.validate_session(&sid).await {
-            return Ok(Some(user_id.to_string()));
-        }
+        && let Some(user_id) = state.auth_client.validate_session(&sid).await
+    {
+        return Ok(Some(user_id.to_string()));
+    }
 
     // 3. Validate internal stream token (query param or header).
     if let Some(token) = access_token
-        && state.auth_client.validate_internal_stream_token(token).await {
-            return Ok(None);
-        }
+        && state.auth_client.validate_internal_stream_token(token).await
+    {
+        return Ok(None);
+    }
 
     if let Some(token) = headers.get(INTERNAL_STREAM_ACCESS_HEADER).and_then(|v| v.to_str().ok())
-        && state.auth_client.validate_internal_stream_token(token).await {
-            return Ok(None);
-        }
+        && state.auth_client.validate_internal_stream_token(token).await
+    {
+        return Ok(None);
+    }
 
     Err("Unauthorized".into())
 }

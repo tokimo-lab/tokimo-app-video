@@ -755,7 +755,10 @@ impl MediaContentRepo {
 
     // ── TV Show Detail ──
 
-    pub async fn get_tv_show_detail(db: &impl ConnectionTrait, id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
+    pub async fn get_tv_show_detail(
+        db: &impl ConnectionTrait,
+        id: Uuid,
+    ) -> Result<Option<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT t.id, t.video_id, t.title, t.original_title, t.sort_title, \
@@ -1601,7 +1604,10 @@ impl MediaContentRepo {
         Ok(Self::map_credit_rows(db.query_all_raw(stmt).await?))
     }
 
-    async fn query_album_credits(db: &impl ConnectionTrait, album_id: Uuid) -> Result<Vec<serde_json::Value>, AppError> {
+    async fn query_album_credits(
+        db: &impl ConnectionTrait,
+        album_id: Uuid,
+    ) -> Result<Vec<serde_json::Value>, AppError> {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT aa.id, aa.role, NULL::text as character, aa.sort_order, \

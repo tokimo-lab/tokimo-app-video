@@ -449,11 +449,7 @@ async fn invoke_json<T: Serialize>(
 ///
 /// The main server infers `appId` from the bus caller context (broker-stamped),
 /// so the sidecar cannot spoof its identity.
-pub async fn register_handler(
-    client: &BusClient,
-    job_type: &str,
-    method: &str,
-) -> Result<(), AppError> {
+pub async fn register_handler(client: &BusClient, job_type: &str, method: &str) -> Result<(), AppError> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct Req<'a> {

@@ -111,10 +111,7 @@ impl VideoRepo {
         }
 
         let results = update.exec_with_returning(db).await?;
-        results
-            .into_iter()
-            .next()
-            .not_found(format!("video {id} not found"))
+        results.into_iter().next().not_found(format!("video {id} not found"))
     }
 
     /// Delete video (cascade handled by DB foreign keys).
