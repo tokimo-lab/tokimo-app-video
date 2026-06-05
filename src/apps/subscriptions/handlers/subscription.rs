@@ -195,6 +195,7 @@ async fn delete_subscription_logs(storage: &Arc<dyn StorageProvider>, subscripti
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+#[allow(clippy::result_large_err)]
 fn check_ownership(owner: Option<&str>, user_id: &str) -> Result<(), Response> {
     if owner.is_some_and(|o| o != user_id) {
         Err(AppError::Forbidden("无权访问此资源".into()).into_response())

@@ -5,7 +5,6 @@ use chrono::Utc;
 use regex::Regex;
 use sea_orm::*;
 use serde_json::json;
-use tokimo_vfs::Vfs;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use uuid::Uuid;

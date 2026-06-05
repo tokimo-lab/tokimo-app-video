@@ -4,12 +4,12 @@ pub fn resolve_local_path(rel_path: &str, config: Option<&serde_json::Value>) ->
         .and_then(|c| c.get("root_folder_path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let combined = if rel_path.starts_with('/') {
+    
+    if rel_path.starts_with('/') {
         format!("{}{}", driver_root.trim_end_matches('/'), rel_path)
     } else {
         format!("{}/{}", driver_root.trim_end_matches('/'), rel_path)
-    };
-    combined
+    }
 }
 
 /// Returns the local filesystem root path for a VFS driver, if applicable.

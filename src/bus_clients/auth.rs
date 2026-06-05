@@ -138,7 +138,7 @@ impl AuthClient {
         let client_opt = self.client();
         self.session_cache
             .get_with(key.clone(), async move {
-                let Some(client) = client_opt else { return None };
+                let client = client_opt?;
                 let payload = serde_json::to_vec(&ValidateSessionReq { session_id: &key })
                     .map_err(|e| tracing::error!("auth: serialize validate_session: {e}"))
                     .ok()?;
@@ -198,7 +198,7 @@ impl AuthClient {
         let client_opt = self.client();
         self.user_display_cache
             .get_with(user_id, async move {
-                let Some(client) = client_opt else { return None };
+                let client = client_opt?;
                 let payload = serde_json::to_vec(&GetUserDisplayReq {
                     user_ids: vec![user_id],
                 })

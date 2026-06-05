@@ -1,3 +1,5 @@
+#![allow(dead_code, deprecated)]
+
 //! Video app — 内嵌 axum + UDS sidecar 形态（参考 helloworld 范式）。
 //!
 //! 启动流程：

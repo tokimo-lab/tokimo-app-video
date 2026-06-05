@@ -110,7 +110,7 @@ impl VideoRepo {
             update = update.col_expr(videos::Column::Sources, Expr::value(sources));
         }
 
-        let mut results = update.exec_with_returning(db).await?;
+        let results = update.exec_with_returning(db).await?;
         results
             .into_iter()
             .next()
