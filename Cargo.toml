@@ -73,4 +73,4 @@ tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-pack
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
-tokimo-package-storage = { path = "../../packages/tokimo-package-storage" }
+tokimo-package-storage = { git = "https://github.com/tokimo-lab/tokimo-package-storage.git", rev = "db9dff2" }
