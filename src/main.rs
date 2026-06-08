@@ -64,7 +64,7 @@ async fn init_ytdlp_root() -> anyhow::Result<PathBuf> {
 #[command(
     name = "tokimo-app-video",
     about = "Tokimo Video — CLI / sidecar binary",
-    long_about = "Tokimo Video CLI — 通过 Tokimo 主 server 调用 video app。\n\n前置条件：\n1. 启动 Tokimo 主 server (默认 http://localhost:5678)\n2. 浏览器登录后，「设置 → API Keys」创建 token (mm_xxx)\n3. 通过 --tokimo-token 或 TOKIMO_TOKEN env 传入",
+    long_about = "Tokimo Video CLI — 通过 Tokimo 主 server 调用 video app。",
     term_width = 100
 )]
 struct Cli {
