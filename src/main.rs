@@ -153,6 +153,12 @@ async fn run_server() -> anyhow::Result<()> {
     let ytdlp_root = init_ytdlp_root().await?;
     let client_slot: Arc<OnceLock<Arc<BusClient>>> = Arc::new(OnceLock::new());
     let storage_slot: Arc<OnceLock<Arc<dyn tokimo_package_storage::StorageProvider>>> = Arc::new(OnceLock::new());
+    storage_slot
+        .set(Arc::new(
+            tokimo_package_storage::OpendalStorageProvider::new(&data_local_path().join("storage"))
+                .expect("storage init"),
+        ))
+        .map_err(|_| anyhow::anyhow!("storage_slot already set"))?;
     let ctx = AppCtx::new(db, Arc::clone(&client_slot), ytdlp_root, Arc::clone(&storage_slot)).await?;
     let ctx = Arc::new(ctx);
 
