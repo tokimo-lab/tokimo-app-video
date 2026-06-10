@@ -15,6 +15,7 @@ entry        = "assets/index.js"
 window_type  = "tokimo-video"
 category     = "app"
 icon         = "Film"
+image        = "icon.png"
 color        = "#ef4444"
 width        = 1280
 height       = 800
