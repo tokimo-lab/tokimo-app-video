@@ -142,7 +142,7 @@ export default function VideoApp() {
         onToggleCollapse={onToggleCollapse}
       />
       <div
-        className={`relative min-w-0 flex-1 overflow-auto${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
+        className={`relative min-w-0 flex-1 overflow-auto bg-[var(--color-surface-content)]${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
       >
         {isDetailPage && LazyViewComponent ? (
           <Suspense fallback={LoadingFallback}>
