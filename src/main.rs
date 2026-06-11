@@ -64,7 +64,7 @@ async fn init_ytdlp_root() -> anyhow::Result<PathBuf> {
 #[command(
     name = "tokimo-app-video",
     about = "Tokimo Video — CLI / sidecar binary",
-    long_about = "Tokimo Video CLI — 通过 Tokimo 主 server 调用 video app。",
+    long_about = "Tokimo Video CLI — call the video app via the Tokimo main server.",
     term_width = 100
 )]
 struct Cli {
@@ -76,13 +76,13 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// 列出所有视频库
+    /// List all video libraries
     Libraries,
-    /// 打印版本
+    /// Print version
     Version,
-    /// 单机模式启动 HTTP server（不注册 bus，用于开发测试）
+    /// Start standalone HTTP server (no bus registration, for dev testing)
     Standalone {
-        /// TCP 监听端口
+        /// TCP listen port
         #[arg(long, default_value = "5680")]
         port: u16,
     },

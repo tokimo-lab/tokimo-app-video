@@ -1,10 +1,11 @@
-//! CLI subcommands stub —— Phase 2A 暂不实现，所有命令返回 unimplemented 错误。
+//! CLI subcommands stub — Phase 2A: not yet implemented; all commands return unimplemented errors.
 //!
-//! 计划：未来通过 bus call 调主 server 暴露的 video.* endpoint（如 `video.libraries.list`），
-//! 让 agent / 脚本能通过 `tokimo-app-video libraries --tokimo-token mm_xxx` 拿数据。
+//! Plan: in the future, call video.* endpoints exposed by the main server via bus call
+//! (e.g. `video.libraries.list`), so agents / scripts can fetch data via
+//! `tokimo-app-video libraries --tokimo-token mm_xxx`.
 
 use tokimo_bus_cli::TokimoAuthArgs;
 
 pub async fn run_libraries(_auth: TokimoAuthArgs) -> anyhow::Result<()> {
-    anyhow::bail!("CLI not yet implemented (Phase 2A scaffold). 计划通过 bus call video.libraries.list 实现")
+    anyhow::bail!("CLI not yet implemented (Phase 2A scaffold). Planned: bus call video.libraries.list")
 }
