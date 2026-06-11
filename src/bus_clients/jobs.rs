@@ -374,6 +374,8 @@ struct PreemptRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PreemptResponse {
     pub cancelled_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub cancelled_children: Vec<Uuid>,
 }
 
 /// Bulk-cancel jobs matching the given filter (app_id scoped via caller).
