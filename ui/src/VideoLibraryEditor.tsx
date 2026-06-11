@@ -31,9 +31,11 @@ import {
   getDefaultFolderFormat,
 } from "./lib/media-organize";
 import { AvatarPicker } from "./shell-shim/components";
-import VideoBindingsField, {
+import {
+  StorageBindingsField,
   type VideoBinding,
-} from "./video-library/VideoBindingsField";
+} from "@tokimo/ui";
+import { useRuntimeCtx } from "@tokimo/sdk";
 import VideoOrganizeFields from "./video-library/VideoOrganizeFields";
 import VideoTypeSelector from "./video-library/VideoTypeSelector";
 import { getVideoTypeInfo } from "./video-library/video-types";
@@ -57,6 +59,7 @@ export default function VideoLibraryEditor({
   const windowId = useWindowId();
   const { openModalWindow } = useWindowActions();
   const [form] = Form.useForm();
+  const ctx = useRuntimeCtx();
 
   const { data: categories = [] } = api.video.list.useQuery();
   const { data: vfsSources = [] } = api.vfs.list.useQuery();
@@ -361,10 +364,11 @@ export default function VideoLibraryEditor({
             <h4 className="mb-4 text-sm font-semibold text-fg-primary">
               {t("media.libraryEditor.bindings")}
             </h4>
-            <VideoBindingsField
-              sources={vfsSources}
+            <StorageBindingsField
+              sources={vfsSources as import("@tokimo/ui").VfsDto[]}
               form={form}
               initialSources={video?.sources}
+              shell={ctx.shell}
             />
           </div>
 
