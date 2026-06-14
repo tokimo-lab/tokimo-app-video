@@ -186,29 +186,6 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
     updated_at TIMESTAMPTZ
 )"#
         ),
-        // pt_sites
-        format!(
-            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".pt_sites (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    site_id TEXT NOT NULL,
-    domain TEXT NOT NULL,
-    auth_type TEXT NOT NULL DEFAULT 'cookies',
-    cookies TEXT,
-    api_key TEXT,
-    config_yaml TEXT,
-    config_url TEXT,
-    auto_stop_minutes TEXT,
-    traffic_manage_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    traffic_manage_mode TEXT NOT NULL DEFAULT 'active',
-    traffic_manage_target TEXT,
-    adult_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    last_checked_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
-)"#
-        ),
         // download_clients
         format!(
             r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".download_clients (
@@ -259,60 +236,6 @@ pub async fn init_schema(db: &DatabaseConnection) -> anyhow::Result<()> {
         ),
         format!(r#"CREATE INDEX IF NOT EXISTS download_records_status_idx ON "{SCHEMA}".download_records (status)"#),
         format!(r#"CREATE INDEX IF NOT EXISTS download_records_app_id_idx ON "{SCHEMA}".download_records (app_id)"#),
-        // subscription_filters
-        format!(
-            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscription_filters (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    sources JSONB,
-    resolutions JSONB,
-    codecs JSONB,
-    release_groups JSONB,
-    min_size TEXT NOT NULL DEFAULT '0',
-    max_size TEXT NOT NULL DEFAULT '0',
-    min_seeders TEXT NOT NULL DEFAULT '0',
-    max_seeders TEXT NOT NULL DEFAULT '0',
-    include_keywords TEXT,
-    exclude_keywords TEXT,
-    free_only BOOLEAN NOT NULL DEFAULT FALSE,
-    exclude_hr BOOLEAN NOT NULL DEFAULT FALSE,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_by UUID,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
-)"#
-        ),
-        // subscriptions
-        format!(
-            r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    subscription_mode TEXT NOT NULL,
-    media_type TEXT NOT NULL,
-    tmdb_id TEXT,
-    title TEXT NOT NULL,
-    year TEXT,
-    poster_path TEXT,
-    season TEXT,
-    episodes JSONB,
-    series_prefix TEXT,
-    metadata_source TEXT,
-    max_downloads_per_run INTEGER NOT NULL DEFAULT 3,
-    filter_id UUID,
-    filter_ids JSONB,
-    filter_overrides JSONB,
-    status TEXT NOT NULL DEFAULT 'active',
-    interval_minutes TEXT NOT NULL DEFAULT '60',
-    site_ids JSONB,
-    download_client_id UUID,
-    target_video_id UUID,
-    last_checked_at TIMESTAMPTZ,
-    next_check_at TIMESTAMPTZ,
-    created_by UUID,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
-)"#
-        ),
-        format!(r#"CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON "{SCHEMA}".subscriptions (status)"#),
         // organize_reports
         format!(
             r#"CREATE TABLE IF NOT EXISTS "{SCHEMA}".organize_reports (

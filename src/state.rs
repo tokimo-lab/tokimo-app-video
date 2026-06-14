@@ -1,7 +1,7 @@
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, OnceLock};
 use tokimo_bus_protocol::CallerCtx;
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 use tracing::warn;
@@ -32,7 +32,6 @@ pub struct AppCtx {
     pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
     pub organize_session: Arc<tokio::sync::RwLock<Option<OrganizeSession>>>,
-    pub active_subscription_runs: Arc<RwLock<HashMap<String, String>>>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
     pub auth_client: Arc<crate::bus_clients::auth::AuthClient>,
 }
@@ -81,7 +80,6 @@ impl AppCtx {
             ytdlp_root,
             screenshot_semaphore,
             organize_session: Arc::new(tokio::sync::RwLock::new(None)),
-            active_subscription_runs: Arc::new(RwLock::new(HashMap::new())),
             auth_client: Arc::new(crate::bus_clients::auth::AuthClient::new(Arc::clone(&client_slot))),
             bus_client: client_slot,
         })

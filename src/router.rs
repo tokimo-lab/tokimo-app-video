@@ -11,7 +11,6 @@ use crate::AppState;
 pub fn build_video_app_routes() -> Router<Arc<AppState>> {
     Router::new()
         .merge(crate::apps::media_organize::build_media_organize_app_routes())
-        .merge(crate::apps::subscriptions::build_subscriptions_app_routes())
         .route("/ytdlp/status", get(handlers::ytdlp::status))
         .route("/ytdlp/update", post(handlers::ytdlp::update))
         // Online media providers, ingest tasks & auth settings
