@@ -5,12 +5,14 @@ use sea_orm::prelude::Expr;
 use sea_orm::*;
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokimo_bus_client::BusClient;
 use tokimo_media_scraper::metadata_providers::tmdb::{TmdbCastInfo, TmdbGenre};
 use tracing::warn;
 use uuid::Uuid;
 
+use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest};
 use crate::db::entities::{genres, jobs, tv_persons, tv_season_cast, video_cast, video_persons};
-use crate::db::repos::job_repo::JobRepo;
 
 /// Check if a `DbErr` is a unique constraint violation (race condition on concurrent inserts).
 pub fn is_unique_violation(err: &DbErr) -> bool {
@@ -946,6 +948,7 @@ async fn link_genre_ids(
 /// When `season_id` is `None` for a TV show, cast sync is skipped.
 pub async fn sync_people_for_media(
     db: &DatabaseConnection,
+    client: Option<&Arc<BusClient>>,
     cast: &[CastMember],
     directors: &[String],
     movie_id: Option<Uuid>,
@@ -1131,7 +1134,7 @@ pub async fn sync_people_for_media(
         // Dispatch person scrape when person needs detailed data
         if needs_scrape {
             let person_type = if movie_id.is_some() { "movie" } else { "tv" };
-            if let Err(e) = dispatch_person_tmdb_scrape(db, person_id, person_type, movie_id, tv_show_id, user_id).await
+            if let Err(e) = dispatch_person_tmdb_scrape(db, client, person_id, person_type, movie_id, tv_show_id, user_id).await
             {
                 warn!("person tmdb scrape dispatch failed for person {person_id}: {e}");
             }
@@ -1450,6 +1453,7 @@ async fn should_dispatch_person_scrape(
 /// Dispatch `tmdb_person_scrape` job with active-job dedup.
 pub async fn dispatch_person_tmdb_scrape(
     db: &DatabaseConnection,
+    client: Option<&Arc<BusClient>>,
     person_id: Uuid,
     person_type: &str,
     movie_id: Option<Uuid>,
@@ -1459,19 +1463,26 @@ pub async fn dispatch_person_tmdb_scrape(
     if !should_dispatch_person_scrape(db, person_id, person_type).await? {
         return Ok(());
     }
-    create_person_scrape_job(db, person_id, person_type, movie_id, tv_show_id, user_id).await
+    let Some(c) = client else {
+        return Ok(());
+    };
+    create_person_scrape_job(c, person_id, person_type, movie_id, tv_show_id, user_id).await
 }
 
 async fn create_person_scrape_job(
-    db: &DatabaseConnection,
+    client: &Arc<BusClient>,
     person_id: Uuid,
     person_type: &str,
     movie_id: Option<Uuid>,
     tv_show_id: Option<Uuid>,
     user_id: Option<Uuid>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let _ = JobRepo::create_job(
-        db,
+    let caller = if let Some(uid) = user_id {
+        jobs_client::video_caller(Some(uid))
+    } else {
+        jobs_client::service_caller()
+    };
+    let request = CreateJobRequest::new(
         "tmdb_person_scrape",
         json!({
             "personId": person_id.to_string(),
@@ -1479,9 +1490,7 @@ async fn create_person_scrape_job(
             "movieId": movie_id.map(|u| u.to_string()),
             "tvShowId": tv_show_id.map(|u| u.to_string()),
         }),
-        None,
-        user_id,
-    )
-    .await;
+    );
+    let _ = jobs_client::create(client, caller, request).await;
     Ok(())
 }

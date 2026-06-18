@@ -415,7 +415,7 @@ impl AppSyncService {
 
         // Clean up old finished jobs so progress counts only reflect this sync run
         let filter = video_library_filter(video_id, None);
-        jobs_client::cleanup(client, jobs_client::video_caller(Some(user_id)), filter).await?;
+        jobs_client::cleanup(client, client.auto_caller("video"), filter).await?;
 
         let mut total_jobs = 0u64;
 
@@ -454,13 +454,13 @@ impl AppSyncService {
         client: &tokimo_bus_client::BusClient,
         app_id: Uuid,
         lib_type: &str,
-        user_id: Uuid,
+        _user_id: Uuid,
     ) -> Result<(), AppError> {
         info!("Clearing data for library {app_id} (type={lib_type})");
 
         // Cancel all pending/running jobs for this library
         let filter = video_library_filter(app_id, None);
-        let cancelled = jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(user_id)), filter).await?;
+        let cancelled = jobs_client::cancel_by_filter(client, client.auto_caller("video"), filter).await?;
         if cancelled > 0 {
             info!("  Cancelled {cancelled} pending/running jobs");
         }
@@ -573,14 +573,9 @@ impl AppSyncService {
             ));
         };
         let mut inserted = 0u64;
-        for (job_type, params, data, user_id) in jobs_data {
-            let Some(user_id) = user_id else {
-                return Err(AppError::Unauthorized(
-                    "jobs.create via bus requires caller user_id".into(),
-                ));
-            };
+        for (job_type, params, data, _user_id) in jobs_data {
             let request = CreateJobRequest::new(job_type, params).with_data(data);
-            jobs_client::create(client, jobs_client::video_caller(Some(user_id)), request).await?;
+            jobs_client::create(client, client.auto_caller("video"), request).await?;
             inserted += 1;
         }
         Ok(inserted)

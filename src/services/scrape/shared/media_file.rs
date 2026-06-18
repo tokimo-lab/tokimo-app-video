@@ -324,9 +324,11 @@ async fn patch_movie(
                 }
             }
         } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
-            match artwork::dispatch_tmdb_image_job(db, &tmdb_path, "movie", &mid.to_string(), "posterPath").await {
-                Ok(()) => info!("[nfo_patch] movie {mid}: dispatched poster job from NFO"),
-                Err(e) => warn!("[nfo_patch] movie {mid}: failed to dispatch poster job from NFO: {e}"),
+            if let Some(client) = state.bus_client.get() {
+                match artwork::dispatch_tmdb_image_job(client, &tmdb_path, "movie", &mid.to_string(), "posterPath").await {
+                    Ok(()) => info!("[nfo_patch] movie {mid}: dispatched poster job from NFO"),
+                    Err(e) => warn!("[nfo_patch] movie {mid}: failed to dispatch poster job from NFO: {e}"),
+                }
             }
         }
     }
@@ -380,9 +382,11 @@ async fn patch_tv_show(
                 }
             }
         } else if let Some(tmdb_path) = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref())) {
-            match artwork::dispatch_tmdb_image_job(db, &tmdb_path, "tvShow", &tid.to_string(), "posterPath").await {
-                Ok(()) => info!("[nfo_patch] tvShow {tid}: dispatched poster job from NFO"),
-                Err(e) => warn!("[nfo_patch] tvShow {tid}: failed to dispatch poster job from NFO: {e}"),
+            if let Some(client) = state.bus_client.get() {
+                match artwork::dispatch_tmdb_image_job(client, &tmdb_path, "tvShow", &tid.to_string(), "posterPath").await {
+                    Ok(()) => info!("[nfo_patch] tvShow {tid}: dispatched poster job from NFO"),
+                    Err(e) => warn!("[nfo_patch] tvShow {tid}: failed to dispatch poster job from NFO: {e}"),
+                }
             }
         }
     }

@@ -307,7 +307,7 @@ async fn patch_config_via_bus(
         return Ok(());
     };
     let source_uuid = source_id.parse().map_err(|e| format!("invalid source id: {e}"))?;
-    vfs_client::patch_config(client, vfs_client::video_caller(), source_uuid, patch)
+    vfs_client::patch_config(client, source_uuid, patch)
         .await
         .map_err(|e| e.to_string())
 }

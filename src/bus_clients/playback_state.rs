@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokimo_bus_client::BusClient;
 use tokimo_bus_protocol::CallerCtx;
-use uuid::Uuid;
 
 use crate::error::AppError;
 
@@ -39,17 +38,8 @@ struct SetResponse {
     ok: bool,
 }
 
-pub fn video_caller(user_id: Option<Uuid>) -> CallerCtx {
-    CallerCtx {
-        user_id: user_id.map(|id| id.to_string()),
-        request_id: Uuid::new_v4().to_string(),
-        workspace: None,
-        caller_app_id: Some("video".to_string()),
-    }
-}
-
-pub async fn get(client: &BusClient, caller: CallerCtx, key: Option<String>) -> Result<PlaybackState, AppError> {
-    let response = invoke_json(client, "get", caller, &GetRequest { key }).await?;
+pub async fn get(client: &BusClient, key: Option<String>) -> Result<PlaybackState, AppError> {
+    let response = invoke_json(client, "get", client.auto_caller("video"), &GetRequest { key }).await?;
     match serde_json::from_slice::<GetResponse>(&response)
         .map_err(|error| AppError::Internal(format!("playback_state.get decode: {error}")))?
     {
@@ -61,14 +51,14 @@ pub async fn get(client: &BusClient, caller: CallerCtx, key: Option<String>) -> 
     }
 }
 
-pub async fn set(client: &BusClient, caller: CallerCtx, state: PlaybackState) -> Result<(), AppError> {
+pub async fn set(client: &BusClient, state: PlaybackState) -> Result<(), AppError> {
     let Some(key) = state.key else {
         return Err(AppError::BadRequest("playback_state.set requires key".into()));
     };
     let response = invoke_json(
         client,
         "set",
-        caller,
+        client.auto_caller("video"),
         &SetRequest {
             key,
             state_json: state.state,

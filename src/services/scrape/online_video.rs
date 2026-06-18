@@ -111,7 +111,7 @@ pub async fn find_or_create_online_video(
     artwork: &DiscoveredArtwork,
     nfo_poster_tmdb_path: Option<&str>,
     nfo_backdrop_tmdb_path: Option<&str>,
-    user_id: Option<Uuid>,
+    _user_id: Option<Uuid>,
 ) -> Result<OnlineVideoResult, Box<dyn std::error::Error + Send + Sync>> {
     // Title: NFO → download_records → fallback (parsed filename / dir name)
     let nfo_title = nfo.and_then(|n| n.title.clone());
@@ -180,10 +180,9 @@ pub async fn find_or_create_online_video(
 
                     update.exec(&txn).await?;
                     txn.commit().await?;
-                    if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+                    if let Some(client) = state.bus_client.get() {
                         let _ = app_events::emit_entity(
                             client,
-                            uid,
                             "video_item",
                             Some(format!("library:{app_id}")),
                             json!({ "id": id.to_string(), "operation": "updated", "libraryId": app_id.to_string() }),
@@ -220,11 +219,10 @@ pub async fn find_or_create_online_video(
         id
     };
 
-    if let (Some(uid), Some(client)) = (user_id, state.bus_client.get()) {
+    if let Some(client) = state.bus_client.get() {
         let operation = if is_new { "created" } else { "updated" };
         let _ = app_events::emit_entity(
             client,
-            uid,
             "video_item",
             Some(format!("library:{app_id}")),
             json!({ "id": movie_id.to_string(), "operation": operation, "libraryId": app_id.to_string() }),
@@ -444,7 +442,6 @@ async fn upload_artwork_and_finish(
     nfo_backdrop_tmdb_path: Option<&str>,
 ) -> Result<OnlineVideoResult, Box<dyn std::error::Error + Send + Sync>> {
     let (mut poster_path, backdrop_path) = upload_poster_and_backdrop(
-        db,
         state,
         "movie",
         movie_id,

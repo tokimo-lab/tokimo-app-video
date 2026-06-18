@@ -1,8 +1,7 @@
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock};
-use tokimo_bus_protocol::CallerCtx;
+use std::sync::{Arc, OnceLock, RwLock};
 use tokio::sync::{Mutex as TokioMutex, Semaphore, broadcast};
 use tracing::warn;
 
@@ -32,6 +31,7 @@ pub struct AppCtx {
     pub ytdlp_root: PathBuf,
     pub screenshot_semaphore: Arc<Semaphore>,
     pub organize_session: Arc<tokio::sync::RwLock<Option<OrganizeSession>>>,
+    pub active_subscription_runs: Arc<RwLock<HashMap<String, String>>>,
     pub bus_client: Arc<OnceLock<Arc<tokimo_bus_client::BusClient>>>,
     pub auth_client: Arc<crate::bus_clients::auth::AuthClient>,
 }
@@ -48,7 +48,7 @@ impl AppCtx {
             db.clone(),
             Arc::clone(&client_slot),
         ));
-        let data_local_path = std::env::var("DATA_LOCAL_PATH")
+        let data_local_path = std::env::var("TOKIMO_DATA_LOCAL_PATH")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from("./.data/local"));
         let http_client = reqwest::Client::new();
@@ -80,6 +80,7 @@ impl AppCtx {
             ytdlp_root,
             screenshot_semaphore,
             organize_session: Arc::new(tokio::sync::RwLock::new(None)),
+            active_subscription_runs: Arc::new(RwLock::new(HashMap::new())),
             auth_client: Arc::new(crate::bus_clients::auth::AuthClient::new(Arc::clone(&client_slot))),
             bus_client: client_slot,
         })
@@ -130,12 +131,7 @@ impl AppCtx {
                     "task_queue",
                     "upsert_job",
                     payload,
-                    CallerCtx {
-                        user_id: None,
-                        request_id: String::new(),
-                        workspace: None,
-                        caller_app_id: Some("video".to_string()),
-                    },
+                    client.auto_caller("video"),
                 )
                 .await
             {

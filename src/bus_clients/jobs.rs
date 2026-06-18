@@ -200,7 +200,6 @@ pub fn video_caller(user_id: Option<Uuid>) -> CallerCtx {
     }
 }
 
-/// CallerCtx for service-level operations (no user context).
 pub fn service_caller() -> CallerCtx {
     video_caller(None)
 }

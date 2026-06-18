@@ -107,11 +107,9 @@ pub async fn handle(
 
     let movie_id = params.get("movieId").and_then(|v| v.as_str()).map(str::to_string);
     let tv_show_id = params.get("tvShowId").and_then(|v| v.as_str()).map(str::to_string);
-    if let Some(uid) = user_id {
-        let client = state.bus_client.get().expect("bus_client not initialized");
+    if let Some(client) = state.bus_client.get() {
         let _ = app_events::emit_entity(
             client,
-            uid,
             "person_scraped",
             Some(format!("person:{person_id}")),
             json!({

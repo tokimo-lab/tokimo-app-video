@@ -5,13 +5,14 @@ use sea_orm::sea_query::Condition;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
+use tokimo_bus_client::BusClient;
 use tokimo_media_scraper::metadata_providers::tmdb::{TmdbClient, TmdbMediaDetail};
 use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest};
 use crate::db::entities::{episodes, seasons, tv_shows};
-use crate::db::repos::job_repo::JobRepo;
 
 use crate::services::common::{
     CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
@@ -113,10 +114,12 @@ pub async fn scrape(
     // ensuring only ONE worker performs the TMDB search+detail for a new show even
     // when many episode files are processed concurrently.
     let tmdb_client: Option<TmdbClient> = api_key.as_ref().map(|key| tmdb::build_client(state, key));
+    let client = state.bus_client.get();
 
     find_or_create_tv(
         db,
         state,
+        client,
         tmdb_client.as_ref(),
         app_id,
         pre_existing,
@@ -145,6 +148,7 @@ pub async fn scrape(
 pub async fn find_or_create_tv(
     db: &DatabaseConnection,
     state: &Arc<AppState>,
+    client: Option<&Arc<BusClient>>,
     tmdb: Option<&TmdbClient>,
     app_id: Uuid,
     pre_existing: Option<(Uuid, Option<i64>)>,
@@ -237,7 +241,6 @@ pub async fn find_or_create_tv(
     if is_new {
         // Artwork
         let (poster_path, backdrop_path) = upload_poster_and_backdrop(
-            db,
             state,
             "tvShow",
             tv_show_id,
@@ -322,7 +325,7 @@ pub async fn find_or_create_tv(
                 nfo.and_then(|n| n.tmdb_id.as_deref())
                     .and_then(|s| s.parse::<i64>().ok())
             });
-        match create_season_and_episode(db, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
+        match create_season_and_episode(db, client, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
             Ok((sid, eid)) => (Some(sid), Some(eid)),
             Err(e) => {
                 warn!("[tv_scrape] Failed to create season/episode: {e}");
@@ -337,6 +340,7 @@ pub async fn find_or_create_tv(
     if is_new
         && let Err(e) = sync_people_for_media(
             db,
+            client,
             &pending_cast,
             &pending_directors,
             None,
@@ -519,6 +523,7 @@ async fn create_tv_show_record(
 
 async fn create_season_and_episode(
     db: &DatabaseConnection,
+    client: Option<&Arc<BusClient>>,
     tmdb: Option<&TmdbClient>,
     tmdb_show_id: Option<i64>,
     show_id: Uuid,
@@ -544,17 +549,18 @@ async fn create_season_and_episode(
         None
     };
 
-    let season_id = upsert_season(db, show_id, season_number, season_detail.as_ref()).await?;
+    let season_id = upsert_season(db, client, show_id, season_number, season_detail.as_ref()).await?;
     let tmdb_episode = season_detail
         .as_ref()
         .and_then(|sd| sd.episodes.as_ref())
         .and_then(|eps| eps.iter().find(|e| e.episode_number == episode_number));
-    let episode_id = upsert_episode(db, show_id, season_id, episode_number, tmdb_episode, nfo).await?;
+    let episode_id = upsert_episode(db, client, show_id, season_id, episode_number, tmdb_episode, nfo).await?;
     Ok((season_id, episode_id))
 }
 
 async fn upsert_season(
     db: &DatabaseConnection,
+    client: Option<&Arc<BusClient>>,
     show_id: Uuid,
     season_number: i32,
     tmdb_detail: Option<&tokimo_media_scraper::metadata_providers::tmdb::TmdbSeasonDetail>,
@@ -618,21 +624,21 @@ async fn upsert_season(
     if let Some(poster) = poster_path {
         let storage_key = format!("tmdb-images/seasons/{season_id}/poster.jpg");
         let url = format!("https://image.tmdb.org/t/p/w500{poster}");
-        let _ = JobRepo::create_job(
-            db,
-            "image_upload",
-            json!({ "plexUrl": url, "storageKey": storage_key,
-                "entity": "season", "entityId": season_id.to_string(), "field": "posterPath" }),
-            None,
-            None,
-        )
-        .await;
+        if let Some(c) = client {
+            let request = CreateJobRequest::new(
+                "image_upload",
+                json!({ "plexUrl": url, "storageKey": storage_key,
+                    "entity": "season", "entityId": season_id.to_string(), "field": "posterPath" }),
+            );
+            let _ = jobs_client::create(c, jobs_client::service_caller(), request).await;
+        }
     }
     Ok(season_id)
 }
 
 async fn upsert_episode(
     db: &DatabaseConnection,
+    client: Option<&Arc<BusClient>>,
     show_id: Uuid,
     season_id: Uuid,
     episode_number: i32,
@@ -709,15 +715,14 @@ async fn upsert_episode(
     if let Some(still) = still_path {
         let storage_key = format!("tmdb-images/episodes/{episode_id}/still.jpg");
         let url = format!("https://image.tmdb.org/t/p/w500{still}");
-        let _ = JobRepo::create_job(
-            db,
-            "image_upload",
-            json!({ "plexUrl": url, "storageKey": storage_key,
-                "entity": "episode", "entityId": episode_id.to_string(), "field": "stillPath" }),
-            None,
-            None,
-        )
-        .await;
+        if let Some(c) = client {
+            let request = CreateJobRequest::new(
+                "image_upload",
+                json!({ "plexUrl": url, "storageKey": storage_key,
+                    "entity": "episode", "entityId": episode_id.to_string(), "field": "stillPath" }),
+            );
+            let _ = jobs_client::create(c, jobs_client::service_caller(), request).await;
+        }
     }
     Ok(episode_id)
 }

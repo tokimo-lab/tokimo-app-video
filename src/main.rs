@@ -39,7 +39,7 @@ use tracing::{error, info, warn};
 use crate::state::AppCtx;
 
 fn data_local_path() -> PathBuf {
-    std::env::var("DATA_LOCAL_PATH")
+    std::env::var("TOKIMO_DATA_LOCAL_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("./.data/local"))
 }

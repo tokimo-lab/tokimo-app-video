@@ -40,15 +40,6 @@ pub struct CompleteDownloaderRequest {
     pub file_size: Option<String>,
 }
 
-pub fn video_caller() -> CallerCtx {
-    CallerCtx {
-        user_id: None,
-        request_id: Uuid::new_v4().to_string(),
-        workspace: None,
-        caller_app_id: Some("video".to_string()),
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRecordRequest {
@@ -64,7 +55,7 @@ pub struct CreateRecordRequest {
 }
 
 pub async fn create_record(client: &BusClient, request: &CreateRecordRequest) -> Result<(), AppError> {
-    invoke_json(client, "create_record", video_caller(), request).await?;
+    invoke_json(client, "create_record", client.auto_caller("video"), request).await?;
     Ok(())
 }
 
@@ -84,17 +75,17 @@ pub async fn register_downloaders(client: &BusClient) -> Result<(), AppError> {
             },
         ],
     };
-    invoke_json(client, "register", video_caller(), &request).await?;
+    invoke_json(client, "register", client.auto_caller("video"), &request).await?;
     Ok(())
 }
 
 pub async fn update_status(client: &BusClient, request: &UpdateDownloaderStatusRequest) -> Result<(), AppError> {
-    invoke_json(client, "update_status", video_caller(), request).await?;
+    invoke_json(client, "update_status", client.auto_caller("video"), request).await?;
     Ok(())
 }
 
 pub async fn complete(client: &BusClient, request: &CompleteDownloaderRequest) -> Result<(), AppError> {
-    invoke_json(client, "complete", video_caller(), request).await?;
+    invoke_json(client, "complete", client.auto_caller("video"), request).await?;
     Ok(())
 }
 

@@ -144,18 +144,13 @@ pub async fn update_video(
 pub async fn delete_video(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-    auth: AuthUser,
+    _auth: AuthUser,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    let caller_user_id: Uuid = auth
-        .user_id
-        .parse()
-        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
-
     let uid = parse_uuid(&id)?;
     let client = state.bus_client.get().expect("bus_client not initialized");
     let filter = video_library_filter(uid, None);
     let cancelled =
-        jobs_client::cancel_by_filter(client, jobs_client::video_caller(Some(caller_user_id)), filter).await?;
+        jobs_client::cancel_by_filter(client, client.auto_caller("video"), filter).await?;
     if cancelled > 0 {
         tracing::info!("Cancelled {cancelled} jobs for deleted video category {uid}");
     }

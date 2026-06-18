@@ -4,12 +4,13 @@ use bytes::Bytes;
 use sea_orm::*;
 use serde_json::json;
 use std::sync::Arc;
+use tokimo_bus_client::BusClient;
 use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest};
 use crate::db::entities::media_arts;
-use crate::db::repos::job_repo::JobRepo;
 use tokimo_package_storage::{StorageProvider, UploadOptions};
 
 use super::DirContext;
@@ -39,7 +40,7 @@ pub async fn upload_image_buffer(
 
 /// Dispatch TMDB `image_upload` job.
 pub async fn dispatch_tmdb_image_job(
-    db: &DatabaseConnection,
+    client: &Arc<BusClient>,
     tmdb_path: &str,
     entity: &str,
     entity_id: &str,
@@ -49,8 +50,7 @@ pub async fn dispatch_tmdb_image_job(
     let url = format!("https://image.tmdb.org/t/p/w500{tmdb_path}");
     let ext = tmdb_path.rsplit('.').next().unwrap_or("jpg");
     let storage_key = format!("tmdb-images/{entity}/{entity_id}/{field}.{ext}");
-    JobRepo::create_job(
-        db,
+    let request = CreateJobRequest::new(
         "image_upload",
         json!({
             "plexUrl": url,
@@ -59,10 +59,8 @@ pub async fn dispatch_tmdb_image_job(
             "entityId": entity_id,
             "field": field,
         }),
-        None,
-        None,
-    )
-    .await?;
+    );
+    jobs_client::create(client, jobs_client::service_caller(), request).await?;
     Ok(())
 }
 
@@ -141,7 +139,6 @@ async fn read_file_from_dir(ctx: &DirContext, filename: &str) -> Option<Vec<u8>>
 /// Returns (`poster_storage_path`, `backdrop_storage_path`) for local uploads.
 #[allow(clippy::too_many_arguments)]
 pub async fn upload_poster_and_backdrop(
-    db: &DatabaseConnection,
     state: &Arc<AppState>,
     entity: &str,
     entity_id: Uuid,
@@ -153,6 +150,7 @@ pub async fn upload_poster_and_backdrop(
 ) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error + Send + Sync>> {
     let id_str = entity_id.to_string();
     let folder = if entity == "movie" { "video_items" } else { "tvshows" };
+    let client = state.bus_client.get();
 
     // Upload poster and backdrop concurrently
     let poster_fut = async {
@@ -164,8 +162,8 @@ pub async fn upload_poster_and_backdrop(
             ))
         } else {
             let tmdb_path = nfo_poster_tmdb_path.or(tmdb_poster_path);
-            if let Some(path) = tmdb_path {
-                dispatch_tmdb_image_job(db, path, entity, &id_str, "posterPath").await?;
+            if let (Some(path), Some(c)) = (tmdb_path, client) {
+                dispatch_tmdb_image_job(c, path, entity, &id_str, "posterPath").await?;
             }
             Ok(None)
         }
@@ -179,8 +177,8 @@ pub async fn upload_poster_and_backdrop(
             ))
         } else {
             let tmdb_path = nfo_backdrop_tmdb_path.or(tmdb_backdrop_path);
-            if let Some(path) = tmdb_path {
-                dispatch_tmdb_image_job(db, path, entity, &id_str, "backdropPath").await?;
+            if let (Some(path), Some(c)) = (tmdb_path, client) {
+                dispatch_tmdb_image_job(c, path, entity, &id_str, "backdropPath").await?;
             }
             Ok(None)
         }

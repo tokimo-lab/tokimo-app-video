@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tokimo_bus_client::BusClient;
 use uuid::Uuid;
 
-use super::downloader::video_caller;
+use super::jobs::video_caller;
 
 // ── TTLs ──────────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ impl AuthClient {
                 let payload = serde_json::to_vec(&ValidateSessionReq { session_id: &key })
                     .map_err(|e| tracing::error!("auth: serialize validate_session: {e}"))
                     .ok()?;
-                match client.invoke("auth", "validate_session", payload, video_caller()).await {
+                match client.invoke("auth", "validate_session", payload, video_caller(None)).await {
                     Ok(resp_bytes) => match serde_json::from_slice::<ValidateSessionResp>(&resp_bytes) {
                         Ok(r) => r.user_id,
                         Err(e) => {
@@ -174,7 +174,7 @@ impl AuthClient {
                     }
                 };
                 match client
-                    .invoke("auth", "validate_internal_stream_token", payload, video_caller())
+                    .invoke("auth", "validate_internal_stream_token", payload, video_caller(None))
                     .await
                 {
                     Ok(resp_bytes) => match serde_json::from_slice::<ValidateTokenResp>(&resp_bytes) {
@@ -204,7 +204,7 @@ impl AuthClient {
                 })
                 .map_err(|e| tracing::error!("auth: serialize get_user_display: {e}"))
                 .ok()?;
-                match client.invoke("auth", "get_user_display", payload, video_caller()).await {
+                match client.invoke("auth", "get_user_display", payload, video_caller(None)).await {
                     Ok(resp_bytes) => match serde_json::from_slice::<GetUserDisplayResp>(&resp_bytes) {
                         Ok(r) => r.users.into_iter().find(|e| e.id == user_id),
                         Err(e) => {

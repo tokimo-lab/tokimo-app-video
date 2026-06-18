@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
+use axum::{Router, middleware, routing::get};
 use tokimo_bus_protocol::{BusListener, DataPlaneSocket};
 use tracing::{error, info};
 
@@ -50,6 +50,7 @@ fn build_router(ctx: Arc<AppCtx>) -> Router {
         .merge(tokimo_media_server_bridge::build_jellyfin_routes::<crate::AppState>())
         .route("/assets/{*path}", get(assets::serve))
         .route("/health", get(health))
+        .layer(middleware::from_fn(tokimo_bus_protocol::task_local::auth_middleware))
         .with_state(ctx)
 }
 
