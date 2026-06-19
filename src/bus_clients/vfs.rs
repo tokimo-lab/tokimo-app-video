@@ -28,10 +28,7 @@ pub struct PatchConfigRequest {
     pub patch: JsonValue,
 }
 
-pub async fn get_driver_config(
-    client: &BusClient,
-    source_id: Uuid,
-) -> Result<DriverConfig, AppError> {
+pub async fn get_driver_config(client: &BusClient, source_id: Uuid) -> Result<DriverConfig, AppError> {
     let response = invoke_json(
         client,
         "get_driver_config",
@@ -43,12 +40,14 @@ pub async fn get_driver_config(
         .map_err(|error| AppError::Internal(format!("vfs.get_driver_config decode: {error}")))
 }
 
-pub async fn patch_config(
-    client: &BusClient,
-    source_id: Uuid,
-    patch: JsonValue,
-) -> Result<(), AppError> {
-    let _ = invoke_json(client, "patch_config", client.auto_caller("video"), &PatchConfigRequest { source_id, patch }).await?;
+pub async fn patch_config(client: &BusClient, source_id: Uuid, patch: JsonValue) -> Result<(), AppError> {
+    let _ = invoke_json(
+        client,
+        "patch_config",
+        client.auto_caller("video"),
+        &PatchConfigRequest { source_id, patch },
+    )
+    .await?;
     Ok(())
 }
 

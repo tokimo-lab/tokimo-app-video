@@ -142,7 +142,10 @@ impl AuthClient {
                 let payload = serde_json::to_vec(&ValidateSessionReq { session_id: &key })
                     .map_err(|e| tracing::error!("auth: serialize validate_session: {e}"))
                     .ok()?;
-                match client.invoke("auth", "validate_session", payload, video_caller(None)).await {
+                match client
+                    .invoke("auth", "validate_session", payload, video_caller(None))
+                    .await
+                {
                     Ok(resp_bytes) => match serde_json::from_slice::<ValidateSessionResp>(&resp_bytes) {
                         Ok(r) => r.user_id,
                         Err(e) => {
@@ -204,7 +207,10 @@ impl AuthClient {
                 })
                 .map_err(|e| tracing::error!("auth: serialize get_user_display: {e}"))
                 .ok()?;
-                match client.invoke("auth", "get_user_display", payload, video_caller(None)).await {
+                match client
+                    .invoke("auth", "get_user_display", payload, video_caller(None))
+                    .await
+                {
                     Ok(resp_bytes) => match serde_json::from_slice::<GetUserDisplayResp>(&resp_bytes) {
                         Ok(r) => r.users.into_iter().find(|e| e.id == user_id),
                         Err(e) => {

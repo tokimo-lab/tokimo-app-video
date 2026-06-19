@@ -262,7 +262,17 @@ pub async fn find_or_create_video_item(
             vec![]
         };
         let directors: Vec<String> = nfo.map(|n| n.directors.clone()).unwrap_or_default();
-        sync_people_for_media(db, state.bus_client.get(), &cast, &directors, Some(movie_id), None, None, user_id).await?;
+        sync_people_for_media(
+            db,
+            state.bus_client.get(),
+            &cast,
+            &directors,
+            Some(movie_id),
+            None,
+            None,
+            user_id,
+        )
+        .await?;
     }
 
     upload_extra_art(db, state, Some(movie_id), None, &artwork.extra_art).await?;

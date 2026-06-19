@@ -127,12 +127,7 @@ impl AppCtx {
         let client = Arc::clone(client);
         tokio::spawn(async move {
             if let Err(e) = client
-                .invoke(
-                    "task_queue",
-                    "upsert_job",
-                    payload,
-                    client.auto_caller("video"),
-                )
+                .invoke("task_queue", "upsert_job", payload, client.auto_caller("video"))
                 .await
             {
                 warn!(err = %e, "bus_notify_job: failed to upsert job on bus");
