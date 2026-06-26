@@ -30,6 +30,8 @@ pub struct CreateJobRequest {
     pub dedupe_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wake_at: Option<DateTime<FixedOffset>>,
 }
 
 impl CreateJobRequest {
@@ -42,11 +44,17 @@ impl CreateJobRequest {
             task_type: None,
             dedupe_key: None,
             priority: None,
+            wake_at: None,
         }
     }
 
     pub fn with_data(mut self, data: Option<JsonValue>) -> Self {
         self.data = data;
+        self
+    }
+
+    pub fn with_wake_at(mut self, wake_at: Option<DateTime<FixedOffset>>) -> Self {
+        self.wake_at = wake_at;
         self
     }
 }

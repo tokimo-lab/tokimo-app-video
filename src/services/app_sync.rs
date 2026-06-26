@@ -10,6 +10,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::bus_clients::jobs::{self as jobs_client, CreateJobRequest, video_library_filter};
+use crate::bus_clients::person as person_bus;
 use crate::db::entities::{episodes, seasons, tv_shows, vfs, video_files, video_items, videos};
 use crate::db::repos::media::VideoRepo;
 use crate::error::AppError;
@@ -454,7 +455,7 @@ impl AppSyncService {
         client: &tokimo_bus_client::BusClient,
         app_id: Uuid,
         lib_type: &str,
-        _user_id: Uuid,
+        user_id: Uuid,
     ) -> Result<(), AppError> {
         info!("Clearing data for library {app_id} (type={lib_type})");
 
@@ -487,6 +488,7 @@ impl AppSyncService {
                 .into_iter()
                 .map(|m| m.id)
                 .collect();
+            Self::delete_person_sources(client, user_id, &movie_ids).await?;
             if !movie_ids.is_empty() {
                 let mf_deleted = video_files::Entity::delete_many()
                     .filter(video_files::Column::VideoItemId.is_in(movie_ids.clone()))
@@ -511,6 +513,7 @@ impl AppSyncService {
                 .into_iter()
                 .map(|s| s.id)
                 .collect();
+            Self::delete_person_sources(client, user_id, &show_ids).await?;
             if !show_ids.is_empty() {
                 let episode_ids: Vec<Uuid> = episodes::Entity::find()
                     .filter(episodes::Column::TvShowId.is_in(show_ids))
@@ -519,6 +522,7 @@ impl AppSyncService {
                     .into_iter()
                     .map(|e| e.id)
                     .collect();
+                Self::delete_person_sources(client, user_id, &episode_ids).await?;
                 if !episode_ids.is_empty() {
                     let mf_deleted = video_files::Entity::delete_many()
                         .filter(video_files::Column::EpisodeId.is_in(episode_ids))
@@ -549,6 +553,83 @@ impl AppSyncService {
                 .rows_affected;
             if orphan_deleted > 0 {
                 info!("  Deleted {orphan_deleted} orphaned video files");
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_person_sources_for_library(
+        db: &DatabaseConnection,
+        client: &tokimo_bus_client::BusClient,
+        app_id: Uuid,
+        lib_type: &str,
+        user_id: Uuid,
+    ) -> Result<(), AppError> {
+        if is_movie_type(lib_type) {
+            let movie_ids: Vec<Uuid> = video_items::Entity::find()
+                .filter(video_items::Column::VideoId.eq(app_id))
+                .select_only()
+                .column(video_items::Column::Id)
+                .into_tuple::<Uuid>()
+                .all(db)
+                .await?;
+            Self::delete_person_sources(client, user_id, &movie_ids).await?;
+        } else if is_tv_type(lib_type) {
+            let show_ids: Vec<Uuid> = tv_shows::Entity::find()
+                .filter(tv_shows::Column::VideoId.eq(app_id))
+                .select_only()
+                .column(tv_shows::Column::Id)
+                .into_tuple::<Uuid>()
+                .all(db)
+                .await?;
+            Self::delete_person_sources(client, user_id, &show_ids).await?;
+
+            if !show_ids.is_empty() {
+                let episode_ids: Vec<Uuid> = episodes::Entity::find()
+                    .filter(episodes::Column::TvShowId.is_in(show_ids))
+                    .select_only()
+                    .column(episodes::Column::Id)
+                    .into_tuple::<Uuid>()
+                    .all(db)
+                    .await?;
+                Self::delete_person_sources(client, user_id, &episode_ids).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn delete_person_sources(
+        client: &tokimo_bus_client::BusClient,
+        user_id: Uuid,
+        source_ids: &[Uuid],
+    ) -> Result<(), AppError> {
+        if source_ids.is_empty() {
+            return Ok(());
+        }
+
+        info!(
+            "Deleting {} person source registrations for video media",
+            source_ids.len()
+        );
+
+        for source_id in source_ids {
+            let source_id = source_id.to_string();
+            let caller = person_bus::video_caller(Some(user_id));
+
+            match person_bus::delete_source(client, caller, "video", &source_id).await {
+                Ok(()) => {}
+                Err(err) => {
+                    warn!("person.delete_source failed for video {source_id}; creating retry job: {err}");
+                    person_bus::delete_source_via_job(
+                        client,
+                        person_bus::video_caller(Some(user_id)),
+                        "video",
+                        &source_id,
+                    )
+                    .await?;
+                }
             }
         }
 
@@ -784,7 +865,17 @@ impl AppSyncService {
         );
 
         // Cleanup missing files (use vfs_root so DB paths match walk output)
-        Self::cleanup_missing_files(db, app_id, source_id, source_type, &vfs_root, &seen_paths).await?;
+        Self::cleanup_missing_files(
+            db,
+            app_id,
+            source_id,
+            source_type,
+            &vfs_root,
+            &seen_paths,
+            bus_client.get().map(Arc::as_ref),
+            user_id,
+        )
+        .await?;
 
         Ok(total_jobs)
     }
@@ -1807,6 +1898,8 @@ impl AppSyncService {
         _source_type: &str,
         root_path: &str,
         seen_paths: &HashSet<String>,
+        client: Option<&BusClient>,
+        user_id: Option<Uuid>,
     ) -> Result<(), AppError> {
         // Find all files in DB for this source under root_path
         let normalized_root = root_path.trim_end_matches('/');
@@ -1860,6 +1953,9 @@ impl AppSyncService {
                 .count(db)
                 .await?;
             if remaining == 0 {
+                if let (Some(client), Some(user_id)) = (client, user_id) {
+                    Self::delete_person_sources(client, user_id, &[*movie_id]).await?;
+                }
                 video_items::Entity::delete_by_id(*movie_id).exec(db).await?;
             }
         }
@@ -1878,6 +1974,9 @@ impl AppSyncService {
             {
                 season_ids.insert(ep.season_id);
                 tv_show_ids.insert(ep.tv_show_id);
+                if let (Some(client), Some(user_id)) = (client, user_id) {
+                    Self::delete_person_sources(client, user_id, &[*episode_id]).await?;
+                }
                 episodes::Entity::delete_by_id(*episode_id).exec(db).await?;
             }
         }
@@ -1898,6 +1997,9 @@ impl AppSyncService {
                 .count(db)
                 .await?;
             if remaining == 0 {
+                if let (Some(client), Some(user_id)) = (client, user_id) {
+                    Self::delete_person_sources(client, user_id, &[*tv_show_id]).await?;
+                }
                 tv_shows::Entity::delete_by_id(*tv_show_id).exec(db).await?;
             }
         }

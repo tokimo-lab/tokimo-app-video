@@ -3,6 +3,7 @@ pub use priority::JobPriority;
 pub mod cancellation;
 pub mod handlers;
 pub mod online_media_download;
+pub mod person_sync;
 pub mod tmdb_person_scrape;
 pub mod tv_scrape;
 pub mod video_item_scrape;

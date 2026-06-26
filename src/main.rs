@@ -182,6 +182,12 @@ async fn run_server() -> anyhow::Result<()> {
     bus_clients::jobs::register_handler(&client, "movie_scrape", "dispatch_movie_scrape").await?;
     bus_clients::jobs::register_handler(&client, "tmdb_person_scrape", "dispatch_tmdb_person_scrape").await?;
     bus_clients::jobs::register_handler(&client, "online_media_ingest", "dispatch_online_video_download").await?;
+    bus_clients::jobs::register_handler(
+        &client,
+        bus_clients::person::VIDEO_PERSON_SYNC_DELETE_SOURCE_JOB,
+        "dispatch_video_person_sync_delete_source",
+    )
+    .await?;
 
     if let Err(error) = crate::bus_clients::downloader::register_downloaders(&client).await {
         warn!(%error, "video: failed to register downloader SDK with host");

@@ -11,6 +11,7 @@
 //! | `dispatch_movie_scrape`     | `queue::video_item_scrape::handle`       |
 //! | `dispatch_tmdb_person_scrape` | `queue::tmdb_person_scrape::handle`    |
 //! | `dispatch_online_video_download` | `queue::online_media_download::handle` |
+//! | `dispatch_video_person_sync_delete_source` | `queue::person_sync::handle_delete_source` |
 //! | `capabilities`              | bus capability handshake                 |
 //!
 //! # Payload contract (JSON)
@@ -89,6 +90,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
     let ctx_movie = ctx.clone();
     let ctx_person = ctx.clone();
     let ctx_download = ctx.clone();
+    let ctx_person_sync_delete_source = ctx.clone();
     let ctx_proxy = ctx.clone();
     let ctx_ffprobe = ctx.clone();
 
@@ -178,6 +180,23 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     .map_err(|e| BusError::Internal(e.to_string()))
             }
         })
+        // ── dispatch_video_person_sync_delete_source ─────────────────────────
+        .method(decl(
+            "dispatch_video_person_sync_delete_source",
+            "Retry deleting video-owned person source registrations",
+        ))
+        .on_invoke("dispatch_video_person_sync_delete_source", move |req| {
+            let ctx = ctx_person_sync_delete_source.clone();
+            async move {
+                let (_job_id, params) = decode_request(&req.payload)?;
+                let user_id = caller_user_id(&req.caller);
+                let cancel = CancellationToken::new();
+                crate::queue::person_sync::handle_delete_source(&ctx, &params, user_id, &cancel)
+                    .await
+                    .map(|r| serde_json::to_vec(&r).unwrap_or_else(|_| b"{}".to_vec()))
+                    .map_err(|e| BusError::Internal(e.to_string()))
+            }
+        })
         // ── dispatch_media_file_ffprobe ──────────────────────────────────────
         .method(decl(
             "dispatch_media_file_ffprobe",
@@ -229,6 +248,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                     "dispatch_movie_scrape",
                     "dispatch_tmdb_person_scrape",
                     "dispatch_online_video_download",
+                    "dispatch_video_person_sync_delete_source",
                     "dispatch_media_file_ffprobe",
                     "image_proxy.sign_url",
                     "capabilities",

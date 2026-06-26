@@ -4,5 +4,6 @@ pub mod app_events;
 pub mod auth;
 pub mod downloader;
 pub mod jobs;
+pub mod person;
 pub mod playback_state;
 pub mod vfs;

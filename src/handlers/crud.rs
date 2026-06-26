@@ -14,6 +14,7 @@ use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::user::AuthUser;
 use crate::handlers::{ApiResponse, ok, ok_empty};
+use crate::services::media::app_sync::AppSyncService;
 use crate::services::media::source::normalize_source_path;
 
 use super::{
@@ -144,15 +145,23 @@ pub async fn update_video(
 pub async fn delete_video(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-    _auth: AuthUser,
+    auth: AuthUser,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
     let uid = parse_uuid(&id)?;
+    let user_id: Uuid = auth
+        .user_id
+        .parse()
+        .map_err(|_| AppError::Unauthorized("invalid user_id in auth token".into()))?;
+    let video = VideoRepo::get_by_id(&state.db, uid)
+        .await?
+        .not_found(format!("video {id} not found"))?;
     let client = state.bus_client.get().expect("bus_client not initialized");
     let filter = video_library_filter(uid, None);
     let cancelled = jobs_client::cancel_by_filter(client, client.auto_caller("video"), filter).await?;
     if cancelled > 0 {
         tracing::info!("Cancelled {cancelled} jobs for deleted video category {uid}");
     }
+    AppSyncService::delete_person_sources_for_library(&state.db, client, uid, &video.r#type, user_id).await?;
     VideoRepo::delete(&state.db, uid).await?;
     Ok(ok_empty())
 }
