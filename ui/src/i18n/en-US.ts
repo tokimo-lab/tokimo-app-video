@@ -648,11 +648,13 @@ const enUS = {
         authRequired:
           "This source site requires an authenticated Cookie before continuing",
         noTitle: "No title returned",
+        description: "Description",
         uploader: "Uploader",
         duration: "Duration",
         normalizedUrl: "Normalized URL",
         title: "Add Online Media",
         start: "Start Download",
+        cancel: "Cancel",
         url: "URL",
         urlRequired: "Please enter a URL",
         urlInvalid: "Please enter a valid URL",

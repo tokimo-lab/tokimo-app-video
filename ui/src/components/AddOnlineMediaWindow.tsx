@@ -86,21 +86,21 @@ function AnalysisCard({
     analysis.contentType === "music" || selectedLibrary?.type === "music";
 
   return (
-    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-surface-overlay p-4 shadow-sm">
-      <div className="flex flex-col gap-4 sm:flex-row">
+    <div className="min-w-0 rounded-xl border border-[var(--color-border-subtle)] bg-surface-overlay p-4 shadow-sm">
+      <div className="flex min-w-0 items-start gap-4">
         {analysis.thumbnailUrl ? (
           <img
             src={buildProxiedImageUrl(analysis.thumbnailUrl)}
             alt={analysis.title ?? analysis.sourceSite ?? "thumbnail"}
-            className="h-40 w-full shrink-0 rounded-lg object-cover sm:h-24 sm:w-40"
+            className="h-24 w-40 flex-none rounded-lg object-cover"
           />
         ) : (
-          <div className="flex h-40 w-full shrink-0 items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-white/[0.10] sm:h-24 sm:w-40">
+          <div className="flex h-24 w-40 flex-none items-center justify-center rounded-lg bg-fill-tertiary text-fg-muted dark:bg-white/[0.10]">
             <PlusOutlined />
           </div>
         )}
 
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-2 overflow-hidden">
           <div className="flex flex-wrap gap-2">
             {analysis.sourceSite && <Tag>{analysis.sourceSite}</Tag>}
             {analysis.provider && (
@@ -119,49 +119,53 @@ function AnalysisCard({
             )}
           </div>
 
-          <div className="text-sm font-semibold text-fg-primary">
+          <div className="break-words text-sm font-semibold text-fg-primary">
             {analysis.title ?? t(`${ns}.onlineMedia.noTitle`)}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs text-fg-muted">
-            <span>
+          <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-1 text-xs text-fg-muted">
+            <span className="min-w-0 break-words">
               {t(`${ns}.onlineMedia.uploader`)}: {analysis.uploader ?? "-"}
             </span>
-            <span>
+            <span className="min-w-0 break-words">
               {t(`${ns}.onlineMedia.duration`)}:{" "}
               {analysis.durationSeconds == null
                 ? "-"
                 : `${Math.floor(analysis.durationSeconds / 60)}m ${analysis.durationSeconds % 60}s`}
             </span>
             {analysis.artist && (
-              <span>
+              <span className="min-w-0 break-words">
                 {t(`${ns}.onlineMedia.artist`)}: {analysis.artist}
               </span>
             )}
             {analysis.album && (
-              <span>
+              <span className="min-w-0 break-words">
                 {t(`${ns}.onlineMedia.album`)}: {analysis.album}
               </span>
             )}
             {analysis.releaseDate && (
-              <span>
+              <span className="min-w-0 break-words">
                 {t(`${ns}.onlineMedia.releaseDate`)}: {analysis.releaseDate}
               </span>
             )}
-            <span className="col-span-2 truncate">
-              {t(`${ns}.onlineMedia.normalizedUrl`)}:{" "}
-              {analysis.normalizedUrl ?? "-"}
-            </span>
           </div>
 
           {analysis.description && (
             <p
-              className="line-clamp-3 text-xs text-fg-muted"
+              className="line-clamp-3 break-words text-xs text-fg-muted"
               title={analysis.description}
             >
+              <span className="font-medium text-fg-secondary">
+                {t(`${ns}.onlineMedia.description`)}:{" "}
+              </span>
               {analysis.description}
             </p>
           )}
+
+          <div className="break-all text-xs text-fg-muted">
+            {t(`${ns}.onlineMedia.normalizedUrl`)}:{" "}
+            {analysis.normalizedUrl ?? "-"}
+          </div>
 
           {analysis.warnings.length > 0 && (
             <Alert
@@ -457,7 +461,9 @@ function AddOnlineMediaContent({ win }: { win: WindowState }) {
 
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--color-border-base)] px-6 py-4">
-        <Button onClick={() => closeWindow(win.id)}>{t(`${ns}.cancel`)}</Button>
+        <Button onClick={() => closeWindow(win.id)}>
+          {t(`${ns}.onlineMedia.cancel`)}
+        </Button>
         <Button
           variant="primary"
           disabled={!canStart}

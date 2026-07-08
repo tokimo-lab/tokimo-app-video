@@ -627,11 +627,13 @@ const jaJP = {
         authRequired:
           "このソースサイトでは続行前に認証済み Cookie の設定が必要です",
         noTitle: "タイトルが返されませんでした",
+        description: "説明",
         uploader: "アップローダー",
         duration: "長さ",
         normalizedUrl: "正規化 URL",
         title: "オンラインメディアを追加",
         start: "ダウンロード開始",
+        cancel: "キャンセル",
         url: "URL",
         urlRequired: "URL を入力してください",
         urlInvalid: "有効な URL を入力してください",
