@@ -3,6 +3,7 @@ use axum::{
     response::Json,
 };
 use futures::FutureExt;
+use std::future::Future;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -18,6 +19,17 @@ use crate::handlers::{ApiResponse, ok};
 use crate::services::media::app_sync::AppSyncService;
 
 use super::{VideoSyncInput, parse_uuid};
+
+fn spawn_authenticated_sync<F>(user_id: Uuid, future: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    tokio::spawn(tokimo_bus_protocol::task_local::scope_user_id(
+        Some(user_id.to_string()),
+        future,
+    ))
+}
 
 /// POST /api/apps/video/{id}/sync
 pub async fn sync_video(
@@ -61,7 +73,7 @@ pub async fn sync_video(
     let storage = state.storage().clone();
     let http_client = state.http_client.clone();
 
-    tokio::spawn(async move {
+    spawn_authenticated_sync(caller_user_id, async move {
         let db2 = db.clone();
         let result = std::panic::AssertUnwindSafe(AppSyncService::execute_video_sync(
             &db,
@@ -91,6 +103,25 @@ pub async fn sync_video(
     });
 
     Ok(ok(serde_json::json!({ "success": true })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spawn_authenticated_sync;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn spawned_sync_preserves_authenticated_user() {
+        let user_id = Uuid::new_v4();
+        let expected_user_id = user_id.to_string();
+
+        let actual_user_id =
+            spawn_authenticated_sync(user_id, async { tokimo_bus_protocol::task_local::current_user_id() })
+                .await
+                .expect("authenticated sync task should complete");
+
+        assert_eq!(actual_user_id.as_deref(), Some(expected_user_id.as_str()));
+    }
 }
 
 /// GET /api/apps/video/{id}/sync-status
