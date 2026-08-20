@@ -9,7 +9,6 @@ import type {
   PlayerPlayMeta,
   PlayerSourceMetadata,
   ShellJobEvent,
-  ShellPersonEvent,
   WindowState,
 } from "@tokimo/sdk";
 import { useShellApi } from "@tokimo/sdk";
@@ -103,20 +102,6 @@ export function useAppEvent(onEvent: (event: ShellJobEvent) => void): void {
       onEvent: (event) => onEventRef.current(event),
     });
   }, [shell.jobEvents]);
-}
-
-export function usePersonEvents(
-  onEvent: (event: ShellPersonEvent) => void,
-): void {
-  const shell = useShellApi();
-  const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
-
-  useEffect(() => {
-    return shell.personEvents.subscribe({
-      onEvent: (event) => onEventRef.current(event),
-    });
-  }, [shell.personEvents]);
 }
 
 /**

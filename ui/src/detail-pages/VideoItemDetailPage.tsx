@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   type PlayerPlayMeta,
   posterThumbUrl,
+  useAppEntityEvents,
   useRuntimeCtx,
 } from "@tokimo/sdk";
 import { Button, Modal, Spin } from "@tokimo/ui";
@@ -9,11 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type MediaFileOutput } from "../api";
 import { WatchHistoryTable } from "../components/WatchHistoryTable";
-import {
-  useBackgroundArt,
-  usePersonEvents,
-  usePlayer,
-} from "../hooks/shell-stubs";
+import { useBackgroundArt, usePlayer } from "../hooks/shell-stubs";
 import { createVideoSourceMetadata } from "../player-source-metadata";
 import { useVideoNav } from "../router/useVideoNav";
 import {
@@ -155,10 +152,20 @@ export default function VideoItemDetailPage() {
   }, [artPath, setBackgroundArt]);
 
   // ── WS: refresh movie detail after each person is scraped ──
-  usePersonEvents((event) => {
-    if (event.videoItemId === videoItemId && videoItemId) {
-      api.video.getVideoItemDetail.invalidate(qc, { id: videoItemId });
-    }
+  useAppEntityEvents({
+    appId: "video",
+    kind: "person_scraped",
+    onEvent: (event) => {
+      if (
+        videoItemId &&
+        typeof event.payload === "object" &&
+        event.payload !== null &&
+        "videoItemId" in event.payload &&
+        event.payload.videoItemId === videoItemId
+      ) {
+        api.video.getVideoItemDetail.invalidate(qc, { id: videoItemId });
+      }
+    },
   });
 
   const playMeta = useMemo<PlayerPlayMeta>(
