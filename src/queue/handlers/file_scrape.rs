@@ -18,7 +18,7 @@ use crate::AppState;
 use crate::db::entities::video_files;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 
-use crate::services::nfo_parser::{self, NfoInfo, extract_tmdb_path};
+use crate::services::nfo_parser::{self, NfoInfo, NfoType, extract_tmdb_path};
 
 use crate::services::scrape::shared::{
     DirContext,
@@ -156,16 +156,15 @@ pub async fn handle(
     let parsed_season = parsed_file.season;
     let parsed_episodes = &parsed_file.episodes;
 
-    let title = nfo
-        .as_ref()
-        .and_then(|n| n.title.as_deref())
-        .unwrap_or(parsed_title_str);
-    let year = nfo.as_ref().and_then(|n| n.year).or(parsed_year);
+    let (title, year) = resolve_media_identity(lib_type, nfo.as_ref(), parsed_title_str, parsed_year);
 
     info!("[file_scrape] Processing: {filename} -> title={title}, year={year:?}");
 
-    let nfo_poster_tmdb = nfo.as_ref().and_then(|n| extract_tmdb_path(n.poster_url.as_deref()));
-    let nfo_backdrop_tmdb = nfo.as_ref().and_then(|n| extract_tmdb_path(n.backdrop_url.as_deref()));
+    let show_level_nfo = nfo
+        .as_ref()
+        .filter(|n| !lib_type.is_tv_family() || n.nfo_type != NfoType::EpisodeDetails);
+    let nfo_poster_tmdb = show_level_nfo.and_then(|n| extract_tmdb_path(n.poster_url.as_deref()));
+    let nfo_backdrop_tmdb = show_level_nfo.and_then(|n| extract_tmdb_path(n.backdrop_url.as_deref()));
 
     // ── 7. Branch by lib_type ──
     let mut movie_id: Option<Uuid> = None;
@@ -339,6 +338,33 @@ async fn read_nfo(ctx: &DirContext, stem: &str, dir_folder_name: &str) -> Option
     Some(nfo_parser::parse_nfo(&content))
 }
 
+fn resolve_media_identity<'a>(
+    lib_type: LibType,
+    nfo: Option<&'a NfoInfo>,
+    parsed_title: &'a str,
+    parsed_year: Option<i32>,
+) -> (&'a str, Option<i32>) {
+    if !lib_type.is_tv_family() {
+        return (
+            nfo.and_then(|n| n.title.as_deref()).unwrap_or(parsed_title),
+            nfo.and_then(|n| n.year).or(parsed_year),
+        );
+    }
+
+    let title = nfo
+        .and_then(|n| match n.nfo_type {
+            NfoType::EpisodeDetails => n.show_title.as_deref(),
+            NfoType::TvShow => n.title.as_deref(),
+            _ => None,
+        })
+        .unwrap_or(parsed_title);
+    let year = nfo
+        .and_then(|n| (n.nfo_type == NfoType::TvShow).then_some(n.year).flatten())
+        .or(parsed_year);
+
+    (title, year)
+}
+
 /// Returns true when a directory name looks like a season subfolder.
 fn looks_like_season_folder(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
@@ -355,4 +381,42 @@ fn looks_like_season_folder(name: &str) -> bool {
         return true;
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn episode_nfo_uses_show_title_and_not_episode_year_for_tv_identity() {
+        let nfo = nfo_parser::parse_nfo(
+            r#"<episodedetails>
+                <title>霸王龙的尖叫</title>
+                <showtitle>爱，死亡和机器人</showtitle>
+                <year>2025</year>
+                <season>4</season>
+                <episode>7</episode>
+            </episodedetails>"#,
+        );
+
+        let (title, year) = resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019));
+        assert_eq!(title, "爱，死亡和机器人");
+        assert_eq!(year, Some(2019));
+    }
+
+    #[test]
+    fn episode_nfo_without_show_title_falls_back_to_parsed_show_identity() {
+        let nfo = nfo_parser::parse_nfo(
+            r#"<episodedetails>
+                <title>霸王龙的尖叫</title>
+                <year>2025</year>
+                <season>4</season>
+                <episode>7</episode>
+            </episodedetails>"#,
+        );
+
+        let (title, year) = resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019));
+        assert_eq!(title, "Love Death Robots");
+        assert_eq!(year, Some(2019));
+    }
 }

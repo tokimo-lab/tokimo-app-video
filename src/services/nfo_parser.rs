@@ -18,6 +18,7 @@ pub struct NfoActor {
 pub struct NfoInfo {
     pub nfo_type: NfoType,
     pub title: Option<String>,
+    pub show_title: Option<String>,
     pub original_title: Option<String>,
     pub year: Option<i32>,
     pub plot: Option<String>,
@@ -290,6 +291,7 @@ pub fn parse_nfo(xml: &str) -> NfoInfo {
     NfoInfo {
         nfo_type,
         title: get_tag_text(xml, "title"),
+        show_title: get_tag_text(xml, "showtitle"),
         original_title: get_tag_text(xml, "originaltitle"),
         year: safe_int(get_tag_text(xml, "year")),
         plot: get_tag_text(xml, "plot"),
@@ -362,5 +364,28 @@ mod tests {
             nfo.title,
             Some("Perfect Tits of My Stepsis Bouncing When We Are Home Alone.".to_string())
         );
+    }
+
+    #[test]
+    fn test_parse_episode_title_separately_from_show_title() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<episodedetails>
+  <title>霸王龙的尖叫</title>
+  <showtitle>爱，死亡和机器人</showtitle>
+  <year>2025</year>
+  <season>4</season>
+  <episode>7</episode>
+  <uniqueid type="tmdb" default="true">6385728</uniqueid>
+  <plot>在轨道站竞技场，角斗士和恐龙展开致命的竞逐，并面对一个可怕的新对手。</plot>
+</episodedetails>"#;
+
+        let nfo = parse_nfo(xml);
+        assert_eq!(nfo.nfo_type, NfoType::EpisodeDetails);
+        assert_eq!(nfo.title.as_deref(), Some("霸王龙的尖叫"));
+        assert_eq!(nfo.show_title.as_deref(), Some("爱，死亡和机器人"));
+        assert_eq!(nfo.year, Some(2025));
+        assert_eq!(nfo.season, Some(4));
+        assert_eq!(nfo.episode, Some(7));
+        assert_eq!(nfo.tmdb_id.as_deref(), Some("6385728"));
     }
 }

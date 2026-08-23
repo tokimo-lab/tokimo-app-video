@@ -17,7 +17,7 @@ use crate::db::entities::{episodes, seasons, tv_shows};
 use crate::services::common::{
     CastMember, is_unique_violation, sync_genres, sync_genres_from_names, sync_people_for_media,
 };
-use crate::services::nfo_parser::NfoInfo;
+use crate::services::nfo_parser::{NfoInfo, NfoType};
 use crate::services::scrape::shared::artwork::{DiscoveredArtwork, upload_extra_art, upload_poster_and_backdrop};
 use crate::services::scrape::shared::lib_type::LibType;
 use crate::services::scrape::shared::tmdb;
@@ -25,6 +25,10 @@ use crate::services::scrape::shared::tmdb;
 pub struct TvResult {
     pub tv_show_id: Uuid,
     pub episode_id: Option<Uuid>,
+}
+
+fn show_level_nfo(nfo: Option<&NfoInfo>) -> Option<&NfoInfo> {
+    nfo.filter(|n| n.nfo_type != NfoType::EpisodeDetails)
 }
 
 /// Quick DB lookup before touching TMDB.
@@ -39,8 +43,9 @@ async fn quick_find_existing(
     year: Option<i32>,
 ) -> Result<Option<(Uuid, Option<i64>)>, Box<dyn std::error::Error + Send + Sync>> {
     // 1. External IDs from NFO (most reliable — no false positives)
-    let nfo_tmdb_id = nfo.as_ref().and_then(|n| n.tmdb_id.as_deref());
-    let nfo_imdb_id = nfo.as_ref().and_then(|n| n.imdb_id.as_deref());
+    let show_nfo = show_level_nfo(nfo.as_ref());
+    let nfo_tmdb_id = show_nfo.and_then(|n| n.tmdb_id.as_deref());
+    let nfo_imdb_id = show_nfo.and_then(|n| n.imdb_id.as_deref());
     if nfo_tmdb_id.is_some() || nfo_imdb_id.is_some() {
         let mut cond = Condition::any();
         if let Some(tid) = nfo_tmdb_id {
@@ -162,9 +167,10 @@ pub async fn find_or_create_tv(
     nfo_backdrop_tmdb_path: Option<&str>,
     user_id: Option<Uuid>,
 ) -> Result<TvResult, Box<dyn std::error::Error + Send + Sync>> {
+    let show_nfo = show_level_nfo(nfo);
     // IDs from NFO — used for the pre-lock existence check.
-    let nfo_tmdb_id = nfo.and_then(|n| n.tmdb_id.as_deref());
-    let nfo_imdb_id = nfo.and_then(|n| n.imdb_id.as_deref());
+    let nfo_tmdb_id = show_nfo.and_then(|n| n.tmdb_id.as_deref());
+    let nfo_imdb_id = show_nfo.and_then(|n| n.imdb_id.as_deref());
 
     // Use pre_existing from caller when available (avoids a redundant DB query).
     // Fall back to a DB lookup only when scrape() couldn't pre-check (shouldn't
@@ -204,7 +210,7 @@ pub async fn find_or_create_tv(
             let fetched: Option<TmdbMediaDetail> = if let Some(client) = tmdb {
                 tmdb::scrape_tv(
                     client,
-                    nfo,
+                    show_nfo,
                     parsed_title,
                     parsed_year,
                     artwork,
@@ -218,16 +224,16 @@ pub async fn find_or_create_tv(
             let tmdb_id_str = fetched
                 .as_ref()
                 .map(|d| d.base.id.to_string())
-                .or_else(|| nfo.and_then(|n| n.tmdb_id.clone()));
+                .or_else(|| show_nfo.and_then(|n| n.tmdb_id.clone()));
             let imdb_id_str = fetched
                 .as_ref()
                 .and_then(|d| d.imdb_id.clone())
-                .or_else(|| nfo.and_then(|n| n.imdb_id.clone()));
+                .or_else(|| show_nfo.and_then(|n| n.imdb_id.clone()));
             let id = create_tv_show_record(
                 db,
                 app_id,
                 fetched.as_ref(),
-                nfo,
+                show_nfo,
                 parsed_title,
                 parsed_year,
                 tmdb_id_str.as_deref(),
@@ -268,7 +274,7 @@ pub async fn find_or_create_tv(
             if let Some(genres) = &detail.genres {
                 sync_genres(db, genres, None, Some(tv_show_id)).await?;
             }
-        } else if let Some(nfo) = nfo
+        } else if let Some(nfo) = show_nfo
             && !nfo.genres.is_empty()
         {
             sync_genres_from_names(db, &nfo.genres, None, Some(tv_show_id)).await?;
@@ -287,7 +293,7 @@ pub async fn find_or_create_tv(
                 .iter()
                 .map(CastMember::from)
                 .collect()
-        } else if let Some(nfo) = nfo {
+        } else if let Some(nfo) = show_nfo {
             nfo.actors
                 .iter()
                 .map(|a| CastMember {
@@ -304,7 +310,7 @@ pub async fn find_or_create_tv(
         vec![]
     };
     let pending_directors: Vec<String> = if is_new {
-        nfo.map(|n| n.directors.clone()).unwrap_or_default()
+        show_nfo.map(|n| n.directors.clone()).unwrap_or_default()
     } else {
         vec![]
     };
@@ -322,7 +328,8 @@ pub async fn find_or_create_tv(
             .map(|d| d.base.id)
             .or_else(|| pre_existing.and_then(|(_, sid)| sid))
             .or_else(|| {
-                nfo.and_then(|n| n.tmdb_id.as_deref())
+                show_nfo
+                    .and_then(|n| n.tmdb_id.as_deref())
                     .and_then(|s| s.parse::<i64>().ok())
             });
         match create_season_and_episode(db, client, tmdb, tmdb_show_id, tv_show_id, sn, en, nfo).await {
@@ -725,4 +732,33 @@ async fn upsert_episode(
         }
     }
     Ok(episode_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::nfo_parser::parse_nfo;
+
+    #[test]
+    fn episode_external_ids_are_not_used_as_tv_show_ids() {
+        let episode_nfo = parse_nfo(
+            r#"<episodedetails>
+                <title>霸王龙的尖叫</title>
+                <showtitle>爱，死亡和机器人</showtitle>
+                <uniqueid type="tmdb" default="true">6385728</uniqueid>
+            </episodedetails>"#,
+        );
+        let show_nfo = parse_nfo(
+            r#"<tvshow>
+                <title>爱，死亡和机器人</title>
+                <uniqueid type="tmdb" default="true">86831</uniqueid>
+            </tvshow>"#,
+        );
+
+        assert!(show_level_nfo(Some(&episode_nfo)).is_none());
+        assert_eq!(
+            show_level_nfo(Some(&show_nfo)).and_then(|n| n.tmdb_id.as_deref()),
+            Some("86831"),
+        );
+    }
 }
