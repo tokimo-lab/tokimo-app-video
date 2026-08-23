@@ -68,6 +68,8 @@ pub async fn handle(
         .get("libType")
         .and_then(|v| v.as_str())
         .ok_or("Missing libType")?;
+    let show_title = params.get("showTitle").and_then(|v| v.as_str());
+    let show_year = params.get("showYear").and_then(JsonValue::as_i64).map(|v| v as i32);
 
     let app_uuid = Uuid::parse_str(video_id)?;
     let source_uuid = Uuid::parse_str(source_id)?;
@@ -156,7 +158,14 @@ pub async fn handle(
     let parsed_season = parsed_file.season;
     let parsed_episodes = &parsed_file.episodes;
 
-    let (title, year) = resolve_media_identity(lib_type, nfo.as_ref(), parsed_title_str, parsed_year);
+    let (title, year) = resolve_media_identity(
+        lib_type,
+        nfo.as_ref(),
+        parsed_title_str,
+        parsed_year,
+        show_title,
+        show_year,
+    );
 
     info!("[file_scrape] Processing: {filename} -> title={title}, year={year:?}");
 
@@ -343,12 +352,18 @@ fn resolve_media_identity<'a>(
     nfo: Option<&'a NfoInfo>,
     parsed_title: &'a str,
     parsed_year: Option<i32>,
+    show_title: Option<&'a str>,
+    show_year: Option<i32>,
 ) -> (&'a str, Option<i32>) {
     if !lib_type.is_tv_family() {
         return (
             nfo.and_then(|n| n.title.as_deref()).unwrap_or(parsed_title),
             nfo.and_then(|n| n.year).or(parsed_year),
         );
+    }
+
+    if let Some(show_title) = show_title.filter(|title| !title.is_empty()) {
+        return (show_title, show_year.or(parsed_year));
     }
 
     let title = nfo
@@ -399,7 +414,8 @@ mod tests {
             </episodedetails>"#,
         );
 
-        let (title, year) = resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019));
+        let (title, year) =
+            resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019), None, None);
         assert_eq!(title, "爱，死亡和机器人");
         assert_eq!(year, Some(2019));
     }
@@ -415,8 +431,31 @@ mod tests {
             </episodedetails>"#,
         );
 
-        let (title, year) = resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019));
+        let (title, year) =
+            resolve_media_identity(LibType::Tv, Some(&nfo), "Love Death Robots", Some(2019), None, None);
         assert_eq!(title, "Love Death Robots");
+        assert_eq!(year, Some(2019));
+    }
+
+    #[test]
+    fn grouped_tv_job_identity_overrides_episode_metadata() {
+        let nfo = nfo_parser::parse_nfo(
+            r#"<episodedetails>
+                <title>霸王龙的尖叫</title>
+                <showtitle>另一种译名</showtitle>
+                <year>2025</year>
+            </episodedetails>"#,
+        );
+
+        let (title, year) = resolve_media_identity(
+            LibType::Tv,
+            Some(&nfo),
+            "Season 4",
+            None,
+            Some("爱，死亡和机器人"),
+            Some(2019),
+        );
+        assert_eq!(title, "爱，死亡和机器人");
         assert_eq!(year, Some(2019));
     }
 }

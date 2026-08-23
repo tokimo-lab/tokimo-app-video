@@ -1,9 +1,10 @@
 use sea_orm::DatabaseConnection;
 use serde_json::{Value as JsonValue, json};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -11,6 +12,11 @@ use crate::bus_clients::jobs;
 
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use crate::queue::handlers::file_scrape;
+use crate::services::nfo_parser::{self, NfoInfo, extract_tmdb_path};
+use crate::services::scrape::shared::{
+    DirContext, artwork::discover_artwork, lib_type::LibType, parse::parse_media_filename,
+};
+use crate::services::scrape::tv;
 
 /// Process all new/changed files for a single TV show.
 ///
@@ -65,6 +71,8 @@ pub async fn handle(
         })));
     }
 
+    let (show_title, show_year) = prepare_show(db, state, video_id, source_id, lib_type, show_dir, user_id).await?;
+
     let processed = Arc::new(AtomicU32::new(0));
     let errors = Arc::new(AtomicU32::new(0));
     let mut last_reported_pct = -1;
@@ -74,7 +82,7 @@ pub async fn handle(
     {
         let file = &files[0];
         let file_path = file.get("filePath").and_then(|v| v.as_str()).unwrap_or("");
-        let file_payload = make_file_payload(file, video_id, source_id, lib_type);
+        let file_payload = make_file_payload(file, video_id, source_id, lib_type, &show_title, show_year);
         match file_scrape::handle(db, state, job_id, &file_payload, cancel, user_id).await {
             Ok(_) => {
                 processed.fetch_add(1, Ordering::Relaxed);
@@ -105,7 +113,7 @@ pub async fn handle(
         check_cancel(cancel)?;
         let mut handles = Vec::with_capacity(chunk.len());
         for file in chunk {
-            let file_payload = make_file_payload(file, video_id, source_id, lib_type);
+            let file_payload = make_file_payload(file, video_id, source_id, lib_type, &show_title, show_year);
             let db = db.clone();
             let state = state.clone();
             let processed = processed.clone();
@@ -161,7 +169,100 @@ pub async fn handle(
     })))
 }
 
-fn make_file_payload(file: &JsonValue, video_id: &str, source_id: &str, lib_type: &str) -> JsonValue {
+async fn prepare_show(
+    db: &DatabaseConnection,
+    state: &Arc<AppState>,
+    video_id: &str,
+    source_id: &str,
+    lib_type: &str,
+    show_dir: &str,
+    user_id: Option<Uuid>,
+) -> Result<(String, Option<i32>), Box<dyn std::error::Error + Send + Sync>> {
+    let vfs = state
+        .sources
+        .ensure_vfs(source_id)
+        .await
+        .map_err(|e| format!("Failed to get VFS for source {source_id}: {e}"))?;
+    let dir_entries = match vfs.list(Path::new(show_dir)).await {
+        Ok(entries) => entries.into_iter().map(|entry| entry.name).collect(),
+        Err(error) => {
+            warn!("[tv_scrape] Failed to list show directory {show_dir}: {error}");
+            Vec::new()
+        }
+    };
+    let folder_name = show_dir.trim_end_matches('/').rsplit('/').next().unwrap_or(show_dir);
+    let ctx = DirContext {
+        vfs,
+        dir_path: show_dir.to_string(),
+        dir_entries,
+        stem: folder_name.to_string(),
+    };
+    let show_nfo = read_show_nfo(&ctx, folder_name).await;
+    let artwork = discover_artwork(&ctx).await;
+    let parsed = parse_media_filename(folder_name, None);
+    let show_title = show_nfo
+        .as_ref()
+        .and_then(|nfo| nfo.title.as_deref())
+        .filter(|title| !title.is_empty())
+        .unwrap_or(&parsed.title)
+        .to_string();
+    let show_year = show_nfo.as_ref().and_then(|nfo| nfo.year).or(parsed.year);
+    let nfo_poster_tmdb = show_nfo
+        .as_ref()
+        .and_then(|nfo| extract_tmdb_path(nfo.poster_url.as_deref()));
+    let nfo_backdrop_tmdb = show_nfo
+        .as_ref()
+        .and_then(|nfo| extract_tmdb_path(nfo.backdrop_url.as_deref()));
+
+    tv::scrape(
+        db,
+        state,
+        Uuid::parse_str(video_id)?,
+        LibType::parse(lib_type)?,
+        &show_nfo,
+        &show_title,
+        show_year,
+        None,
+        None,
+        &artwork,
+        &nfo_poster_tmdb,
+        &nfo_backdrop_tmdb,
+        user_id,
+    )
+    .await?;
+
+    info!(
+        "[tv_scrape] prepared show=\"{show_title}\" year={show_year:?} root_nfo={} root_poster={}",
+        show_nfo.is_some(),
+        artwork.poster_buf.is_some()
+    );
+    Ok((show_title, show_year))
+}
+
+async fn read_show_nfo(ctx: &DirContext, folder_name: &str) -> Option<NfoInfo> {
+    let filename = select_show_nfo_filename(&ctx.dir_entries, folder_name)?;
+    let full_path = format!("{}/{}", ctx.dir_path.trim_end_matches('/'), filename);
+    let bytes = ctx.vfs.read_bytes(Path::new(&full_path), 0, None).await.ok()?;
+    Some(nfo_parser::parse_nfo(&String::from_utf8_lossy(&bytes)))
+}
+
+fn select_show_nfo_filename(entries: &[String], folder_name: &str) -> Option<String> {
+    let folder_nfo = format!("{}.nfo", folder_name.to_ascii_lowercase());
+    entries
+        .iter()
+        .find(|entry| entry.eq_ignore_ascii_case("tvshow.nfo"))
+        .or_else(|| entries.iter().find(|entry| entry.to_ascii_lowercase() == folder_nfo))
+        .cloned()
+}
+
+fn make_file_payload(
+    file: &JsonValue,
+    video_id: &str,
+    source_id: &str,
+    lib_type: &str,
+    show_title: &str,
+    show_year: Option<i32>,
+) -> JsonValue {
     json!({
         "filePath": file.get("filePath"),
         "dirPath": file.get("dirPath"),
@@ -170,7 +271,32 @@ fn make_file_payload(file: &JsonValue, video_id: &str, source_id: &str, lib_type
         "videoId": video_id,
         "sourceId": source_id,
         "libType": lib_type,
+        "showTitle": show_title,
+        "showYear": show_year,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_show_nfo_filename;
+
+    #[test]
+    fn tvshow_nfo_takes_priority_over_folder_named_nfo() {
+        let entries = vec!["Show Name.nfo".to_string(), "TVSHOW.NFO".to_string()];
+        assert_eq!(
+            select_show_nfo_filename(&entries, "Show Name").as_deref(),
+            Some("TVSHOW.NFO")
+        );
+    }
+
+    #[test]
+    fn folder_named_nfo_is_supported_when_tvshow_nfo_is_absent() {
+        let entries = vec!["Show Name.NFO".to_string()];
+        assert_eq!(
+            select_show_nfo_filename(&entries, "Show Name").as_deref(),
+            Some("Show Name.NFO")
+        );
+    }
 }
 
 async fn report_progress(
