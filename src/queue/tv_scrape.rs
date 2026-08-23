@@ -214,7 +214,7 @@ async fn prepare_show(
         .as_ref()
         .and_then(|nfo| extract_tmdb_path(nfo.backdrop_url.as_deref()));
 
-    tv::scrape(
+    let prepared = tv::scrape(
         db,
         state,
         Uuid::parse_str(video_id)?,
@@ -232,11 +232,13 @@ async fn prepare_show(
     .await?;
 
     info!(
-        "[tv_scrape] prepared show=\"{show_title}\" year={show_year:?} root_nfo={} root_poster={}",
+        "[tv_scrape] prepared show=\"{show_title}\" canonical=\"{}\" year={:?} root_nfo={} root_poster={}",
+        prepared.tv_show_title,
+        prepared.tv_show_year,
         show_nfo.is_some(),
         artwork.poster_buf.is_some()
     );
-    Ok((show_title, show_year))
+    Ok((prepared.tv_show_title, prepared.tv_show_year))
 }
 
 async fn read_show_nfo(ctx: &DirContext, folder_name: &str) -> Option<NfoInfo> {

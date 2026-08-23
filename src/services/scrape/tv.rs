@@ -24,6 +24,8 @@ use crate::services::scrape::shared::tmdb;
 
 pub struct TvResult {
     pub tv_show_id: Uuid,
+    pub tv_show_title: String,
+    pub tv_show_year: Option<i32>,
     pub episode_id: Option<Uuid>,
 }
 
@@ -360,7 +362,17 @@ pub async fn find_or_create_tv(
         warn!("[tv_scrape] TV cast sync failed: {e}");
     }
 
-    Ok(TvResult { tv_show_id, episode_id })
+    let canonical_show = tv_shows::Entity::find_by_id(tv_show_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| format!("TV show {tv_show_id} disappeared after scrape"))?;
+
+    Ok(TvResult {
+        tv_show_id,
+        tv_show_title: canonical_show.title,
+        tv_show_year: canonical_show.year,
+        episode_id,
+    })
 }
 
 async fn find_existing_tv_show(
