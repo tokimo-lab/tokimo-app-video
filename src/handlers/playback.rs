@@ -50,7 +50,7 @@ pub struct StreamUrlBody {
     pub containers: Vec<String>,
     pub h264_level: Option<f64>,
     pub hevc_level: Option<i32>,
-    pub max_bitrate: Option<i64>,
+    pub max_bitrate: Option<u64>,
     pub max_width: Option<i32>,
     pub max_height: Option<i32>,
     pub max_ref_frames: Option<i32>,
@@ -119,6 +119,21 @@ pub async fn stream_url(
     headers: HeaderMap,
     Json(body): Json<StreamUrlBody>,
 ) -> Response {
+    let requested_max_bitrate = match body.max_bitrate {
+        Some(0) => {
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "maxBitrate must be positive".into())
+                .into_response();
+        }
+        Some(value) => Some(value),
+        None => None,
+    };
+    let client_max_bitrate = match requested_max_bitrate.map(i64::try_from).transpose() {
+        Ok(value) => value,
+        Err(_) => {
+            return err_resp::<StreamUrlDto>(StatusCode::BAD_REQUEST, "maxBitrate is too large".into()).into_response();
+        }
+    };
+
     let file_uuid: Uuid = match file_id.parse() {
         Ok(u) => u,
         Err(_) => {
@@ -216,7 +231,7 @@ pub async fn stream_url(
         },
         max_h264_level: body.h264_level,
         max_hevc_level: body.hevc_level,
-        max_bitrate: body.max_bitrate,
+        max_bitrate: client_max_bitrate,
         max_width: body.max_width,
         max_height: body.max_height,
         max_ref_frames: body.max_ref_frames,
@@ -307,7 +322,8 @@ pub async fn stream_url(
         &vs,
         &client_profile,
     );
-    let transcode_video = video_reason.is_some();
+    let transcode_video =
+        video_reason.is_some() || needs_bitrate_limited_transcode(vs.bitrate_kbps, requested_max_bitrate);
     let container_reason = transcode_decision::container_transcode_reason(&file.path, &client_containers);
     let transcode_container = container_reason.is_some();
     let codec_tag_reason =
@@ -447,6 +463,7 @@ pub async fn stream_url(
             transcode_audio = transcode_audio,
             target_video_codec = %target_video_codec,
             target_audio_codec = %target_audio_codec_log,
+            requested_max_bitrate = requested_max_bitrate,
             reason_video = %eff_video_reason.unwrap_or(""),
             reason_audio = %audio_reason.as_deref().unwrap_or(""),
             reason_container = %container_reason.as_deref().unwrap_or(""),
@@ -539,6 +556,7 @@ pub async fn stream_url(
             &audio_streams,
             audio_index,
             should_transcode_video,
+            requested_max_bitrate,
             transcode_audio,
             target_audio_codec,
             tonemap_opts,
@@ -573,6 +591,54 @@ pub async fn stream_url(
 /// Build a direct stream URL (relative to Rust server) with tracking params.
 fn build_direct_stream_url(file: &video_files::Model) -> String {
     format!("/api/apps/video/files/{}/stream", file.id)
+}
+
+/// An explicit bitrate cap is a bandwidth guarantee, so unknown or invalid
+/// source bitrate metadata must fail closed into video transcoding. Without a
+/// cap this helper deliberately contributes no decision and preserves the
+/// existing compatibility-based playback path.
+fn needs_bitrate_limited_transcode(source_bitrate_kbps: Option<i64>, max_bitrate_bps: Option<u64>) -> bool {
+    let Some(max_bitrate_bps) = max_bitrate_bps else {
+        return false;
+    };
+
+    source_bitrate_kbps
+        .filter(|&kbps| kbps > 0)
+        .and_then(|kbps| u64::try_from(kbps).ok())
+        .and_then(|kbps| kbps.checked_mul(1000))
+        .is_none_or(|source_bitrate_bps| source_bitrate_bps > max_bitrate_bps)
+}
+
+#[cfg(test)]
+mod bitrate_limit_tests {
+    use super::needs_bitrate_limited_transcode;
+
+    #[test]
+    fn source_above_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(Some(40_000), Some(4_000_000)));
+    }
+
+    #[test]
+    fn source_below_requested_limit_can_keep_existing_playback_path() {
+        assert!(!needs_bitrate_limited_transcode(Some(3_000), Some(4_000_000)));
+    }
+
+    #[test]
+    fn unknown_source_bitrate_with_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(None, Some(4_000_000)));
+    }
+
+    #[test]
+    fn non_positive_source_bitrate_with_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(Some(0), Some(4_000_000)));
+        assert!(needs_bitrate_limited_transcode(Some(-1), Some(4_000_000)));
+    }
+
+    #[test]
+    fn no_requested_limit_preserves_existing_playback_path() {
+        assert!(!needs_bitrate_limited_transcode(Some(40_000), None));
+        assert!(!needs_bitrate_limited_transcode(None, None));
+    }
 }
 
 /// Detect whether an ISO file is a Blu-ray or DVD image from path heuristics.
@@ -622,6 +688,7 @@ async fn create_hls_session_internal(
     audio_streams: &[AudioStreamInfo],
     audio_index: usize,
     transcode_video: bool,
+    target_video_bitrate: Option<u64>,
     transcode_audio: bool,
     target_audio_codec: Option<String>,
     tonemap: Option<TonemapOptions>,
@@ -729,6 +796,7 @@ async fn create_hls_session_internal(
         video_height: vs.height.map(|h| h as u32),
         video_fps: vs.frame_rate,
         video_bitrate: vs.bitrate_kbps.map(|k| (k * 1000) as u64),
+        target_video_bitrate,
         deinterlace: vs.is_interlaced.unwrap_or(false),
         client_supports_hevc,
         user_id: Some(user_id.to_string()),
