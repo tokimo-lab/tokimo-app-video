@@ -6782,7 +6782,7 @@ dependencies = [
  "tokimo-media-ingest",
  "tokimo-media-scraper 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-media-scraper.git?rev=b124c1c)",
  "tokimo-media-server-bridge",
- "tokimo-package-ffmpeg",
+ "tokimo-package-ffmpeg 0.2.0 (git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=b25d0c5)",
  "tokimo-package-hls",
  "tokimo-package-image",
  "tokimo-package-iso",
@@ -6896,7 +6896,7 @@ dependencies = [
  "serde_json",
  "sevenz-rust2",
  "tokimo-media-scraper 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-media-scraper.git?rev=10f8224)",
- "tokimo-package-ffmpeg",
+ "tokimo-package-ffmpeg 0.2.0 (git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=9ea65ce9)",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -6996,14 +6996,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimo-package-ffmpeg"
+version = "0.2.0"
+source = "git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=b25d0c5#b25d0c510262fb62581f914275d2882b2b426038"
+dependencies = [
+ "anyhow",
+ "clap",
+ "encoding_rs",
+ "rsmpeg",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "tokimo-package-hls"
 version = "0.1.0"
-source = "git+https://github.com/tokimo-lab/tokimo-package-hls.git?rev=6c64e13d7ee216e401fd62196d6e2eb568681b86#6c64e13d7ee216e401fd62196d6e2eb568681b86"
+source = "git+https://github.com/tokimo-lab/tokimo-package-hls.git?rev=2234ca5#2234ca5a3f7ff3463e6b76f4d407d75eaee62343"
 dependencies = [
  "notify",
  "serde",
  "serde_json",
- "tokimo-package-ffmpeg",
+ "tokimo-package-ffmpeg 0.2.0 (git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=b25d0c5)",
  "tokio",
  "tracing",
  "uuid",
@@ -7036,7 +7051,7 @@ dependencies = [
  "bytes",
  "serde",
  "serde_json",
- "tokimo-package-ffmpeg",
+ "tokimo-package-ffmpeg 0.2.0 (git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=9ea65ce9)",
  "tokimo-vfs",
  "tokio",
  "tracing",
