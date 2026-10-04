@@ -6791,9 +6791,9 @@ dependencies = [
  "tokimo-package-utils 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-utils.git?rev=30d2fe36)",
  "tokimo-pt-search",
  "tokimo-subtitle-search",
- "tokimo-vfs",
- "tokimo-vfs-core",
- "tokimo-vfs-op",
+ "tokimo-vfs 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
+ "tokimo-vfs-core 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
+ "tokimo-vfs-op 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -7052,7 +7052,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokimo-package-ffmpeg 0.2.0 (git+https://github.com/tokimo-lab/tokimo-package-ffmpeg.git?rev=9ea65ce9)",
- "tokimo-vfs",
+ "tokimo-vfs 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9)",
  "tokio",
  "tracing",
 ]
@@ -7175,9 +7175,52 @@ dependencies = [
  "socket2",
  "suppaftp",
  "tokimo-package-utils 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-utils?rev=293aea2178eb69731e9b9b573a131ac810f0e15e)",
- "tokimo-vfs-core",
- "tokimo-vfs-op",
- "tokimo-vfs-smb",
+ "tokimo-vfs-core 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9)",
+ "tokimo-vfs-op 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9)",
+ "tokimo-vfs-smb 0.11.1 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9)",
+ "tokio",
+ "tracing",
+ "urlencoding",
+]
+
+[[package]]
+name = "tokimo-vfs"
+version = "0.1.0"
+source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72#fedc12c78a0dad1028d2c3311a0c0637f2b46a72"
+dependencies = [
+ "aes 0.8.4",
+ "async-trait",
+ "base64",
+ "bytes",
+ "chrono",
+ "clap",
+ "futures-util",
+ "hex",
+ "hmac 0.12.1",
+ "inventory",
+ "md-5 0.10.6",
+ "mime_guess",
+ "nfs3_client",
+ "nfs4",
+ "nfs4_client",
+ "num-bigint",
+ "rand_core 0.6.4",
+ "reqwest 0.13.4",
+ "reqwest_dav",
+ "rsa 0.9.10",
+ "russh",
+ "russh-sftp",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "sha1 0.10.6",
+ "smb-fscc",
+ "socket2",
+ "suppaftp",
+ "tokimo-package-utils 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-utils?rev=293aea2178eb69731e9b9b573a131ac810f0e15e)",
+ "tokimo-vfs-core 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
+ "tokimo-vfs-op 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
+ "tokimo-vfs-smb 0.11.1 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
  "tokio",
  "tracing",
  "urlencoding",
@@ -7199,11 +7242,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokimo-vfs-core"
+version = "0.1.0"
+source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72#fedc12c78a0dad1028d2c3311a0c0637f2b46a72"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "inventory",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "tokimo-vfs-op"
 version = "0.1.0"
 source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9#17e3c7a9fe04131e9c58341f77d642fadac5e391"
 dependencies = [
- "tokimo-vfs-core",
+ "tokimo-vfs-core 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9)",
+ "tokio",
+]
+
+[[package]]
+name = "tokimo-vfs-op"
+version = "0.1.0"
+source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72#fedc12c78a0dad1028d2c3311a0c0637f2b46a72"
+dependencies = [
+ "tokimo-vfs-core 0.1.0 (git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72)",
  "tokio",
 ]
 
@@ -7211,6 +7278,40 @@ dependencies = [
 name = "tokimo-vfs-smb"
 version = "0.11.1"
 source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=17e3c7a9#17e3c7a9fe04131e9c58341f77d642fadac5e391"
+dependencies = [
+ "aes 0.9.1",
+ "binrw",
+ "crypto-common 0.2.2",
+ "futures",
+ "futures-core",
+ "futures-util",
+ "hmac 0.13.0",
+ "kbkdf",
+ "maybe-async",
+ "md-5 0.11.0",
+ "md4",
+ "modular-bitfield",
+ "pastey",
+ "rand 0.8.6",
+ "sha2 0.11.0",
+ "smb-dtyp",
+ "smb-fscc",
+ "smb-msg",
+ "smb-rpc",
+ "smb-transport",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "tokimo-vfs-smb"
+version = "0.11.1"
+source = "git+https://github.com/tokimo-lab/tokimo-package-vfs.git?rev=fedc12c78a0dad1028d2c3311a0c0637f2b46a72#fedc12c78a0dad1028d2c3311a0c0637f2b46a72"
 dependencies = [
  "aes 0.9.1",
  "binrw",

@@ -15,9 +15,9 @@ tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", re
 tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "11b3237bd09d6eeb95ae5f951e0660e0c23c87d1" }
 
 # Public packages — git pinned (独立仓库已开源)
-tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
-tokimo-vfs-core       = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
-tokimo-vfs-op         = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "17e3c7a9" }
+tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "fedc12c78a0dad1028d2c3311a0c0637f2b46a72" }
+tokimo-vfs-core       = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "fedc12c78a0dad1028d2c3311a0c0637f2b46a72" }
+tokimo-vfs-op         = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "fedc12c78a0dad1028d2c3311a0c0637f2b46a72" }
 tokimo-package-hls    = { git = "https://github.com/tokimo-lab/tokimo-package-hls.git", rev = "2234ca5" }
 tokimo-package-subtitle = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle.git", rev = "399e77ea" }
 tokimo-package-image  = { git = "https://github.com/tokimo-lab/tokimo-package-image.git", rev = "0a651eb7" }
