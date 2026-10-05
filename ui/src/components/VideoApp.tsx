@@ -1,7 +1,7 @@
 import { useRuntimeCtx, useWindowActions, useWindowId } from "@tokimo/sdk";
 import { AppSetupGuide, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
-import { Suspense, useCallback, useEffect } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
@@ -34,7 +34,14 @@ export default function VideoApp() {
   const ctx = useRuntimeCtx();
 
   // Active category is stored in the window route (persisted in DB via user_tasks).
-  const activeCategoryId = params.categoryId ?? null;
+  const [sourceCategoryId, setSourceCategoryId] = useState<string | null>(
+    params.categoryId ?? null,
+  );
+  const routeCategoryId = params.categoryId ?? null;
+  if (routeCategoryId && routeCategoryId !== sourceCategoryId) {
+    setSourceCategoryId(routeCategoryId);
+  }
+  const activeCategoryId = routeCategoryId ?? sourceCategoryId;
 
   // Detail routes (/movies/:videoItemId, /tv/:tvShowId)
   const isDetailPage = !!(params.videoItemId ?? params.tvShowId);
@@ -141,22 +148,27 @@ export default function VideoApp() {
         syncProgress={syncProgress}
         onToggleCollapse={onToggleCollapse}
       />
-      <div
-        className={`relative min-w-0 flex-1 overflow-auto bg-[var(--color-surface-content)]${isDetailPage ? " px-3 py-3 lg:px-4 lg:py-4" : ""}`}
-      >
-        {isDetailPage && LazyViewComponent ? (
-          <Suspense fallback={LoadingFallback}>
-            <LazyViewComponent />
-          </Suspense>
-        ) : (
-          activeCategoryId &&
-          activeCategory && (
+      <div className="relative min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]">
+        {activeCategoryId && activeCategory && (
+          <div
+            className={`absolute inset-0${isDetailPage ? " invisible" : ""}`}
+            inert={isDetailPage}
+            aria-hidden={isDetailPage}
+          >
             <VideoContent
               key={activeCategoryId}
               category={activeCategory}
+              active={!isDetailPage}
               syncing={!!syncProgress[activeCategoryId]?.isActive}
             />
-          )
+          </div>
+        )}
+        {isDetailPage && LazyViewComponent && (
+          <div className="absolute inset-0 overflow-y-auto px-3 py-3 lg:px-4 lg:py-4">
+            <Suspense fallback={LoadingFallback}>
+              <LazyViewComponent />
+            </Suspense>
+          </div>
         )}
       </div>
     </div>

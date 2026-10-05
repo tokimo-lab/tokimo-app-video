@@ -63,6 +63,14 @@ export interface ListMediaInput {
   runtime?: string;
 }
 
+export interface MediaPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 function buildMediaListParams(input: ListMediaInput): string {
   const params = new URLSearchParams();
   if (input.page != null) params.set("page", String(input.page));
@@ -195,7 +203,7 @@ export const apiVideoListVideoItems = {
     useQuery({
       queryKey: apiVideoListVideoItems.queryKey(input),
       queryFn: () =>
-        videoFetch<VideoItemOutput[]>(
+        videoFetch<MediaPage<VideoItemOutput>>(
           `/${encodeURIComponent(input.id)}/items${buildMediaListParams(input)}`,
         ),
       enabled: opts?.enabled,
@@ -214,7 +222,7 @@ export const apiVideoListTvShows = {
     useQuery({
       queryKey: apiVideoListTvShows.queryKey(input),
       queryFn: () =>
-        videoFetch<TvShowOutput[]>(
+        videoFetch<MediaPage<TvShowOutput>>(
           `/${encodeURIComponent(input.id)}/tv-shows${buildMediaListParams(input)}`,
         ),
       enabled: opts?.enabled,

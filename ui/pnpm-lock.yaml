@@ -46,13 +46,16 @@ importers:
     devDependencies:
       '@tokimo/app-builder':
         specifier: github:tokimo-lab/tokimo-app-builder#9c6343752b68d63a129f134495468d80b8a62141
-        version: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141(vite@8.0.14(jiti@2.7.0))
+        version: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.15
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.15)
+      happy-dom:
+        specifier: ^20.14.5
+        version: 20.14.5
       tailwindcss:
         specifier: ^4.3.0
         version: 4.3.0
@@ -61,7 +64,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.10
-        version: 8.0.14(jiti@2.7.0)
+        version: 8.0.14(@types/node@26.6.4)(jiti@2.7.0)
 
 packages:
 
@@ -343,13 +346,13 @@ packages:
     resolution: {integrity: sha512-w43MvWvmShpb6kIC9MOoLyUkLmRTLPjt61bHWs+X29hACSpX+n8DvgZ3qM7cUfflKlRRcHR9KVJE6TmcqnQvcA==}
 
   '@tokimo/app-builder@https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141':
-    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141}
     version: 0.1.0
     peerDependencies:
       vite: ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@tokimo/sdk@https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865':
-    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865}
     version: 0.1.0
     peerDependencies:
       '@tanstack/react-query': ^5.0.0
@@ -361,7 +364,7 @@ packages:
         optional: true
 
   '@tokimo/ui@https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e':
-    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e}
     version: 0.1.0
     peerDependencies:
       react: ^19.0.0
@@ -371,6 +374,9 @@ packages:
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
 
+  '@types/node@26.6.4':
+    resolution: {integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==}
+
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
@@ -378,6 +384,12 @@ packages:
 
   '@types/react@19.2.15':
     resolution: {integrity: sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q==}
+
+  '@types/whatwg-mimetype@3.0.2':
+    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@vitejs/plugin-react@6.0.3':
     resolution: {integrity: sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg==}
@@ -391,6 +403,10 @@ packages:
         optional: true
       babel-plugin-react-compiler:
         optional: true
+
+  buffer-image-size@0.6.4:
+    resolution: {integrity: sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==}
+    engines: {node: '>=4.0'}
 
   chroma-js@3.2.0:
     resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
@@ -411,6 +427,10 @@ packages:
   enhanced-resolve@5.21.6:
     resolution: {integrity: sha512-aNnGCvbJ/RIyWo1IuhNdVjnNF+EjH9wpzpNHt+ci/m9He9LJvUN8wrCcXjp9cWsGNAuvSpVFTx/vraAFQ8qGjQ==}
     engines: {node: '>=10.13.0'}
+
+  entities@7.0.1:
+    resolution: {integrity: sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==}
+    engines: {node: '>=0.12'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -445,6 +465,10 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  happy-dom@20.14.5:
+    resolution: {integrity: sha512-x/RzkpWO40bTjIoT30iQtt64FLLmH/iRcUCN2X//bLx7H3ifkdfPXyqsro/OYtqzIAhiLMMA7mmiOR9C3NOKjQ==}
+    engines: {node: '>=20.0.0'}
 
   highlight.js@11.11.1:
     resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
@@ -661,6 +685,9 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
+
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
@@ -712,6 +739,22 @@ packages:
   void-elements@3.1.0:
     resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
     engines: {node: '>=0.10.0'}
+
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
+
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
 
 snapshots:
 
@@ -905,12 +948,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.2
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.2
 
-  '@tailwindcss/vite@4.3.2(vite@8.0.14(jiti@2.7.0))':
+  '@tailwindcss/vite@4.3.2(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))':
     dependencies:
       '@tailwindcss/node': 4.3.2
       '@tailwindcss/oxide': 4.3.2
       tailwindcss: 4.3.2
-      vite: 8.0.14(jiti@2.7.0)
+      vite: 8.0.14(@types/node@26.6.4)(jiti@2.7.0)
 
   '@tanstack/query-core@5.101.0': {}
 
@@ -927,11 +970,11 @@ snapshots:
 
   '@tanstack/virtual-core@3.17.2': {}
 
-  '@tokimo/app-builder@https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141(vite@8.0.14(jiti@2.7.0))':
+  '@tokimo/app-builder@https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))':
     dependencies:
-      '@tailwindcss/vite': 4.3.2(vite@8.0.14(jiti@2.7.0))
-      '@vitejs/plugin-react': 6.0.3(vite@8.0.14(jiti@2.7.0))
-      vite: 8.0.14(jiti@2.7.0)
+      '@tailwindcss/vite': 4.3.2(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))
+      '@vitejs/plugin-react': 6.0.3(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))
+      vite: 8.0.14(@types/node@26.6.4)(jiti@2.7.0)
     transitivePeerDependencies:
       - '@rolldown/plugin-babel'
       - babel-plugin-react-compiler
@@ -969,6 +1012,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@types/node@26.6.4':
+    dependencies:
+      undici-types: 8.9.0
+
   '@types/react-dom@19.2.3(@types/react@19.2.15)':
     dependencies:
       '@types/react': 19.2.15
@@ -977,10 +1024,20 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
-  '@vitejs/plugin-react@6.0.3(vite@8.0.14(jiti@2.7.0))':
+  '@types/whatwg-mimetype@3.0.2': {}
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 26.6.4
+
+  '@vitejs/plugin-react@6.0.3(vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.0.14(jiti@2.7.0)
+      vite: 8.0.14(@types/node@26.6.4)(jiti@2.7.0)
+
+  buffer-image-size@0.6.4:
+    dependencies:
+      '@types/node': 26.6.4
 
   chroma-js@3.2.0: {}
 
@@ -996,6 +1053,8 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
+
+  entities@7.0.1: {}
 
   fast-deep-equal@3.1.3: {}
 
@@ -1016,6 +1075,19 @@ snapshots:
     optional: true
 
   graceful-fs@4.2.11: {}
+
+  happy-dom@20.14.5:
+    dependencies:
+      '@types/node': 26.6.4
+      '@types/whatwg-mimetype': 3.0.2
+      '@types/ws': 8.18.2
+      buffer-image-size: 0.6.4
+      entities: 7.0.1
+      whatwg-mimetype: 3.0.0
+      ws: 8.22.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   highlight.js@11.11.1: {}
 
@@ -1183,11 +1255,13 @@ snapshots:
 
   typescript@6.0.3: {}
 
+  undici-types@8.9.0: {}
+
   use-sync-external-store@1.6.0(react@19.2.7):
     dependencies:
       react: 19.2.7
 
-  vite@8.0.14(jiti@2.7.0):
+  vite@8.0.14(@types/node@26.6.4)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -1195,7 +1269,12 @@ snapshots:
       rolldown: 1.0.2
       tinyglobby: 0.2.16
     optionalDependencies:
+      '@types/node': 26.6.4
       fsevents: 2.3.3
       jiti: 2.7.0
 
   void-elements@3.1.0: {}
+
+  whatwg-mimetype@3.0.0: {}
+
+  ws@8.22.0: {}

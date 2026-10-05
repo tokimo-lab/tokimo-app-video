@@ -873,6 +873,12 @@ const zhCN = {
       },
     },
     sidebar: {
+      searchLibrary: "搜索「{{name}}」",
+      clearSearch: "清除搜索",
+      resultCount: "共 {{total}} 个结果",
+      emptySearch: "没有匹配的资源，请尝试其他关键词或筛选条件",
+      loadFailed: "资源加载失败，请重试",
+      retry: "重试",
       newLibrary: "新建视频库",
       librarySettings: "视频库设置",
       expand: "展开侧边栏",

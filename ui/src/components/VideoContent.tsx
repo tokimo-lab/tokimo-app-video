@@ -1,7 +1,8 @@
 import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
-import { cn, Empty, PosterCard, Spin } from "@tokimo/ui";
+import { cn, Empty, Input, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
@@ -10,8 +11,8 @@ import {
   type VideoItemOutput,
   type VideoOutput,
 } from "../api";
+import { useBrowseViewport } from "../hooks/useBrowseViewport";
 import { useVideoNav } from "../router/useVideoNav";
-import { ContentSearch } from "../shell-shim/components";
 import type { FilterOption, MediaFilters } from "./MediaFilterPanel";
 import MediaFilterPanel, {
   EMPTY_FILTERS,
@@ -116,8 +117,10 @@ function parseSortValue(v: string) {
 
 export default function VideoContent({
   category,
+  active = true,
 }: {
   category: VideoOutput;
+  active?: boolean;
   syncing?: boolean;
 }) {
   const { navigate } = useVideoNav();
@@ -129,20 +132,16 @@ export default function VideoContent({
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<MediaFilters>(EMPTY_FILTERS);
-
-  const gridWrapperRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
-
-  useEffect(() => {
-    const el = gridWrapperRef.current;
-    if (!el) return;
-    setContainerWidth(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver((entries) => {
-      setContainerWidth(entries[0].contentRect.width);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [composing, setComposing] = useState(false);
+  const {
+    scrollRef,
+    gridWrapperRef,
+    width: containerWidth,
+    rememberCard,
+    resetScroll,
+  } = useBrowseViewport(active);
 
   const minCardWidth = isLandscape ? 260 : MIN_CARD_WIDTH;
   const cols = useMemo(
@@ -187,6 +186,7 @@ export default function VideoContent({
       id,
       page,
       pageSize,
+      search: search || undefined,
       ...sortParams,
       genreId: filters.genreId || undefined,
       country: filters.country || undefined,
@@ -194,7 +194,7 @@ export default function VideoContent({
       resolution: filters.resolution || undefined,
       runtime: filters.runtime || undefined,
     },
-    { enabled: !!id && !isTv && pageSize > 0 },
+    { enabled: active && !!id && !isTv && pageSize > 0 },
   );
 
   const tvQuery = api.video.listTvShows.useQuery(
@@ -202,42 +202,49 @@ export default function VideoContent({
       id,
       page,
       pageSize,
+      search: search || undefined,
       ...sortParams,
       genreId: filters.genreId || undefined,
       country: filters.country || undefined,
       favorite: filters.favorite === "true" ? true : undefined,
       resolution: filters.resolution || undefined,
     },
-    { enabled: !!id && isTv && pageSize > 0 },
+    { enabled: active && !!id && isTv && pageSize > 0 },
   );
 
   const paginatedQuery = isTv ? tvQuery : moviesQuery;
 
   const { items, total, hasMore, sentinelRef, reset } =
     useInfiniteScroll<MediaItem>({
-      queryData: paginatedQuery.data as
-        | { items: MediaItem[]; total: number; page: number }
-        | undefined,
+      queryData: paginatedQuery.data,
       isFetching: paginatedQuery.isFetching,
       onLoadMore: () => setPage((p) => p + 1),
-      enabled: true,
+      enabled: active && !paginatedQuery.isError,
     });
+
+  const visibleSentinelRef = useCallback(
+    (node: HTMLDivElement | null) => sentinelRef(active ? node : null),
+    [active, sentinelRef],
+  );
 
   const resetAll = useCallback(() => {
     reset();
     setPage(1);
-  }, [reset]);
+    resetScroll();
+  }, [reset, resetScroll]);
+
+  useEffect(() => {
+    if (composing || !active || searchInput.trim() === search) return;
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      resetAll();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search, composing, active, resetAll]);
 
   const isLoading =
     paginatedQuery.isLoading ||
     (items.length === 0 && paginatedQuery.isFetching);
-
-  // Reset when switching category
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on id change
-  useEffect(() => {
-    resetAll();
-    setFilters(EMPTY_FILTERS);
-  }, [id]);
 
   const handleItemClick = useCallback(
     (item: MediaItem) => {
@@ -294,31 +301,55 @@ export default function VideoContent({
   );
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4">
+    <div
+      ref={scrollRef}
+      data-video-scroll
+      className="relative flex h-full flex-col overflow-y-auto p-4"
+    >
       {/* Search bar — PillTabBar style, sticky */}
       <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-surface-base px-4 pt-4 pb-3">
-        <ContentSearch
-          appId={id}
-          searchType={isTv ? "tv" : "movie"}
+        <Input
+          className="w-full"
+          aria-label={t("media.sidebar.searchLibrary", { name: category.name })}
+          prefix={<Search />}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={(event) => {
+            setComposing(false);
+            setSearchInput(event.currentTarget.value);
+          }}
           placeholder={
             isTv
               ? t("media.sidebar.searchTvPlaceholder")
               : t("media.sidebar.searchMoviePlaceholder")
           }
-          onSelect={(item) => {
-            if (isTv) {
-              navigate(
-                `/tv/${item.id}`,
-                `TokimoVideo · ${item.title ?? "TV Show"}`,
-              );
-            } else {
-              navigate(
-                `/movies/${item.id}`,
-                `TokimoVideo · ${item.title ?? "Movie"}`,
-              );
-            }
-          }}
+          suffix={
+            searchInput && (
+              <button
+                type="button"
+                className="cursor-pointer text-fg-muted hover:text-fg-primary"
+                aria-label={t("media.sidebar.clearSearch")}
+                onClick={() => {
+                  setSearchInput("");
+                  if (search) {
+                    setSearch("");
+                    resetAll();
+                  }
+                }}
+              >
+                <X />
+              </button>
+            )
+          }
         />
+        <p className="mt-2 text-xs text-fg-muted" role="status">
+          {paginatedQuery.isFetching || searchInput.trim() !== search
+            ? t("media.search.searching")
+            : paginatedQuery.isError
+              ? t("media.sidebar.loadFailed")
+              : t("media.sidebar.resultCount", { total })}
+        </p>
       </div>
 
       {/* Filter Panel - always visible */}
@@ -333,17 +364,34 @@ export default function VideoContent({
       </div>
 
       <div ref={gridWrapperRef} className="mt-3 min-h-0 flex-1">
+        {paginatedQuery.isError && (
+          <div
+            role="alert"
+            className="mb-3 flex items-center justify-between gap-3 text-sm text-state-danger-text"
+          >
+            <span>{t("media.sidebar.loadFailed")}</span>
+            <button
+              type="button"
+              className="cursor-pointer text-accent-text"
+              onClick={() => void paginatedQuery.refetch()}
+            >
+              {t("media.sidebar.retry")}
+            </button>
+          </div>
+        )}
         {isLoading && items.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Spin />
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && !paginatedQuery.isError ? (
           <Empty
             className="flex h-full items-center justify-center"
             description={
-              activeFilterCount > 0
-                ? t("media.sidebar.emptyFiltered")
-                : t("media.sidebar.emptySyncFirst")
+              search
+                ? t("media.sidebar.emptySearch")
+                : activeFilterCount > 0
+                  ? t("media.sidebar.emptyFiltered")
+                  : t("media.sidebar.emptySyncFirst")
             }
           />
         ) : (
@@ -356,7 +404,12 @@ export default function VideoContent({
               }}
             >
               {items.map((item) => (
-                <motion.div key={item.id} layout transition={LAYOUT_SPRING}>
+                <motion.div
+                  key={item.id}
+                  layout={active}
+                  transition={LAYOUT_SPRING}
+                  onClickCapture={(event) => rememberCard(event.currentTarget)}
+                >
                   <MediaCard
                     item={item}
                     landscape={isLandscape}
@@ -366,14 +419,17 @@ export default function VideoContent({
               ))}
             </div>
 
-            <div ref={sentinelRef} className="h-px" />
+            <div ref={visibleSentinelRef} className="h-px" />
             <div className="mt-2 flex justify-center py-3">
               {paginatedQuery.isFetching && <Spin />}
-              {!hasMore && total > 0 && !paginatedQuery.isFetching && (
-                <p className="text-xs text-fg-muted">
-                  {t("media.sidebar.allLoaded", { total })}
-                </p>
-              )}
+              {!hasMore &&
+                total > 0 &&
+                !paginatedQuery.isFetching &&
+                !paginatedQuery.isError && (
+                  <p className="text-xs text-fg-muted">
+                    {t("media.sidebar.allLoaded", { total })}
+                  </p>
+                )}
             </div>
           </>
         )}

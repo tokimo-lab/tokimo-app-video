@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "bun test tests",
     "build": "vite build",
     "dev": "vite build --watch"
   },
@@ -24,6 +25,7 @@
     "@tokimo/app-builder": "github:tokimo-lab/tokimo-app-builder#9c6343752b68d63a129f134495468d80b8a62141",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.14.5",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.10"

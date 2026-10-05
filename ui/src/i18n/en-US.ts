@@ -890,6 +890,12 @@ const enUS = {
       },
     },
     sidebar: {
+      searchLibrary: "Search {{name}}",
+      clearSearch: "Clear search",
+      resultCount: "{{total}} results",
+      emptySearch: "No matching resources. Try other keywords or filters.",
+      loadFailed: "Unable to load resources. Please retry.",
+      retry: "Retry",
       newLibrary: "New Video Library",
       librarySettings: "Library Settings",
       expand: "Expand Sidebar",

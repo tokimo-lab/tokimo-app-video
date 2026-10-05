@@ -426,6 +426,15 @@ const jaJP = {
         feat4: "自動命名・整理ルール",
       },
     },
+    sidebar: {
+      searchLibrary: "「{{name}}」を検索",
+      clearSearch: "検索をクリア",
+      resultCount: "{{total}} 件の結果",
+      emptySearch:
+        "一致するメディアがありません。キーワードや絞り込みを変更してください。",
+      loadFailed: "メディアを読み込めませんでした。再試行してください。",
+      retry: "再試行",
+    },
     search: {
       title: "統合検索",
       placeholder: "映画・ドラマ名を入力して検索...",
