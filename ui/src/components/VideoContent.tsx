@@ -306,8 +306,8 @@ export default function VideoContent({
       data-video-scroll
       className="relative flex h-full flex-col overflow-y-auto p-4"
     >
-      {/* Search bar — PillTabBar style, sticky */}
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-0 bg-surface-base px-4 pt-4 pb-3">
+      {/* Search bar */}
+      <div className="-mx-4 -mt-4 mb-0 bg-surface-base px-4 pt-4 pb-3">
         <Input
           className="w-full"
           aria-label={t("media.sidebar.searchLibrary", { name: category.name })}
