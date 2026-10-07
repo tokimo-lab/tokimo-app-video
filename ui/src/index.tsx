@@ -43,6 +43,14 @@ export default defineApp({
       },
     ],
   },
+  standalone: {
+    createWindow: (route) => ({ type: "tokimo-video", route }),
+    getRoute: (window) => {
+      if (window.type !== "tokimo-video") return null;
+      if (window.route && window.route !== "/") return window.route;
+      return window.appId ? `/library/${window.appId}` : "/";
+    },
+  },
   mount(container, ctx): Dispose {
     const applyLocale = (raw: string) => {
       const target = SUPPORTED_LOCALES.includes(raw) ? raw : "en-US";

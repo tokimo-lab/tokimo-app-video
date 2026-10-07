@@ -17,8 +17,8 @@ importers:
         specifier: ^5.101.0
         version: 5.101.0(react@19.2.7)
       '@tokimo/sdk':
-        specifier: github:tokimo-lab/tokimo-package-sdk#84fc98c8c0af8688d12568e3ec8d14e5b3e5c865
-        version: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865(@tanstack/react-query@5.101.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: github:tokimo-lab/tokimo-package-sdk#72d1bf6248739641ab213635ca6b2367b9b10d86
+        version: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/72d1bf6248739641ab213635ca6b2367b9b10d86(@tanstack/react-query@5.101.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tokimo/ui':
         specifier: github:tokimo-lab/tokimo-ui#0d09afd6d88365fa40dfe729fedf9fb30331eb5e
         version: https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e(emoji-mart@5.6.0)(i18next@26.3.1(typescript@6.0.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tailwindcss@4.3.0)(typescript@6.0.3)
@@ -346,13 +346,13 @@ packages:
     resolution: {integrity: sha512-w43MvWvmShpb6kIC9MOoLyUkLmRTLPjt61bHWs+X29hACSpX+n8DvgZ3qM7cUfflKlRRcHR9KVJE6TmcqnQvcA==}
 
   '@tokimo/app-builder@https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141}
+    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-app-builder/tar.gz/9c6343752b68d63a129f134495468d80b8a62141}
     version: 0.1.0
     peerDependencies:
       vite: ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  '@tokimo/sdk@https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865}
+  '@tokimo/sdk@https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/72d1bf6248739641ab213635ca6b2367b9b10d86':
+    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/72d1bf6248739641ab213635ca6b2367b9b10d86}
     version: 0.1.0
     peerDependencies:
       '@tanstack/react-query': ^5.0.0
@@ -364,7 +364,7 @@ packages:
         optional: true
 
   '@tokimo/ui@https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e}
+    resolution: {tarball: https://codeload.github.com/tokimo-lab/tokimo-ui/tar.gz/0d09afd6d88365fa40dfe729fedf9fb30331eb5e}
     version: 0.1.0
     peerDependencies:
       react: ^19.0.0
@@ -979,7 +979,7 @@ snapshots:
       - '@rolldown/plugin-babel'
       - babel-plugin-react-compiler
 
-  '@tokimo/sdk@https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/84fc98c8c0af8688d12568e3ec8d14e5b3e5c865(@tanstack/react-query@5.101.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@tokimo/sdk@https://codeload.github.com/tokimo-lab/tokimo-package-sdk/tar.gz/72d1bf6248739641ab213635ca6b2367b9b10d86(@tanstack/react-query@5.101.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/react-query': 5.101.0(react@19.2.7)
       react: 19.2.7

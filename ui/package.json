@@ -11,7 +11,7 @@
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
     "@tanstack/react-query": "^5.101.0",
-    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#84fc98c8c0af8688d12568e3ec8d14e5b3e5c865",
+    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#72d1bf6248739641ab213635ca6b2367b9b10d86",
     "@tokimo/ui": "github:tokimo-lab/tokimo-ui#0d09afd6d88365fa40dfe729fedf9fb30331eb5e",
     "dayjs": "^1.11.21",
     "framer-motion": "^11.0.0",
@@ -29,5 +29,6 @@
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.10"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

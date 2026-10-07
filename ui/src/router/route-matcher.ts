@@ -65,5 +65,5 @@ export function buildRoute(
 }
 
 function splitSegments(path: string): string[] {
-  return path.split("/").filter(Boolean);
+  return path.split(/[?#]/, 1)[0].split("/").filter(Boolean);
 }
