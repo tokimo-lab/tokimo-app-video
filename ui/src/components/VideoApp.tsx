@@ -1,5 +1,5 @@
 import { useRuntimeCtx, useWindowActions, useWindowId } from "@tokimo/sdk";
-import { AppSetupGuide, Spin } from "@tokimo/ui";
+import { AppSetupGuide, cn, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,9 +24,10 @@ export default function VideoApp() {
   const { LazyViewComponent, params, replace, updateTitle } = useVideoNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
+  const mobile = containerWidth > 0 && containerWidth < 720;
   const { collapsed: sidebarCollapsed, onToggleCollapse } = useSidebarCollapsed(
     "video",
-    containerWidth > 0 && containerWidth < 720,
+    mobile,
   );
 
   const windowId = useWindowId();
@@ -135,12 +136,16 @@ export default function VideoApp() {
   }
 
   return (
-    <div ref={containerRef} className="relative flex h-full">
+    <div
+      ref={containerRef}
+      className={cn("relative flex h-full min-h-0", mobile && "flex-col")}
+    >
       <VideoSidebar
         categories={categories}
         activeId={activeCategoryId}
         onSelect={handleSelectCategory}
         collapsed={sidebarCollapsed}
+        mobile={mobile}
         onCreateClick={() => openEditorModal()}
         onSettingsClick={() =>
           activeCategoryId && openEditorModal({ videoId: activeCategoryId })
@@ -148,7 +153,7 @@ export default function VideoApp() {
         syncProgress={syncProgress}
         onToggleCollapse={onToggleCollapse}
       />
-      <div className="relative min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]">
         {activeCategoryId && activeCategory && (
           <div
             className={`absolute inset-0${isDetailPage ? " invisible" : ""}`}

@@ -10,6 +10,7 @@ export default function VideoSidebar({
   activeId,
   onSelect,
   collapsed,
+  mobile = false,
   onCreateClick,
   onSettingsClick,
   syncProgress,
@@ -20,6 +21,7 @@ export default function VideoSidebar({
   activeId: string | null;
   onSelect: (id: string) => void;
   collapsed?: boolean;
+  mobile?: boolean;
   onCreateClick: () => void;
   onSettingsClick: () => void;
   syncProgress?: Record<string, { isActive: boolean; pct: number }>;
@@ -62,7 +64,7 @@ export default function VideoSidebar({
             if (sp?.isActive) {
               return <CircularProgress value={sp.pct} size={24} />;
             }
-            if (collapsed) return undefined;
+            if (collapsed && !mobile) return undefined;
             return cat.itemCount > 0 ? (
               <span className="text-[10px] tabular-nums text-fg-muted">
                 {cat.itemCount}
@@ -152,6 +154,29 @@ export default function VideoSidebar({
       activeKey={activeId ?? undefined}
       onSelect={onSelect}
       collapsed={collapsed}
+      mobile={
+        mobile
+          ? {
+              title: "TokimoVideo",
+              closeLabel: t("media.sidebar.collapse"),
+              footerActions: [
+                {
+                  key: "new",
+                  icon: <Plus size={20} />,
+                  label: t("media.sidebar.newLibrary"),
+                  onClick: onCreateClick,
+                  variant: "primary",
+                },
+                {
+                  key: "settings",
+                  icon: <Settings size={20} />,
+                  label: t("media.sidebar.librarySettings"),
+                  onClick: onSettingsClick,
+                },
+              ],
+            }
+          : undefined
+      }
       footer={collapsed ? collapsedFooter : fullFooter}
     />
   );
