@@ -152,7 +152,7 @@ export default function VideoApp() {
     />
   );
   const mobileHeader = mobile ? (
-    <div className="shrink-0 bg-surface-base pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pl-[var(--app-safe-area-left,0px)] [&>div:first-child]:bg-transparent">
+    <div className="app-safe-area-top app-safe-area-x shrink-0 bg-surface-base [&>div:first-child]:bg-transparent">
       {sidebar}
     </div>
   ) : undefined;
@@ -163,7 +163,7 @@ export default function VideoApp() {
       className={cn("relative flex h-full min-h-0", mobile && "flex-col")}
     >
       {!mobile && (
-        <div className="flex shrink-0 pt-[var(--app-safe-area-top,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]">
+        <div className="flex shrink-0">
           {sidebar}
         </div>
       )}
