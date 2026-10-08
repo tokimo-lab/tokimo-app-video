@@ -44,6 +44,7 @@ export default defineApp({
     ],
   },
   standalone: {
+    safeArea: "app",
     createWindow: (route) => ({ type: "tokimo-video", route }),
     getRoute: (window) => {
       if (window.type !== "tokimo-video") return null;

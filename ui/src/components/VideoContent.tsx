@@ -2,7 +2,13 @@ import { posterThumbUrl, useInfiniteScroll } from "@tokimo/sdk";
 import { cn, Empty, Input, PosterCard, Spin } from "@tokimo/ui";
 import { motion } from "framer-motion";
 import { Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
@@ -118,10 +124,12 @@ function parseSortValue(v: string) {
 export default function VideoContent({
   category,
   active = true,
+  header,
 }: {
   category: VideoOutput;
   active?: boolean;
   syncing?: boolean;
+  header?: ReactNode;
 }) {
   const { navigate } = useVideoNav();
   const { t } = useTranslation();
@@ -304,10 +312,16 @@ export default function VideoContent({
     <div
       ref={scrollRef}
       data-video-scroll
-      className="relative flex h-full flex-col overflow-y-auto p-4"
+      className="relative flex h-full flex-col overflow-y-auto pb-[var(--app-safe-area-bottom,0px)]"
     >
+      {header}
       {/* Search bar */}
-      <div className="-mx-4 -mt-4 mb-0 bg-surface-base px-4 pt-4 pb-3">
+      <div
+        className={cn(
+          "shrink-0 bg-surface-base pr-[calc(1rem+var(--app-safe-area-right,0px))] pb-3 pl-[calc(1rem+var(--app-safe-area-left,0px))]",
+          header ? "pt-4" : "pt-[calc(1rem+var(--app-safe-area-top,0px))]",
+        )}
+      >
         <Input
           className="w-full"
           aria-label={t("media.sidebar.searchLibrary", { name: category.name })}
@@ -353,7 +367,7 @@ export default function VideoContent({
       </div>
 
       {/* Filter Panel - always visible */}
-      <div className="rounded-lg border border-white/8 bg-black/20 px-4 py-3 backdrop-blur-md">
+      <div className="mr-[calc(1rem+var(--app-safe-area-right,0px))] ml-[calc(1rem+var(--app-safe-area-left,0px))] shrink-0 rounded-lg border border-white/8 bg-black/20 px-4 py-3 backdrop-blur-md">
         <MediaFilterPanel
           filters={filters}
           onChange={handleFiltersChange}
@@ -363,7 +377,10 @@ export default function VideoContent({
         />
       </div>
 
-      <div ref={gridWrapperRef} className="mt-3 min-h-0 flex-1">
+      <div
+        ref={gridWrapperRef}
+        className="mt-3 mr-[calc(1rem+var(--app-safe-area-right,0px))] ml-[calc(1rem+var(--app-safe-area-left,0px))] flex-1 pb-4"
+      >
         {paginatedQuery.isError && (
           <div
             role="alert"

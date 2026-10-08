@@ -107,7 +107,7 @@ export default function VideoApp() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-[var(--color-surface-content)] pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]">
         <Spin />
       </div>
     );
@@ -116,6 +116,7 @@ export default function VideoApp() {
   if (!categories?.length) {
     return (
       <AppSetupGuide
+        className="pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]"
         imageSrc="/page-icons/video.png"
         accentColor="purple"
         title={t("common.setupGuide.getStarted", { name: "TokimoVideo" })}
@@ -135,25 +136,43 @@ export default function VideoApp() {
     );
   }
 
+  const sidebar = (
+    <VideoSidebar
+      categories={categories}
+      activeId={activeCategoryId}
+      onSelect={handleSelectCategory}
+      collapsed={sidebarCollapsed}
+      mobile={mobile}
+      onCreateClick={() => openEditorModal()}
+      onSettingsClick={() =>
+        activeCategoryId && openEditorModal({ videoId: activeCategoryId })
+      }
+      syncProgress={syncProgress}
+      onToggleCollapse={onToggleCollapse}
+    />
+  );
+  const mobileHeader = mobile ? (
+    <div className="shrink-0 bg-surface-base pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pl-[var(--app-safe-area-left,0px)] [&>div:first-child]:bg-transparent">
+      {sidebar}
+    </div>
+  ) : undefined;
+
   return (
     <div
       ref={containerRef}
       className={cn("relative flex h-full min-h-0", mobile && "flex-col")}
     >
-      <VideoSidebar
-        categories={categories}
-        activeId={activeCategoryId}
-        onSelect={handleSelectCategory}
-        collapsed={sidebarCollapsed}
-        mobile={mobile}
-        onCreateClick={() => openEditorModal()}
-        onSettingsClick={() =>
-          activeCategoryId && openEditorModal({ videoId: activeCategoryId })
-        }
-        syncProgress={syncProgress}
-        onToggleCollapse={onToggleCollapse}
-      />
-      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]">
+      {!mobile && (
+        <div className="flex shrink-0 pt-[var(--app-safe-area-top,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]">
+          {sidebar}
+        </div>
+      )}
+      <div
+        className={cn(
+          "relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]",
+          !mobile && "[--app-safe-area-left:0px]",
+        )}
+      >
         {activeCategoryId && activeCategory && (
           <div
             className={`absolute inset-0${isDetailPage ? " invisible" : ""}`}
@@ -164,15 +183,26 @@ export default function VideoApp() {
               key={activeCategoryId}
               category={activeCategory}
               active={!isDetailPage}
+              header={mobileHeader}
               syncing={!!syncProgress[activeCategoryId]?.isActive}
             />
           </div>
         )}
         {isDetailPage && LazyViewComponent && (
-          <div className="absolute inset-0 overflow-y-auto px-3 py-3 lg:px-4 lg:py-4">
-            <Suspense fallback={LoadingFallback}>
-              <LazyViewComponent />
-            </Suspense>
+          <div className="absolute inset-0 overflow-y-auto">
+            {mobileHeader}
+            <div
+              className={cn(
+                "pr-[calc(0.75rem+var(--app-safe-area-right,0px))] pb-[calc(0.75rem+var(--app-safe-area-bottom,0px))] pl-[calc(0.75rem+var(--app-safe-area-left,0px))] lg:pr-[calc(1rem+var(--app-safe-area-right,0px))] lg:pb-[calc(1rem+var(--app-safe-area-bottom,0px))] lg:pl-[calc(1rem+var(--app-safe-area-left,0px))]",
+                mobile
+                  ? "pt-3"
+                  : "pt-[calc(0.75rem+var(--app-safe-area-top,0px))] lg:pt-[calc(1rem+var(--app-safe-area-top,0px))]",
+              )}
+            >
+              <Suspense fallback={LoadingFallback}>
+                <LazyViewComponent />
+              </Suspense>
+            </div>
           </div>
         )}
       </div>
