@@ -1,5 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type Dispose, defineApp, RuntimeProvider } from "@tokimo/sdk";
+import {
+  type AppRuntimeCtx,
+  type Dispose,
+  defineApp,
+  RuntimeProvider,
+} from "@tokimo/sdk";
 import { ConfigProvider, cssVar, TOKEN, ToastProvider } from "@tokimo/ui";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -17,6 +22,25 @@ export const queryClient = new QueryClient({
     queries: { retry: false, refetchOnWindowFocus: false },
   },
 });
+
+function mountPlayback(ctx: AppRuntimeCtx): Dispose {
+  const applyLocale = (raw: string) => {
+    const target = SUPPORTED_LOCALES.includes(raw) ? raw : "en-US";
+    if (i18n.language !== target) {
+      void i18n.changeLanguage(target);
+    }
+  };
+  applyLocale(ctx.locale);
+  const unsubLocale = ctx.shell.subscribeLocale(applyLocale);
+  const unregisterPlayerExtension = ctx.shell.player.registerExtension(
+    ctx.appId,
+    createVideoPlayerExtension(ctx, queryClient),
+  );
+  return () => {
+    unregisterPlayerExtension();
+    unsubLocale();
+  };
+}
 
 export default defineApp({
   id: "video",
@@ -53,20 +77,11 @@ export default defineApp({
       return window.appId ? `/library/${window.appId}` : "/";
     },
   },
+  mountBackground(_container, ctx): Dispose {
+    return mountPlayback(ctx);
+  },
   mount(container, ctx): Dispose {
-    const applyLocale = (raw: string) => {
-      const target = SUPPORTED_LOCALES.includes(raw) ? raw : "en-US";
-      if (i18n.language !== target) {
-        void i18n.changeLanguage(target);
-      }
-    };
-
-    applyLocale(ctx.locale);
-    const unsubLocale = ctx.shell.subscribeLocale(applyLocale);
-    const unregisterPlayerExtension = ctx.shell.player.registerExtension(
-      ctx.appId,
-      createVideoPlayerExtension(ctx, queryClient),
-    );
+    const disposePlayback = mountPlayback(ctx);
     const unregisterDownloadEngineSection = ctx.shell.registerAppSection(
       "download-engine",
       DownloadEngineSettingsSection,
@@ -97,8 +112,7 @@ export default defineApp({
     return () => {
       unregisterTmdbSection();
       unregisterDownloadEngineSection();
-      unregisterPlayerExtension();
-      unsubLocale();
+      disposePlayback();
       root.unmount();
     };
   },
