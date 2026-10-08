@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 /** Keep the current list's layout and selected card position across detail views. */
-export function useBrowseViewport(active: boolean) {
+export function useBrowseViewport(active: boolean, documentScroll = false) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -12,6 +12,16 @@ export function useBrowseViewport(active: boolean) {
     width: number;
   } | null>(null);
   const returningRef = useRef(false);
+  const getScrollElement = useCallback(
+    () => (documentScroll ? document.scrollingElement : scrollRef.current),
+    [documentScroll],
+  );
+
+  useLayoutEffect(() => {
+    if (documentScroll && document.scrollingElement) {
+      document.scrollingElement.scrollTop = 0;
+    }
+  }, [documentScroll]);
 
   useLayoutEffect(() => {
     if (!active) {
@@ -33,7 +43,7 @@ export function useBrowseViewport(active: boolean) {
 
   useLayoutEffect(() => {
     if (!active || !returningRef.current) return;
-    const scroll = scrollRef.current;
+    const scroll = getScrollElement();
     const anchor = anchorRef.current;
     if (!scroll || !anchor) {
       returningRef.current = false;
@@ -45,33 +55,38 @@ export function useBrowseViewport(active: boolean) {
     scroll.scrollTop =
       width === anchor.width || !anchor.card.isConnected
         ? anchor.scrollTop
-        : anchor.card.offsetTop - anchor.offset;
+        : (documentScroll
+            ? anchor.card.getBoundingClientRect().top + scroll.scrollTop
+            : anchor.card.offsetTop) - anchor.offset;
     if (anchor.card.isConnected) {
       anchor.card
         .querySelector<HTMLButtonElement>("button")
         ?.focus({ preventScroll: true });
     }
     returningRef.current = false;
-  }, [active, width]);
+  }, [active, width, documentScroll, getScrollElement]);
 
   const rememberCard = useCallback(
     (card: HTMLElement) => {
-      const scroll = scrollRef.current;
+      const scroll = getScrollElement();
       if (!scroll) return;
       anchorRef.current = {
         card,
-        offset: card.offsetTop - scroll.scrollTop,
+        offset: documentScroll
+          ? card.getBoundingClientRect().top
+          : card.offsetTop - scroll.scrollTop,
         scrollTop: scroll.scrollTop,
         width,
       };
     },
-    [width],
+    [width, documentScroll, getScrollElement],
   );
 
   const resetScroll = useCallback(() => {
     anchorRef.current = null;
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, []);
+    const scroll = getScrollElement();
+    if (scroll) scroll.scrollTop = 0;
+  }, [getScrollElement]);
 
   return { scrollRef, gridWrapperRef, width, rememberCard, resetScroll };
 }

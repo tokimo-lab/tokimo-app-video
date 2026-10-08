@@ -11,8 +11,8 @@
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
     "@tanstack/react-query": "^5.101.0",
-    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#72d1bf6248739641ab213635ca6b2367b9b10d86",
-    "@tokimo/ui": "github:tokimo-lab/tokimo-ui#0d09afd6d88365fa40dfe729fedf9fb30331eb5e",
+    "@tokimo/sdk": "github:tokimo-lab/tokimo-package-sdk#599750f10ff4b60721cd9b0aed5a87c310311cfb",
+    "@tokimo/ui": "github:tokimo-lab/tokimo-ui#89a5b9b0b84ba3fafe46eb29d6544e977df98a1f",
     "dayjs": "^1.11.21",
     "framer-motion": "^11.0.0",
     "i18next": "^26.3.1",

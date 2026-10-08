@@ -1,7 +1,18 @@
-import { useRuntimeCtx, useWindowActions, useWindowId } from "@tokimo/sdk";
+import {
+  useRuntimeCtx,
+  useStandaloneDocumentScroll,
+  useWindowActions,
+  useWindowId,
+} from "@tokimo/sdk";
 import { AppSetupGuide, cn, Spin } from "@tokimo/ui";
 import { Film, Import, ListVideo, Plus } from "lucide-react";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { useContainerWidth } from "../hooks/useContainerWidth";
@@ -21,10 +32,11 @@ const LoadingFallback = (
 
 export default function VideoApp() {
   const { t } = useTranslation();
+  const documentScroll = useStandaloneDocumentScroll();
   const { LazyViewComponent, params, replace, updateTitle } = useVideoNav();
   const { data: categories, isLoading } = api.video.list.useQuery();
   const [containerRef, containerWidth] = useContainerWidth();
-  const mobile = containerWidth > 0 && containerWidth < 720;
+  const mobile = documentScroll || (containerWidth > 0 && containerWidth < 720);
   const { collapsed: sidebarCollapsed, onToggleCollapse } = useSidebarCollapsed(
     "video",
     mobile,
@@ -45,7 +57,14 @@ export default function VideoApp() {
   const activeCategoryId = routeCategoryId ?? sourceCategoryId;
 
   // Detail routes (/movies/:videoItemId, /tv/:tvShowId)
-  const isDetailPage = !!(params.videoItemId ?? params.tvShowId);
+  const detailId = params.videoItemId ?? params.tvShowId;
+  const isDetailPage = !!detailId;
+
+  useLayoutEffect(() => {
+    if (documentScroll && detailId && document.scrollingElement) {
+      document.scrollingElement.scrollTop = 0;
+    }
+  }, [documentScroll, detailId]);
 
   // Auto-select first category when none in route
   useEffect(() => {
@@ -107,7 +126,14 @@ export default function VideoApp() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-[var(--color-surface-content)] pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]">
+      <div
+        className={cn(
+          "flex items-center justify-center pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]",
+          documentScroll
+            ? "min-h-[100svh] bg-surface-base"
+            : "h-full bg-[var(--color-surface-content)]",
+        )}
+      >
         <Spin />
       </div>
     );
@@ -116,7 +142,10 @@ export default function VideoApp() {
   if (!categories?.length) {
     return (
       <AppSetupGuide
-        className="pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]"
+        className={cn(
+          "pt-[var(--app-safe-area-top,0px)] pr-[var(--app-safe-area-right,0px)] pb-[var(--app-safe-area-bottom,0px)] pl-[var(--app-safe-area-left,0px)]",
+          documentScroll && "h-auto min-h-[100svh]",
+        )}
         imageSrc="/page-icons/video.png"
         accentColor="purple"
         title={t("common.setupGuide.getStarted", { name: "TokimoVideo" })}
@@ -160,22 +189,28 @@ export default function VideoApp() {
   return (
     <div
       ref={containerRef}
-      className={cn("relative flex h-full min-h-0", mobile && "flex-col")}
-    >
-      {!mobile && (
-        <div className="flex shrink-0">
-          {sidebar}
-        </div>
+      className={cn(
+        "relative flex min-h-0",
+        documentScroll ? "min-h-[100svh]" : "h-full",
+        mobile && "flex-col",
       )}
+    >
+      {!mobile && <div className="flex shrink-0">{sidebar}</div>}
       <div
         className={cn(
-          "relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--color-surface-content)]",
+          "relative min-h-0 min-w-0 flex-1",
+          documentScroll
+            ? "bg-surface-base"
+            : "overflow-hidden bg-[var(--color-surface-content)]",
           !mobile && "[--app-safe-area-left:0px]",
         )}
       >
         {activeCategoryId && activeCategory && (
           <div
-            className={`absolute inset-0${isDetailPage ? " invisible" : ""}`}
+            className={cn(
+              documentScroll ? "relative" : "absolute inset-0",
+              isDetailPage && (documentScroll ? "hidden" : "invisible"),
+            )}
             inert={isDetailPage}
             aria-hidden={isDetailPage}
           >
@@ -183,13 +218,18 @@ export default function VideoApp() {
               key={activeCategoryId}
               category={activeCategory}
               active={!isDetailPage}
+              documentScroll={documentScroll}
               header={mobileHeader}
               syncing={!!syncProgress[activeCategoryId]?.isActive}
             />
           </div>
         )}
         {isDetailPage && LazyViewComponent && (
-          <div className="absolute inset-0 overflow-y-auto">
+          <div
+            className={
+              documentScroll ? "relative" : "absolute inset-0 overflow-y-auto"
+            }
+          >
             {mobileHeader}
             <div
               className={cn(

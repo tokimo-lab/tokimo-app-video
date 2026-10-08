@@ -124,10 +124,12 @@ function parseSortValue(v: string) {
 export default function VideoContent({
   category,
   active = true,
+  documentScroll = false,
   header,
 }: {
   category: VideoOutput;
   active?: boolean;
+  documentScroll?: boolean;
   syncing?: boolean;
   header?: ReactNode;
 }) {
@@ -149,7 +151,7 @@ export default function VideoContent({
     width: containerWidth,
     rememberCard,
     resetScroll,
-  } = useBrowseViewport(active);
+  } = useBrowseViewport(active, documentScroll);
 
   const minCardWidth = isLandscape ? 260 : MIN_CARD_WIDTH;
   const cols = useMemo(
@@ -312,7 +314,10 @@ export default function VideoContent({
     <div
       ref={scrollRef}
       data-video-scroll
-      className="relative flex h-full flex-col overflow-y-auto pb-[var(--app-safe-area-bottom,0px)]"
+      className={cn(
+        "relative flex flex-col pb-[var(--app-safe-area-bottom,0px)]",
+        !documentScroll && "h-full overflow-y-auto",
+      )}
     >
       {header}
       {/* Search bar */}

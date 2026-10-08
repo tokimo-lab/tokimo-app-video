@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type Dispose, defineApp, RuntimeProvider } from "@tokimo/sdk";
-import { ConfigProvider, ToastProvider } from "@tokimo/ui";
+import { ConfigProvider, cssVar, TOKEN, ToastProvider } from "@tokimo/ui";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
@@ -44,6 +44,8 @@ export default defineApp({
     ],
   },
   standalone: {
+    layout: "document",
+    background: cssVar(TOKEN.surfaceBase),
     createWindow: (route) => ({ type: "tokimo-video", route }),
     getRoute: (window) => {
       if (window.type !== "tokimo-video") return null;

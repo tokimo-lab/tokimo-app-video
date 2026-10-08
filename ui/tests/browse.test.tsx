@@ -173,6 +173,7 @@ mock.module("@tokimo/sdk", () => ({
   useRuntimeCtx: () => ({}),
   useWindowActions: () => ({}),
   useWindowId: () => "test-window",
+  useStandaloneDocumentScroll: () => false,
 }));
 mock.module("../src/hooks/useSidebarCollapsed", () => ({
   useSidebarCollapsed: () => ({ collapsed: false, onToggleCollapse: () => {} }),
