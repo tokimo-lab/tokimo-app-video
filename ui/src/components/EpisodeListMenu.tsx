@@ -20,6 +20,7 @@ import {
 } from "../player-source-metadata";
 import {
   PlayerControlTooltip,
+  type PlayerDropdownPosition,
   useDismissOnOutsidePointerDown,
   useDropdownPortalPos,
 } from "./player-controls-shared";
@@ -107,7 +108,10 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
   const hasNext = currentIdx >= 0 && currentIdx < total - 1;
 
   return (
-    <div ref={dismissRef} className="relative flex items-center gap-0.5">
+    <div
+      ref={dismissRef}
+      className="player-episode-controls relative flex items-center gap-0.5"
+    >
       {/* Prev episode */}
       <PlayerControlTooltip title={t("media.viewer.previousEpisode")}>
         <button
@@ -124,6 +128,9 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
           </svg>
+          <span className="player-mobile-label">
+            {t("media.viewer.previousEpisode")}
+          </span>
         </button>
       </PlayerControlTooltip>
 
@@ -135,6 +142,8 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
             e.stopPropagation();
             setOpen((o) => !o);
           }}
+          aria-label={t("media.viewer.episodeList")}
+          aria-expanded={open}
           className="flex h-8 cursor-pointer items-center gap-1 rounded px-2 text-xs font-medium text-white/80 hover:bg-white/10 hover:text-white"
         >
           <svg
@@ -149,6 +158,9 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
             <rect x="3" y="14" width="7" height="7" rx="1" />
             <rect x="14" y="14" width="7" height="7" rx="1" />
           </svg>
+          <span className="player-mobile-label">
+            {t("media.viewer.episodeList")}
+          </span>
           <span className="text-[11px] tabular-nums">
             {displayIdx}/{total}
           </span>
@@ -171,6 +183,9 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
           </svg>
+          <span className="player-mobile-label">
+            {t("media.viewer.nextEpisode")}
+          </span>
         </button>
       </PlayerControlTooltip>
 
@@ -190,7 +205,7 @@ export const EpisodeListMenu = memo(function EpisodeListMenu() {
             }}
             onClose={() => setOpen(false)}
           />,
-          document.body,
+          portalPos.portalTarget,
         )}
     </div>
   );
@@ -213,7 +228,7 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
   episodes: EpisodeWithSeason[];
   currentEpisodeId: string;
   tvShow: { title: string; seasons?: { seasonNumber: number }[] };
-  portalPos: { right: number; bottom: number };
+  portalPos: PlayerDropdownPosition;
   onSelect: (ep: EpisodeWithSeason) => void;
   onClose: () => void;
 }) {
@@ -246,12 +261,9 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
   return (
     <div
       ref={ref}
-      className="player-popup-in fixed z-[99999] flex w-[22rem] flex-col overflow-hidden rounded-lg bg-black/65 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl"
-      style={{
-        right: portalPos.right,
-        bottom: portalPos.bottom,
-        maxHeight: "min(400px, 60vh)",
-      }}
+      data-compact={portalPos.compact}
+      className="player-popup player-popup-in fixed z-[99999] flex w-[22rem] flex-col overflow-hidden rounded-lg bg-black/65 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl"
+      style={portalPos.style}
     >
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-4 py-2.5">
@@ -261,6 +273,7 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
         <button
           type="button"
           className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
+          aria-label={portalPos.compact ? "返回播放设置" : "关闭剧集列表"}
           onClick={onClose}
         >
           <svg
@@ -270,7 +283,9 @@ const EpisodeListPanel = memo(function EpisodeListPanel({
             stroke="currentColor"
             strokeWidth={2.5}
           >
-            <path d="M18 6L6 18M6 6l12 12" />
+            <path
+              d={portalPos.compact ? "M15 19l-7-7 7-7" : "M18 6L6 18M6 6l12 12"}
+            />
           </svg>
         </button>
       </div>

@@ -1,5 +1,5 @@
 import { Tooltip } from "@tokimo/ui";
-import type { ReactElement, RefObject } from "react";
+import type { CSSProperties, ReactElement, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
 export function PlayerControlTooltip({
@@ -55,13 +55,17 @@ export function useDismissOnOutsidePointerDown(
   return containerRef;
 }
 
+export interface PlayerDropdownPosition {
+  style: CSSProperties;
+  portalTarget: Element;
+  compact: boolean;
+}
+
 export function useDropdownPortalPos(
   anchorRef: RefObject<HTMLDivElement | null>,
   open: boolean,
-): { right: number; bottom: number } | null {
-  const [pos, setPos] = useState<{ right: number; bottom: number } | null>(
-    null,
-  );
+): PlayerDropdownPosition | null {
+  const [pos, setPos] = useState<PlayerDropdownPosition | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -74,9 +78,53 @@ export function useDropdownPortalPos(
       const el = anchorRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        setPos({
+        const player = el.closest(".player-subtitle-host");
+        const compact = !!el.closest('[data-compact="true"]');
+        let style: CSSProperties = {
           right: window.innerWidth - rect.right,
           bottom: window.innerHeight - rect.top + 4,
+          maxHeight: "min(400px, 60vh)",
+        };
+        if (compact && player) {
+          const bounds = player.getBoundingClientRect();
+          const viewport = window.visualViewport;
+          const left = Math.max(bounds.left, viewport?.offsetLeft ?? 0) + 8;
+          const right =
+            Math.min(
+              bounds.right,
+              (viewport?.offsetLeft ?? 0) +
+                (viewport?.width ?? window.innerWidth),
+            ) - 8;
+          const top = Math.max(bounds.top, viewport?.offsetTop ?? 0) + 8;
+          const toolbar = player.querySelector(".player-toolbar");
+          const bottom = Math.min(
+            (toolbar?.getBoundingClientRect().top ?? rect.top) - 4,
+            (viewport?.offsetTop ?? 0) +
+              (viewport?.height ?? window.innerHeight) -
+              8,
+          );
+          const width = Math.min(480, Math.max(1, right - left));
+          style = {
+            position: "absolute",
+            left: left + (right - left - width) / 2 - bounds.left,
+            bottom: bounds.bottom - Math.max(top, bottom),
+            width,
+            maxHeight: Math.max(1, bottom - top),
+          };
+        }
+        const portalTarget = compact && player ? player : document.body;
+        setPos((previous) => {
+          if (
+            previous?.compact === compact &&
+            previous.portalTarget === portalTarget &&
+            previous.style.left === style.left &&
+            previous.style.right === style.right &&
+            previous.style.bottom === style.bottom &&
+            previous.style.width === style.width &&
+            previous.style.maxHeight === style.maxHeight
+          )
+            return previous;
+          return { style, portalTarget, compact };
         });
       }
       rafId = requestAnimationFrame(update);
