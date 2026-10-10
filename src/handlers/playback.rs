@@ -790,6 +790,8 @@ async fn create_hls_session_internal(
         transcode_video,
         transcode_audio: Some(transcode_audio),
         target_audio_codec,
+        target_audio_bitrate: None,
+        audio_only: false,
         tonemap,
         video_codec: file.video_codec.clone(),
         video_width: vs.width.map(|w| w as u32),
