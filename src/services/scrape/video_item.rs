@@ -42,6 +42,19 @@ pub async fn scrape(
     parsed_year: Option<i32>,
     user_id: Option<Uuid>,
 ) -> Result<VideoItemResult, Box<dyn std::error::Error + Send + Sync>> {
+    if lib_type.is_adult() {
+        return super::adult_item::find_or_create_adult_item(
+            db,
+            state,
+            app_id,
+            nfo.as_ref(),
+            parsed_title,
+            parsed_year,
+            artwork,
+            user_id,
+        )
+        .await;
+    }
     find_or_create_video_item(
         db,
         state,

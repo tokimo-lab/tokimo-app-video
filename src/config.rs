@@ -72,3 +72,27 @@ impl SystemConfigSection for SystemSettings {
         Self::default()
     }
 }
+
+/// Adult metadata scraping settings (`JavBus`, `JavDB`, TPDB, `StashDB`).
+/// Mirrors the host server's `metadata/adult` system config section.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AdultMetadataSettings {
+    pub enabled: bool,
+    pub javbus_base_url: Option<String>,
+    pub javbus_cookie: Option<String>,
+    pub javdb_base_url: Option<String>,
+    pub javdb_cookie: Option<String>,
+    pub tpdb_api_key: Option<String>,
+    pub stashdb_api_key: Option<String>,
+    pub daily_limit: Option<i32>,
+    pub flaresolverr_url: Option<String>,
+}
+
+impl SystemConfigSection for AdultMetadataSettings {
+    const SCOPE: &'static str = "metadata";
+    const SCOPE_ID: &'static str = "adult";
+    fn default_value() -> Self {
+        Self::default()
+    }
+}

@@ -1,5 +1,6 @@
 //! Shared utilities for all media scraping domains.
 
+pub mod adult;
 pub mod artwork;
 pub mod constants;
 pub mod episode_screenshot;

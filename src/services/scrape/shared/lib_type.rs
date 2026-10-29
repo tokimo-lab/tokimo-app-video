@@ -56,7 +56,7 @@ impl LibType {
 
     /// True when TMDB should be queried for this library type.
     pub fn uses_tmdb(self) -> bool {
-        matches!(self, Self::Movie | Self::Adult | Self::Tv | Self::Anime)
+        matches!(self, Self::Movie | Self::Tv | Self::Anime)
     }
 
     pub fn is_adult(self) -> bool {

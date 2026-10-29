@@ -25,6 +25,7 @@ use crate::db::repos::organize_report_repo::{CreateOrganizeReportInput, Organize
 use crate::error::AppError;
 use crate::error::OptionExt;
 use crate::handlers::ok;
+use crate::services::scrape::shared::adult;
 
 // ── Request / Response types ──────────────────────────────────────────────────
 
@@ -769,17 +770,57 @@ pub async fn identify_all(
                 });
             }
 
+        }
+        drop(session);
+
+        identify_adult_items(&state_clone).await;
+
+        let mut session = state_clone.organize_session.write().await;
+        if let Some(ref mut s) = *session {
             s.status = "identified".to_string();
-            s.progress = Some(OrganizeProgress {
-                current: total,
-                total,
-                current_file: None,
-            });
+            if let Some(p) = s.progress.as_mut() {
+                p.current = p.total;
+            }
             s.updated_at = Utc::now().to_api_datetime();
         }
     });
 
     Ok(ok(StartedResponse { started: true }))
+}
+
+/// Look up R18 metadata for unclassified items whose file name carries a video ID (番号).
+/// Network calls run without holding the session lock.
+async fn identify_adult_items(state: &Arc<AppState>) {
+    let candidates: Vec<(String, String)> = {
+        let session = state.organize_session.read().await;
+        let Some(s) = session.as_ref() else { return };
+        flatten_items(&s.items)
+            .iter()
+            .filter(|i| i.adult_match.is_none() && matches!(i.parsed.content_type.as_str(), "unknown" | "adult"))
+            .filter_map(|i| adult::extract_video_id(&i.file_name).map(|vid| (i.id.clone(), vid)))
+            .collect()
+    };
+    if candidates.is_empty() {
+        return;
+    }
+    let Some(clients) = adult::load_clients(&state.db, state).await else {
+        return;
+    };
+
+    for (item_id, video_id) in candidates {
+        let Some(meta) = clients.search(&video_id).await else {
+            continue;
+        };
+        let json = adult::to_ui_json(&meta, state.image_proxy_key());
+        let mut session = state.organize_session.write().await;
+        let Some(s) = session.as_mut() else { return };
+        if let Some(item) = find_item_by_id_mut(&mut s.items, &item_id) {
+            item.parsed.content_type = "adult".to_string();
+            item.parsed.title.clone_from(&meta.video_id);
+            item.adult_match = Some(json);
+        }
+        s.updated_at = Utc::now().to_api_datetime();
+    }
 }
 
 /// POST /api/media-organize/select-match
@@ -888,13 +929,30 @@ pub async fn manual_search_adult(
     State(state): State<Arc<AppState>>,
     Json(input): Json<ManualSearchAdultInput>,
 ) -> Result<Json<crate::handlers::ApiResponse<Option<serde_json::Value>>>, AppError> {
-    let session = state.organize_session.read().await;
-    let _s = session.as_ref().not_found("无活跃会话")?;
+    // Validate session exists (read lock dropped immediately after check)
+    state.organize_session.read().await.as_ref().not_found("无活跃会话")?;
 
-    // Adult metadata search placeholder — returns null for now
-    // Real implementation would call JavBus/JavDB/StashDB/TPDB APIs
-    debug!("manual_search_adult: keyword={}", input.keyword);
-    Ok(ok(None))
+    let clients = adult::load_clients(&state.db, &state)
+        .await
+        .ok_or_else(|| AppError::BadRequest("成人元数据刮削未启用，请先在系统设置中开启".into()))?;
+    let keyword = input.keyword.trim();
+    let video_id = adult::extract_video_id(keyword).unwrap_or_else(|| keyword.to_uppercase());
+    debug!("manual_search_adult: keyword={keyword}, video_id={video_id}");
+
+    let result = clients
+        .search(&video_id)
+        .await
+        .map(|m| adult::to_ui_json(&m, state.image_proxy_key()));
+
+    let mut session = state.organize_session.write().await;
+    if let Some(ref mut s) = *session {
+        if let Some(item) = find_item_by_id_mut(&mut s.items, &input.item_id) {
+            item.adult_match.clone_from(&result);
+        }
+        s.updated_at = Utc::now().to_api_datetime();
+    }
+
+    Ok(ok(result))
 }
 
 /// POST /api/media-organize/select-adult-match

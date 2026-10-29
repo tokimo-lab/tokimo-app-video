@@ -81,7 +81,7 @@ fn referer_for_url(url: &str) -> Result<String, String> {
     Ok(format!("{}/", parsed.origin().ascii_serialization()))
 }
 
-async fn fetch_image(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
+pub(crate) async fn fetch_image(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
     let referer = referer_for_url(url)?;
     let response = client
         .get(url)
