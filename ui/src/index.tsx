@@ -77,19 +77,17 @@ export default defineApp({
       return window.appId ? `/library/${window.appId}` : "/";
     },
   },
+  // Loaded on demand by the shell (System Settings → Apps) without mounting
+  // the window; keys match `componentSectionId` in `appSettings` above.
+  settingsSections: {
+    "download-engine": DownloadEngineSettingsSection,
+    tmdb: TmdbSettingsSection,
+  },
   mountBackground(_container, ctx): Dispose {
     return mountPlayback(ctx);
   },
   mount(container, ctx): Dispose {
     const disposePlayback = mountPlayback(ctx);
-    const unregisterDownloadEngineSection = ctx.shell.registerAppSection(
-      "download-engine",
-      DownloadEngineSettingsSection,
-    );
-    const unregisterTmdbSection = ctx.shell.registerAppSection(
-      "tmdb",
-      TmdbSettingsSection,
-    );
 
     const root: Root = createRoot(container);
     root.render(
@@ -110,8 +108,6 @@ export default defineApp({
       </StrictMode>,
     );
     return () => {
-      unregisterTmdbSection();
-      unregisterDownloadEngineSection();
       disposePlayback();
       root.unmount();
     };
