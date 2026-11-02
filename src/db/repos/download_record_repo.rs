@@ -4,6 +4,7 @@ use sea_orm::*;
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
+use crate::bus_clients::downloader::{CompleteDownloaderRequest, UpdateDownloaderStatusRequest};
 use crate::db::entities::download_records;
 use crate::error::AppError;
 
@@ -75,6 +76,67 @@ impl DownloadRecordRepo {
             completed_at: Set(None),
         };
         Ok(download_records::Entity::insert(model).exec_with_returning(db).await?)
+    }
+
+    /// Apply a status update to the local record. Mirrors host
+    /// `downloader.update_status`; must run before pushing to the host so the
+    /// sidecar's own reads (retry, PT sync, dedupe) see the same state.
+    pub async fn apply_status<C: ConnectionTrait>(db: &C, req: &UpdateDownloaderStatusRequest) -> Result<(), AppError> {
+        let mut active = download_records::ActiveModel {
+            updated_at: Set(Some(Utc::now().into())),
+            ..Default::default()
+        };
+        if let Some(v) = req.status.clone() {
+            active.status = Set(v);
+        }
+        if let Some(v) = req.progress {
+            active.progress = Set(v);
+        }
+        if let Some(v) = req.downloaded_bytes {
+            active.downloaded_bytes = Set(Some(v));
+        }
+        if let Some(v) = req.download_speed {
+            active.download_speed = Set(Some(v));
+        }
+        if let Some(v) = req.eta_seconds {
+            active.eta_seconds = Set(Some(v));
+        }
+        if let Some(v) = req.thumbnail_url.clone() {
+            active.thumbnail_url = Set(Some(v));
+        }
+        if let Some(v) = req.error_message.clone() {
+            active.error_message = Set(Some(v));
+        }
+        download_records::Entity::update_many()
+            .set(active)
+            .filter(download_records::Column::Id.eq(req.record_id))
+            .exec(db)
+            .await?;
+        Ok(())
+    }
+
+    /// Mark the local record completed. Mirrors host `downloader.complete`.
+    pub async fn apply_complete<C: ConnectionTrait>(db: &C, req: &CompleteDownloaderRequest) -> Result<(), AppError> {
+        let now: DateTimeWithTimeZone = Utc::now().into();
+        let mut active = download_records::ActiveModel {
+            status: Set("completed".to_string()),
+            progress: Set(100.0),
+            updated_at: Set(Some(now)),
+            completed_at: Set(Some(now)),
+            ..Default::default()
+        };
+        if let Some(v) = req.target_path.clone() {
+            active.target_path = Set(Some(v));
+        }
+        if let Some(v) = req.file_size.clone() {
+            active.file_size = Set(Some(v));
+        }
+        download_records::Entity::update_many()
+            .set(active)
+            .filter(download_records::Column::Id.eq(req.record_id))
+            .exec(db)
+            .await?;
+        Ok(())
     }
 
     pub async fn delete<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<(), AppError> {

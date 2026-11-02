@@ -258,28 +258,34 @@ async fn sync_pt_record_status(ctx: Arc<AppState>) -> Result<(), BusError> {
         };
 
         if qbt_is_complete(&torrent) {
+            let request = crate::bus_clients::downloader::CompleteDownloaderRequest {
+                record_id: record.id,
+                target_path: Some(torrent.save_path.clone()),
+                file_size: Some(torrent.size.to_string()),
+            };
+            DownloadRecordRepo::apply_complete(&ctx.db, &request)
+                .await
+                .map_err(|e| BusError::Internal(e.to_string()))?;
             if let Some(bus) = ctx.bus_client.get() {
-                let request = crate::bus_clients::downloader::CompleteDownloaderRequest {
-                    record_id: record.id,
-                    target_path: Some(torrent.save_path.clone()),
-                    file_size: Some(torrent.size.to_string()),
-                };
                 let _ = crate::bus_clients::downloader::complete(bus, &request).await;
             }
             continue;
         }
 
+        let request = crate::bus_clients::downloader::UpdateDownloaderStatusRequest {
+            record_id: record.id,
+            status: Some(qbt_status_for_update(&torrent)),
+            progress: Some(torrent.progress),
+            downloaded_bytes: i64::try_from(torrent.downloaded).ok(),
+            download_speed: i64::try_from(torrent.dl_speed).ok(),
+            eta_seconds: torrent.eta.and_then(|eta| i32::try_from(eta).ok()),
+            thumbnail_url: None,
+            error_message: None,
+        };
+        DownloadRecordRepo::apply_status(&ctx.db, &request)
+            .await
+            .map_err(|e| BusError::Internal(e.to_string()))?;
         if let Some(bus) = ctx.bus_client.get() {
-            let request = crate::bus_clients::downloader::UpdateDownloaderStatusRequest {
-                record_id: record.id,
-                status: Some(qbt_status_for_update(&torrent)),
-                progress: Some(torrent.progress),
-                downloaded_bytes: i64::try_from(torrent.downloaded).ok(),
-                download_speed: i64::try_from(torrent.dl_speed).ok(),
-                eta_seconds: torrent.eta.and_then(|eta| i32::try_from(eta).ok()),
-                thumbnail_url: None,
-                error_message: None,
-            };
             let _ = crate::bus_clients::downloader::update_status(bus, &request).await;
         }
     }

@@ -39,6 +39,9 @@ use crate::{
 // ──────────────────────────────────────────────────────────────────────────────
 
 async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
+    if let Err(error) = DownloadRecordRepo::apply_status(&state.db, &request).await {
+        tracing::error!(%error, record_id = %request.record_id, "failed to update local download record status");
+    }
     let Some(client) = state.bus_client.get() else { return };
     if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
         tracing::error!(%error, record_id = %request.record_id, "failed to push downloader status to host");

@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::bus_clients::downloader::{CompleteDownloaderRequest, UpdateDownloaderStatusRequest};
 use crate::db::entities::{vfs, video_files};
+use crate::db::repos::download_record_repo::DownloadRecordRepo;
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use tokimo_package_storage::UploadOptions;
@@ -73,6 +74,9 @@ const DEFAULT_POLL_INTERVAL_MS: u64 = 1000;
 const DEFAULT_POLL_RETRY_LIMIT: u32 = 3;
 
 async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloaderStatusRequest) {
+    if let Err(error) = DownloadRecordRepo::apply_status(&state.db, &request).await {
+        error!(%error, record_id = %request.record_id, "failed to update local download record status");
+    }
     let Some(client) = state.bus_client.get() else { return };
     if let Err(error) = crate::bus_clients::downloader::update_status(client, &request).await {
         error!(%error, record_id = %request.record_id, "failed to push downloader status to host");
@@ -80,6 +84,9 @@ async fn push_downloader_status(state: &Arc<AppState>, request: UpdateDownloader
 }
 
 async fn push_downloader_complete(state: &Arc<AppState>, request: CompleteDownloaderRequest) {
+    if let Err(error) = DownloadRecordRepo::apply_complete(&state.db, &request).await {
+        error!(%error, record_id = %request.record_id, "failed to mark local download record completed");
+    }
     let Some(client) = state.bus_client.get() else { return };
     if let Err(error) = crate::bus_clients::downloader::complete(client, &request).await {
         warn!(%error, record_id = %request.record_id, "failed to push downloader completion to host");
