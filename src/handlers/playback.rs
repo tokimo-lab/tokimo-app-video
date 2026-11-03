@@ -609,38 +609,6 @@ fn needs_bitrate_limited_transcode(source_bitrate_kbps: Option<i64>, max_bitrate
         .is_none_or(|source_bitrate_bps| source_bitrate_bps > max_bitrate_bps)
 }
 
-#[cfg(test)]
-mod bitrate_limit_tests {
-    use super::needs_bitrate_limited_transcode;
-
-    #[test]
-    fn source_above_requested_limit_requires_transcode() {
-        assert!(needs_bitrate_limited_transcode(Some(40_000), Some(4_000_000)));
-    }
-
-    #[test]
-    fn source_below_requested_limit_can_keep_existing_playback_path() {
-        assert!(!needs_bitrate_limited_transcode(Some(3_000), Some(4_000_000)));
-    }
-
-    #[test]
-    fn unknown_source_bitrate_with_requested_limit_requires_transcode() {
-        assert!(needs_bitrate_limited_transcode(None, Some(4_000_000)));
-    }
-
-    #[test]
-    fn non_positive_source_bitrate_with_requested_limit_requires_transcode() {
-        assert!(needs_bitrate_limited_transcode(Some(0), Some(4_000_000)));
-        assert!(needs_bitrate_limited_transcode(Some(-1), Some(4_000_000)));
-    }
-
-    #[test]
-    fn no_requested_limit_preserves_existing_playback_path() {
-        assert!(!needs_bitrate_limited_transcode(Some(40_000), None));
-        assert!(!needs_bitrate_limited_transcode(None, None));
-    }
-}
-
 /// Detect whether an ISO file is a Blu-ray or DVD image from path heuristics.
 ///
 /// Strategy:
@@ -1081,5 +1049,37 @@ pub async fn report_progress(
     match PlaybackRepo::report_progress(&state.db, user_id, history_id, position, duration).await {
         Ok(_completed) => ok(()).into_response(),
         Err(e) => e.into_response(),
+    }
+}
+
+#[cfg(test)]
+mod bitrate_limit_tests {
+    use super::needs_bitrate_limited_transcode;
+
+    #[test]
+    fn source_above_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(Some(40_000), Some(4_000_000)));
+    }
+
+    #[test]
+    fn source_below_requested_limit_can_keep_existing_playback_path() {
+        assert!(!needs_bitrate_limited_transcode(Some(3_000), Some(4_000_000)));
+    }
+
+    #[test]
+    fn unknown_source_bitrate_with_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(None, Some(4_000_000)));
+    }
+
+    #[test]
+    fn non_positive_source_bitrate_with_requested_limit_requires_transcode() {
+        assert!(needs_bitrate_limited_transcode(Some(0), Some(4_000_000)));
+        assert!(needs_bitrate_limited_transcode(Some(-1), Some(4_000_000)));
+    }
+
+    #[test]
+    fn no_requested_limit_preserves_existing_playback_path() {
+        assert!(!needs_bitrate_limited_transcode(Some(40_000), None));
+        assert!(!needs_bitrate_limited_transcode(None, None));
     }
 }

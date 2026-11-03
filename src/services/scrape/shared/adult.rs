@@ -89,9 +89,10 @@ pub struct AdultClients {
     stashdb: StashDBClient,
 }
 
+type ClientCache = Option<(AdultMetadataSettings, Arc<AdultClients>)>;
+
 /// Clients are cached (they hold request caches) and rebuilt only when settings change.
-static CLIENTS: LazyLock<Mutex<Option<(AdultMetadataSettings, Arc<AdultClients>)>>> =
-    LazyLock::new(|| Mutex::new(None));
+static CLIENTS: LazyLock<Mutex<ClientCache>> = LazyLock::new(|| Mutex::new(None));
 
 fn non_empty(s: Option<&String>) -> Option<String> {
     s.filter(|v| !v.trim().is_empty()).cloned()

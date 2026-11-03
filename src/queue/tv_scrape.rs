@@ -278,29 +278,6 @@ fn make_file_payload(
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::select_show_nfo_filename;
-
-    #[test]
-    fn tvshow_nfo_takes_priority_over_folder_named_nfo() {
-        let entries = vec!["Show Name.nfo".to_string(), "TVSHOW.NFO".to_string()];
-        assert_eq!(
-            select_show_nfo_filename(&entries, "Show Name").as_deref(),
-            Some("TVSHOW.NFO")
-        );
-    }
-
-    #[test]
-    fn folder_named_nfo_is_supported_when_tvshow_nfo_is_absent() {
-        let entries = vec!["Show Name.NFO".to_string()];
-        assert_eq!(
-            select_show_nfo_filename(&entries, "Show Name").as_deref(),
-            Some("Show Name.NFO")
-        );
-    }
-}
-
 async fn report_progress(
     state: &Arc<AppState>,
     job_id: Uuid,
@@ -337,4 +314,27 @@ async fn report_progress(
     )
     .await
     .ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_show_nfo_filename;
+
+    #[test]
+    fn tvshow_nfo_takes_priority_over_folder_named_nfo() {
+        let entries = vec!["Show Name.nfo".to_string(), "TVSHOW.NFO".to_string()];
+        assert_eq!(
+            select_show_nfo_filename(&entries, "Show Name").as_deref(),
+            Some("TVSHOW.NFO")
+        );
+    }
+
+    #[test]
+    fn folder_named_nfo_is_supported_when_tvshow_nfo_is_absent() {
+        let entries = vec!["Show Name.NFO".to_string()];
+        assert_eq!(
+            select_show_nfo_filename(&entries, "Show Name").as_deref(),
+            Some("Show Name.NFO")
+        );
+    }
 }

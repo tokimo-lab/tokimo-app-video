@@ -105,25 +105,6 @@ pub async fn sync_video(
     Ok(ok(serde_json::json!({ "success": true })))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::spawn_authenticated_sync;
-    use uuid::Uuid;
-
-    #[tokio::test]
-    async fn spawned_sync_preserves_authenticated_user() {
-        let user_id = Uuid::new_v4();
-        let expected_user_id = user_id.to_string();
-
-        let actual_user_id =
-            spawn_authenticated_sync(user_id, async { tokimo_bus_protocol::task_local::current_user_id() })
-                .await
-                .expect("authenticated sync task should complete");
-
-        assert_eq!(actual_user_id.as_deref(), Some(expected_user_id.as_str()));
-    }
-}
-
 /// GET /api/apps/video/{id}/sync-status
 pub async fn get_video_sync_status(
     State(state): State<Arc<AppState>>,
@@ -176,4 +157,23 @@ pub async fn update_video_scraping_settings(
     let settings: ScrapingSettings = serde_json::from_value(body)?;
     ScrapeSettingsRepo::set::<ScrapingSettings>(&state.db, &settings).await?;
     Ok(ok(serde_json::to_value(settings)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spawn_authenticated_sync;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn spawned_sync_preserves_authenticated_user() {
+        let user_id = Uuid::new_v4();
+        let expected_user_id = user_id.to_string();
+
+        let actual_user_id =
+            spawn_authenticated_sync(user_id, async { tokimo_bus_protocol::task_local::current_user_id() })
+                .await
+                .expect("authenticated sync task should complete");
+
+        assert_eq!(actual_user_id.as_deref(), Some(expected_user_id.as_str()));
+    }
 }
