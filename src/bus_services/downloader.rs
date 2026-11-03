@@ -337,9 +337,13 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_cancel.clone();
             async move {
                 let input: RecordActionRequest = decode(&req.payload)?;
-                dispatch_action(ctx, "cancel", input.record_id)
+                let result = dispatch_action(ctx.clone(), "cancel", input.record_id).await;
+                // The host deletes its own copy whether or not cancel succeeds, so the
+                // local record must go too (finished records have no active task to cancel).
+                DownloadRecordRepo::delete(&ctx.db, input.record_id)
                     .await
-                    .map(|_| b"{}".to_vec())
+                    .map_err(|e| BusError::Internal(e.to_string()))?;
+                result.map(|_| b"{}".to_vec())
             }
         })
         .method(decl(
