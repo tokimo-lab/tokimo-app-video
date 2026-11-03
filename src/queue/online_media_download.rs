@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::bus_clients::downloader::{CompleteDownloaderRequest, UpdateDownloaderStatusRequest};
 use crate::db::entities::{vfs, video_files};
-use crate::db::repos::download_record_repo::DownloadRecordRepo;
+use crate::db::repos::download_record_repo::{DownloadRecordRepo, DownloadedFiles};
 use crate::db::repos::job_repo::JobRepo;
 use crate::queue::cancellation::{JobCancel, check_cancel};
 use tokimo_package_storage::UploadOptions;
@@ -425,6 +425,22 @@ pub async fn handle(
                     vfs_target_path.as_ref().map(|tp| json!({ "targetPath": tp })),
                 )
                 .await;
+
+                let downloaded_files = vfs_copy_result.as_ref().map_or_else(
+                    || DownloadedFiles {
+                        source_id: None,
+                        paths: resp.output_files.iter().map(|f| f.path.clone()).collect(),
+                    },
+                    |copied| DownloadedFiles {
+                        source_id: download_source_id,
+                        paths: copied.files.iter().map(|f| f.vfs_path.clone()).collect(),
+                    },
+                );
+                if let Err(error) =
+                    DownloadRecordRepo::record_downloaded_files(&state.db, record_uuid, &downloaded_files).await
+                {
+                    error!(%error, record_id, "failed to store downloaded file list");
+                }
 
                 let final_status = if vfs_copy_result.is_some() {
                     "organized"

@@ -11,11 +11,12 @@ use tokimo_downloader_bridge::{
     qbittorrent::{QBittorrentClient, QBittorrentConfig},
     traits::{DownloadClient, TorrentInfo, TorrentState},
 };
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::AppState;
 use crate::db::entities::{download_clients, download_records};
-use crate::db::repos::download_record_repo::DownloadRecordRepo;
+use crate::db::repos::download_record_repo::{DownloadRecordRepo, DownloadedFiles};
 
 fn decl(name: &str, description: &str) -> MethodDecl {
     MethodDecl {
@@ -32,6 +33,14 @@ fn decl(name: &str, description: &str) -> MethodDecl {
 #[serde(rename_all = "camelCase")]
 struct RecordActionRequest {
     record_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CancelRequest {
+    record_id: Uuid,
+    #[serde(default)]
+    delete_files: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,7 +132,58 @@ async fn load_record_qbt_client(
     Ok((client, torrent_hash))
 }
 
-async fn dispatch_action(ctx: Arc<AppState>, op: &'static str, record_id: Uuid) -> Result<(), BusError> {
+async fn remove_local_files(paths: &[String]) {
+    for path in paths {
+        match tokio::fs::remove_file(path).await {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => warn!(%path, error = %e, "failed to delete downloaded file"),
+        }
+    }
+}
+
+/// Removes only what belongs to this record: its listed files and its own staging
+/// directories. Target directories are shared with other downloads and stay put.
+async fn delete_yt_dlp_files(ctx: &AppState, record: &download_records::Model) {
+    let staging_root = &ctx.online_media.staging_root;
+    for dir in [
+        staging_root.join(record.id.to_string()),
+        staging_root.join(format!("{}-vfs-target", record.id)),
+    ] {
+        match tokio::fs::remove_dir_all(&dir).await {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => warn!(path = %dir.display(), error = %e, "failed to delete staging directory"),
+        }
+    }
+
+    let Some(files) = DownloadedFiles::from_record(record) else {
+        return;
+    };
+    let Some(source_id) = files.source_id else {
+        remove_local_files(&files.paths).await;
+        return;
+    };
+    let vfs = match ctx.sources.ensure_vfs(&source_id.to_string()).await {
+        Ok(vfs) => vfs,
+        Err(e) => {
+            warn!(record_id = %record.id, %source_id, error = %e, "VFS unavailable, downloaded files were kept");
+            return;
+        }
+    };
+    for path in &files.paths {
+        if let Err(e) = vfs.delete_file(std::path::Path::new(path)).await {
+            warn!(%path, %source_id, error = %e, "failed to delete downloaded file");
+        }
+    }
+}
+
+async fn dispatch_action(
+    ctx: Arc<AppState>,
+    op: &'static str,
+    record_id: Uuid,
+    delete_files: bool,
+) -> Result<(), BusError> {
     let record = DownloadRecordRepo::get_model_by_id(&ctx.db, record_id)
         .await
         .map_err(|e| BusError::Internal(e.to_string()))?
@@ -160,7 +220,7 @@ async fn dispatch_action(ctx: Arc<AppState>, op: &'static str, record_id: Uuid) 
                     .await
                     .map_err(|e| BusError::Internal(e.to_string())),
                 "cancel" => client
-                    .delete_torrents(&hashes, false)
+                    .delete_torrents(&hashes, delete_files)
                     .await
                     .map_err(|e| BusError::Internal(e.to_string())),
                 _ => Err(BusError::BadRequest(format!("unknown downloader op: {op}"))),
@@ -317,7 +377,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_pause.clone();
             async move {
                 let input: RecordActionRequest = decode(&req.payload)?;
-                dispatch_action(ctx, "pause", input.record_id)
+                dispatch_action(ctx, "pause", input.record_id, false)
                     .await
                     .map(|_| b"{}".to_vec())
             }
@@ -327,7 +387,7 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
             let ctx = ctx_resume.clone();
             async move {
                 let input: RecordActionRequest = decode(&req.payload)?;
-                dispatch_action(ctx, "resume", input.record_id)
+                dispatch_action(ctx, "resume", input.record_id, false)
                     .await
                     .map(|_| b"{}".to_vec())
             }
@@ -336,8 +396,16 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
         .on_invoke("downloader.cancel", move |req| {
             let ctx = ctx_cancel.clone();
             async move {
-                let input: RecordActionRequest = decode(&req.payload)?;
-                let result = dispatch_action(ctx.clone(), "cancel", input.record_id).await;
+                let input: CancelRequest = decode(&req.payload)?;
+                let result = dispatch_action(ctx.clone(), "cancel", input.record_id, input.delete_files).await;
+                if input.delete_files {
+                    let record = DownloadRecordRepo::get_model_by_id(&ctx.db, input.record_id)
+                        .await
+                        .map_err(|e| BusError::Internal(e.to_string()))?;
+                    if let Some(record) = record.filter(|r| r.downloader_type == "yt-dlp") {
+                        delete_yt_dlp_files(&ctx, &record).await;
+                    }
+                }
                 // The host deletes its own copy whether or not cancel succeeds, so the
                 // local record must go too (finished records have no active task to cancel).
                 DownloadRecordRepo::delete(&ctx.db, input.record_id)
@@ -358,4 +426,37 @@ pub fn register(builder: BusClientBuilder, ctx: Arc<AppState>) -> BusClientBuild
                 serde_json::to_vec(&enriched).map_err(|e| BusError::Internal(e.to_string()))
             }
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remove_local_files;
+    use crate::db::repos::download_record_repo::DownloadedFiles;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn only_listed_files_are_removed() {
+        let dir = std::env::temp_dir().join(format!("video-delete-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let listed = dir.join("listed.mp4");
+        let sibling = dir.join("other-download.mp4");
+        std::fs::write(&listed, b"a").unwrap();
+        std::fs::write(&sibling, b"b").unwrap();
+
+        let missing = dir.join("already-gone.mp4").to_string_lossy().into_owned();
+        remove_local_files(&[listed.to_string_lossy().into_owned(), missing]).await;
+
+        assert!(!listed.exists());
+        assert!(sibling.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn downloaded_files_round_trip_through_camel_case_metadata() {
+        let source_id = Uuid::new_v4();
+        let files: DownloadedFiles =
+            serde_json::from_value(serde_json::json!({ "sourceId": source_id, "paths": ["/a/b.mp4"] })).unwrap();
+        assert_eq!(files.source_id, Some(source_id));
+        assert_eq!(files.paths, ["/a/b.mp4"]);
+    }
 }

@@ -1,12 +1,33 @@
 use chrono::Utc;
 use sea_orm::prelude::*;
 use sea_orm::*;
-use serde_json::Value as JsonValue;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value as JsonValue, json};
 use uuid::Uuid;
 
 use crate::bus_clients::downloader::{CompleteDownloaderRequest, UpdateDownloaderStatusRequest};
 use crate::db::entities::download_records;
 use crate::error::AppError;
+
+const DOWNLOADED_FILES_KEY: &str = "downloadedFiles";
+
+/// Exact files a finished download wrote, so that deleting the record can remove
+/// them without touching the shared directories they live in.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadedFiles {
+    /// VFS source holding `paths`; `None` means `paths` are absolute local paths.
+    pub source_id: Option<Uuid>,
+    pub paths: Vec<String>,
+}
+
+impl DownloadedFiles {
+    /// `None` for records finished before file lists were stored.
+    pub fn from_record(record: &download_records::Model) -> Option<Self> {
+        let value = record.app_metadata.as_ref()?.get(DOWNLOADED_FILES_KEY)?;
+        serde_json::from_value(value.clone()).ok()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct CreateDownloadRecordInput {
@@ -134,6 +155,23 @@ impl DownloadRecordRepo {
         download_records::Entity::update_many()
             .set(active)
             .filter(download_records::Column::Id.eq(req.record_id))
+            .exec(db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn record_downloaded_files<C: ConnectionTrait>(
+        db: &C,
+        id: Uuid,
+        files: &DownloadedFiles,
+    ) -> Result<(), AppError> {
+        let patch = json!({ DOWNLOADED_FILES_KEY: files });
+        download_records::Entity::update_many()
+            .col_expr(
+                download_records::Column::AppMetadata,
+                Expr::cust_with_values("COALESCE(app_metadata, '{}'::jsonb) || $1::jsonb", [patch]),
+            )
+            .filter(download_records::Column::Id.eq(id))
             .exec(db)
             .await?;
         Ok(())
