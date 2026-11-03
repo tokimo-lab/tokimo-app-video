@@ -185,7 +185,10 @@ fn map_fields(video_id: Option<&str>, meta: Option<&AdultMetadata>, nfo: Option<
             metadata.insert("adultRating".into(), json!(r));
         }
     }
-    if let Some(studio) = meta.and_then(|m| m.studio.clone()).or_else(|| nfo.and_then(|n| n.studio.clone())) {
+    if let Some(studio) = meta
+        .and_then(|m| m.studio.clone())
+        .or_else(|| nfo.and_then(|n| n.studio.clone()))
+    {
         metadata.insert("studio".into(), json!(studio));
     }
 

@@ -769,7 +769,6 @@ pub async fn identify_all(
                     current_file: None,
                 });
             }
-
         }
         drop(session);
 
