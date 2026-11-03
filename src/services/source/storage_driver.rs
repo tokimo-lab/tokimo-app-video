@@ -31,6 +31,7 @@ use tokimo_package_storage::StorageProvider;
 ///
 /// Implement this to react to file changes made through VFS (e.g., sync
 /// written markdown back to the database).
+#[allow(clippy::double_must_use)] // expanded from async_trait
 #[async_trait]
 pub trait WriteCallback: Send + Sync + 'static {
     /// Called after a file is written or created via VFS.

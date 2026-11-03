@@ -90,6 +90,7 @@ pub async fn search(
 }
 
 /// POST /api/subtitles/download — download via aggregator, save to storage + DB.
+#[allow(clippy::result_large_err)]
 pub async fn download(
     State(state): State<Arc<AppState>>,
     Json(input): Json<SubtitleDownloadHandlerRequest>,
