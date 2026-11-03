@@ -9,10 +9,10 @@ repository  = "https://github.com/tokimo-lab/tokimo-app-video"
 
 [dependencies]
 # Tokimo bus (independent submodule repo, git rev pinned — matches helloworld范式)
-tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "11b3237bd09d6eeb95ae5f951e0660e0c23c87d1" }
-tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "11b3237bd09d6eeb95ae5f951e0660e0c23c87d1", features = ["axum"] }
-tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "11b3237bd09d6eeb95ae5f951e0660e0c23c87d1", features = ["axum", "cli-db"] }
-tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "11b3237bd09d6eeb95ae5f951e0660e0c23c87d1" }
+tokimo-bus-client   = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "17b166549bcf2fbcd47f5d168215e36af574b48c" }
+tokimo-bus-protocol = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "17b166549bcf2fbcd47f5d168215e36af574b48c", features = ["axum"] }
+tokimo-bus-auth     = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "17b166549bcf2fbcd47f5d168215e36af574b48c", features = ["axum", "cli-db"] }
+tokimo-bus-cli      = { git = "https://github.com/tokimo-lab/tokimo-bus.git", rev = "17b166549bcf2fbcd47f5d168215e36af574b48c" }
 
 # Public packages — git pinned (独立仓库已开源)
 tokimo-vfs            = { git = "https://github.com/tokimo-lab/tokimo-package-vfs.git", rev = "fedc12c78a0dad1028d2c3311a0c0637f2b46a72" }
@@ -70,7 +70,7 @@ tokimo-downloader-bridge    = { git = "https://github.com/tokimo-lab/tokimo-pack
 tokimo-media-server-bridge  = { git = "https://github.com/tokimo-lab/tokimo-package-media-server-bridge.git", rev = "c3e771b" }
 tokimo-pt-search            = { git = "https://github.com/tokimo-lab/tokimo-package-pt-search.git", rev = "8adfaf4b7a5ff322835e46960052d5087c16c12b" }
 tokimo-subtitle-search      = { git = "https://github.com/tokimo-lab/tokimo-package-subtitle-search.git", rev = "4a9008d9f2d44889505f6f736fea71a39b6aaf1c" }
-tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-package-iso.git", rev = "fbd6e16" }
+tokimo-package-iso          = { git = "https://github.com/tokimo-lab/tokimo-package-iso.git", rev = "fe999c86b46fcfea6a74fd39969683bc875132c2" }
 tower              = { version = "0.5" }
 tower-http         = { version = "0.6", features = ["fs"] }
 libc               = "0.2"
